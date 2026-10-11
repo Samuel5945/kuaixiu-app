@@ -45,7 +45,6 @@ object KxStore {
         val p = plan ?: regenerate(ctx)
         val n = CalendarWriter.syncPlan(ctx, p)
         lastSyncCount = n
-        runCatching { local.kuaixiu.notify.Notifier.scheduleNext(ctx) }
         return n
     }
 }
