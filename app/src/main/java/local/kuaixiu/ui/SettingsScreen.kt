@@ -217,8 +217,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     OutlinedTextField(
                         value = keyInput, onValueChange = { keyInput = it },
                         label = { Text("API Key（Keystore 加密存储）") },
-                        placeholder = { Text(if (cfg.keyMasked().isBlank()) "粘贴 Key"
-                                             else "留空保持 ${cfg.keyMasked()}") },
+                        placeholder = { Text("粘贴 API Key") },
                         visualTransformation = if (showKey) VisualTransformation.None
                                                else PasswordVisualTransformation(),
                         trailingIcon = {
