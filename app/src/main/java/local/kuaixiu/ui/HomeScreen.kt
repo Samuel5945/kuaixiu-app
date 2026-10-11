@@ -69,11 +69,12 @@ fun HomeScreen(modifier: Modifier = Modifier) {
         if (plan == null) {
             item { EmptyCard() }
         } else {
-            item { TodayCard(plan) }
-            item { SyncCard() }
+            // 顺序：昨晚成绩 → 今晚行动（风屏/打卡）→ 今日参考 → 未来 → 低频操作
             item { ScoreCard() }
             item { CheckinCard() }
+            item { TodayCard(plan) }
             item { UpcomingCard(plan) }
+            item { SyncCard() }
         }
         item {
             Text(
