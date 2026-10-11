@@ -189,6 +189,10 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                     Text("✅ 教练帮你记一笔打卡：${action.optString("status")}" +
                         (if (action.optString("bedtime").isNotBlank()) "（${action.optString("bedtime")}）" else ""))
                 }
+                "image" -> {
+                    Text("🎨 教练想画一张助眠画面：", style = MaterialTheme.typography.titleSmall)
+                    Text(action.optString("prompt"))
+                }
                 else -> return@Column
             }
             Button(onClick = {
@@ -242,11 +246,8 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                         applied = true
                     }
                     "image" -> {
-                        Text("🎨 教练想画一张助眠画面：", style = MaterialTheme.typography.titleSmall)
-                        Text(action.optString("prompt"))
-                        Button(onClick = {
-                            if (!applied) { applied = true; onImage(action.optString("prompt")) }
-                        }, enabled = !applied) { Text(if (applied) "生成中…" else "生成图片") }
+                        applied = true
+                        onImage(action.optString("prompt"))
                     }
                 }
             }, enabled = !applied) { Text(if (applied) "已应用 ✓" else "应用更改") }
