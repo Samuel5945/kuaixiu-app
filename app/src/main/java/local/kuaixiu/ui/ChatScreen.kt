@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,6 +20,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -52,7 +57,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
         if (msgs.isNotEmpty()) listState.animateScrollToItem(msgs.size - 1)
     }
 
-    Column(modifier = modifier.fillMaxSize().padding(8.dp)) {
+    Column(modifier = modifier.fillMaxSize().imePadding().padding(12.dp)) {
         LazyColumn(
             Modifier.weight(1f).fillMaxWidth(),
             state = listState,
@@ -61,14 +66,21 @@ fun ChatScreen(modifier: Modifier = Modifier) {
         ) {
             items(msgs) { m ->
                 val isUser = m.role == "user"
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isUser) MaterialTheme.colorScheme.surfaceVariant
-                        else MaterialTheme.colorScheme.surface,
-                    ),
+                Column(
+                    Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
                 ) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(
+                            topStart = 18.dp, topEnd = 18.dp,
+                            bottomStart = if (isUser) 18.dp else 4.dp,
+                            bottomEnd = if (isUser) 4.dp else 18.dp,
+                        ),
+                        color = if (isUser) MaterialTheme.colorScheme.secondaryContainer
+                                else MaterialTheme.colorScheme.surfaceContainerHigh,
+                        modifier = Modifier.widthIn(max = 1080.dp).fillMaxWidth(0.92f),
+                    ) {
+                    Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(m.text)
                         m.imagePath?.let { path ->
                             val bmp = remember(path) {
@@ -114,6 +126,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                                 }
                             })
                         }
+                    }
                     }
                 }
             }

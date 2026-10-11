@@ -157,7 +157,7 @@ private fun SyncCard() {
     val ctx = LocalContext.current
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Button(onClick = {
+            OutlinedButton(onClick = {
                 runCatching { KxStore.syncCalendar(ctx) }
                     .onSuccess { Toast.makeText(ctx, "已写入 $it 个事件到系统日历", Toast.LENGTH_LONG).show() }
                     .onFailure { android.util.Log.e("Kuaixiu", "sync failed", it); Toast.makeText(ctx, "失败: ${it::class.simpleName}: ${it.message}", Toast.LENGTH_LONG).show() }
