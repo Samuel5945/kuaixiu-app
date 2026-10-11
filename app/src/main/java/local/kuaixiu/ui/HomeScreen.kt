@@ -195,8 +195,8 @@ private fun CheckinCard() {
     var status by remember { mutableStateOf("on_time") }
     val night = LocalDate.now().minusDays(1)
     val nightEntry = KxStore.plan?.entryFor(night.toString())
-    // 预设目标入睡：昨晚在计划内用昨晚档位；否则用全局目标
-    val presetTarget = nightEntry?.bedtime ?: KxStore.config.targetBedtime
+    // 预设目标入睡：昨晚在计划内用昨晚档位；计划外（含计划前夜晚）用当晚实际基准
+    val presetTarget = nightEntry?.bedtime ?: KxStore.config.currentBedtime
     var bedtime by remember(night) { mutableStateOf(presetTarget) }
     var note by remember { mutableStateOf("") }
     var showPick by remember { mutableStateOf(false) }
@@ -299,7 +299,7 @@ private fun CheckinCard() {
                     )
                 }
             }
-            val target = nightEntry?.bedtime ?: KxStore.config.targetBedtime
+            val target = nightEntry?.bedtime ?: KxStore.config.currentBedtime
             run {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     FilterChip(selected = bedtime == target, onClick = { bedtime = target },
