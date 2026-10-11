@@ -93,17 +93,22 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                         }
                         m.actionJson?.let { aj ->
                             ActionCard(aj, onImage = { prompt ->
-                                // 应用级作用域：切页签/锁屏不中断，完成后写回消息与日志
+                                val genIdx = msgs.size
+                                ChatStore.addTransient(ChatMsg("assistant", "🎨 生图中…（约半分钟）"))
+                                // 应用级作用域：切页签/锁屏不中断，完成后原地变成图片并落盘
                                 local.kuaixiu.KxScope.app.launch {
                                     runCatching {
                                         ImageGen.generate(ctx, KxStore.config, prompt)
                                     }.onSuccess { f ->
                                         kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                            ChatStore.add(ctx, "assistant", "🎨 ${prompt}", imagePath = f.absolutePath)
+                                            ChatStore.replace(ctx, genIdx,
+                                                ChatMsg("assistant", "🎨 ${prompt}", imagePath = f.absolutePath),
+                                                persisted = true)
                                         }
                                     }.onFailure { e ->
                                         kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                            ChatStore.add(ctx, "assistant", "生图失败：${e.message}")
+                                            ChatStore.replace(ctx, genIdx,
+                                                ChatMsg("assistant", "生图失败：${e.message}"), persisted = true)
                                         }
                                     }
                                 }
@@ -196,6 +201,10 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                 "image" -> {
                     Text("🎨 教练想画一张助眠画面：", style = MaterialTheme.typography.titleSmall)
                     Text(action.optString("prompt"))
+                    if (applied) {
+                        Text("🎨 已交给画师，成品马上贴在下面 ↓", style = MaterialTheme.typography.bodySmall,
+                             color = MaterialTheme.colorScheme.secondary)
+                    }
                 }
                 else -> return@Column
             }
@@ -244,7 +253,12 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                         onImage(action.optString("prompt"))
                     }
                 }
-            }, enabled = !applied) { Text(if (applied) "已应用 ✓" else "应用更改") }
+            }, enabled = !applied) {
+                Text(when (kind) {
+                    "image" -> if (applied) "已交给画师 ✓" else "🎨 生成这张助眠图"
+                    else -> if (applied) "已应用 ✓" else "应用更改"
+                })
+            }
         }
     }
 }
