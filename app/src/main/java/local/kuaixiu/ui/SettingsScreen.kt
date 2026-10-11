@@ -216,7 +216,15 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     )
                     OutlinedTextField(
                         value = keyInput, onValueChange = { keyInput = it },
-                        label = { Text(cfg.keyMasked().ifBlank { "API Key" }) },
+                        label = {
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text("API Key")
+                                if (cfg.keyMasked().isNotBlank()) {
+                                    androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                                    Text(cfg.keyMasked())
+                                }
+                            }
+                        },
                         placeholder = { Text("粘贴 API Key") },
                         visualTransformation = if (showKey) VisualTransformation.None
                                                else PasswordVisualTransformation(),
