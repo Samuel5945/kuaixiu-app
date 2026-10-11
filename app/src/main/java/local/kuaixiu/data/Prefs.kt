@@ -33,7 +33,7 @@ data class KxConfig(
     fun keyMasked(): String = when {
         llmKey.isBlank() -> ""
         llmKey.length <= 8 -> llmKey.take(2) + "…"
-        else -> llmKey.take(4) + "…" + llmKey.takeLast(4)
+        else -> llmKey.take(4) + "………" + llmKey.takeLast(4)
     }
 }
 
