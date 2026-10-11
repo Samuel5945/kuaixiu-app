@@ -323,12 +323,17 @@ private fun CheckinCard() {
             }
             val fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
             facts?.let { f2 ->
-                f2.lastInteractive?.let {
-                    Text("📱 昨晚最后亮屏 ${it.format(fmt)}（放下手机）",
-                        style = MaterialTheme.typography.bodySmall)
-                }
                 val inMorning = java.time.LocalTime.now().hour in 4..12
                 val pickup = if (inMorning) f2.firstMorningPickup else null
+                val lastOn = f2.lastInteractive?.takeIf { pickup == null || it < pickup }
+                if (lastOn != null) {
+                    Text("📱 昨晚最后亮屏 ${lastOn.format(fmt)}（放下手机）",
+                        style = MaterialTheme.typography.bodySmall)
+                } else if (pickup != null) {
+                    Text("📱 昨晚风屏后未再亮屏 ✅（直到今早拿起）",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary)
+                }
                 pickup?.let {
                     val anchorT = java.time.LocalTime.parse(KxStore.config.wake)
                     val dev = java.time.Duration.between(anchorT, java.time.LocalTime.from(it)).toMinutes()

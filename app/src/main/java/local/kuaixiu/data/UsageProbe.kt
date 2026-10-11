@@ -63,10 +63,11 @@ object UsageProbe {
         }
         val morningFloor = LocalDateTime.of(now.toLocalDate(), LocalTime.of(4, 0))
         val firstPickup = on.filter { it >= morningFloor && it <= now }.minOrNull()
+        // 夜晚窗口严格截止于首次拿起之前——拿起事件本身不算"昨晚最后亮屏"
         val nightEnd = firstPickup ?: now
         NightFacts(
-            lastInteractive = on.filter { it <= nightEnd }.maxOrNull(),
-            lastScreenOff = off.filter { it <= nightEnd }.maxOrNull(),
+            lastInteractive = on.filter { it < nightEnd }.maxOrNull(),
+            lastScreenOff = off.filter { it < nightEnd }.maxOrNull(),
             firstMorningPickup = firstPickup,
         )
     } catch (e: SecurityException) {
