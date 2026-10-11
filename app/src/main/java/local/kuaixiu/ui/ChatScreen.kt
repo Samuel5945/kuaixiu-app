@@ -56,8 +56,12 @@ fun ChatScreen(modifier: Modifier = Modifier) {
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
 
     LaunchedEffect(msgs.size) {
-        ChatLog.persist(ctx, msgs.map { ChatLog.Entry(it.role, it.text, it.imagePath ?: "") })
         if (msgs.isNotEmpty()) listState.animateScrollToItem(msgs.size - 1)
+    }
+
+    // 落盘：条数变化与原地更新（流式完成）都要持久化
+    fun persistNow() {
+        ChatLog.persist(ctx, msgs.map { ChatLog.Entry(it.role, it.text, it.imagePath ?: "") })
     }
 
     Column(modifier = modifier.fillMaxSize().padding(8.dp)) {
@@ -109,11 +113,13 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                                         kotlinx.coroutines.withContext(Dispatchers.Main) {
                                             msgs.add(ChatMsg("assistant", "🎨 ${prompt}",
                                                 imagePath = f.absolutePath))
+                                            persistNow()
                                             busy = false
                                         }
                                     }.onFailure { e ->
                                         kotlinx.coroutines.withContext(Dispatchers.Main) {
                                             msgs.add(ChatMsg("assistant", "生图失败：${e.message}"))
+                                            persistNow()
                                             busy = false
                                         }
                                     }
@@ -145,6 +151,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                     busy = true
                     val placeholderIdx = msgs.size
                     msgs.add(ChatMsg("assistant", "…"))
+                    persistNow()
                     scope.launch {
                         runCatching {
                             val history = msgs.filter { !it.text.startsWith("我是你的早睡教练") }
@@ -164,11 +171,13 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                             if (placeholderIdx < msgs.size) {
                                 msgs[placeholderIdx] = ChatMsg("assistant", shown.ifBlank { "（建议如下）" }, action?.toString())
                             }
+                            persistNow()
                             busy = false
                         }.onFailure { e ->
                             if (placeholderIdx < msgs.size) {
                                 msgs[placeholderIdx] = ChatMsg("assistant", "出错了：${e.message}\n检查设置页的 base_url / key / model。")
                             }
+                            persistNow()
                             busy = false
                         }
                     }
