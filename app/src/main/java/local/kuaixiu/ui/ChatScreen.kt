@@ -1,12 +1,14 @@
 package local.kuaixiu.ui
 
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,8 +32,8 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import local.kuaixiu.data.ChatLog
+import local.kuaixiu.data.ImageGen
 import local.kuaixiu.data.KxStore
-import local.kuaixiu.calendar.CalendarWriter
 import local.kuaixiu.llm.CoachPrompt
 import local.kuaixiu.llm.LlmClient
 import org.json.JSONObject
@@ -43,25 +45,14 @@ private data class ChatMsg(val role: String, val text: String, val actionJson: S
 @Composable
 fun ChatScreen(modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
-    val msgs = remember {
-        val restored = ChatLog.load(ctx).map { ChatMsg(it.role, it.text, imagePath = it.imagePath.ifBlank { null }) }
-        mutableStateListOf(*restored.toTypedArray()).apply {
-            if (isEmpty()) add(ChatMsg("assistant",
-                "我是你的早睡教练。可以问我任何作息问题，也可以直接说「目标改到23:00」「昨晚1点睡的帮我打卡」。"))
-        }
-    }
+    ChatStore.load(ctx)
+    val msgs = ChatStore.msgs
     var input by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
 
     LaunchedEffect(msgs.size) {
         if (msgs.isNotEmpty()) listState.animateScrollToItem(msgs.size - 1)
-    }
-
-    // 落盘：条数变化与原地更新（流式完成）都要持久化
-    fun persistNow() {
-        ChatLog.persist(ctx, msgs.map { ChatLog.Entry(it.role, it.text, it.imagePath ?: "") })
     }
 
     Column(modifier = modifier.fillMaxSize().padding(8.dp)) {
@@ -105,22 +96,17 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                         }
                         m.actionJson?.let { aj ->
                             ActionCard(aj, onImage = { prompt ->
-                                busy = true
-                                scope.launch(Dispatchers.IO) {
+                                // 应用级作用域：切页签/锁屏不中断，完成后写回消息与日志
+                                local.kuaixiu.KxScope.app.launch {
                                     runCatching {
-                                        local.kuaixiu.data.ImageGen.generate(ctx, KxStore.config, prompt)
+                                        ImageGen.generate(ctx, KxStore.config, prompt)
                                     }.onSuccess { f ->
                                         kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                            msgs.add(ChatMsg("assistant", "🎨 ${prompt}",
-                                                imagePath = f.absolutePath))
-                                            persistNow()
-                                            busy = false
+                                            ChatStore.add(ctx, "assistant", "🎨 ${prompt}", imagePath = f.absolutePath)
                                         }
                                     }.onFailure { e ->
                                         kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                            msgs.add(ChatMsg("assistant", "生图失败：${e.message}"))
-                                            persistNow()
-                                            busy = false
+                                            ChatStore.add(ctx, "assistant", "生图失败：${e.message}")
                                         }
                                     }
                                 }
@@ -129,7 +115,6 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                     }
                 }
             }
-            if (busy) { item { Text("教练思考中…", color = MaterialTheme.colorScheme.onSurfaceVariant) } }
         }
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
@@ -147,17 +132,16 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                         return@Button
                     }
                     input = ""
-                    msgs.add(ChatMsg("user", q))
+                    ChatStore.add(ctx, "user", q)
                     busy = true
                     val placeholderIdx = msgs.size
-                    msgs.add(ChatMsg("assistant", "…"))
-                    persistNow()
-                    scope.launch {
+                    msgs.add(ChatMsg("assistant", "…"))  // 瞬态占位，不入盘
+                    // 应用级作用域：切页签/锁屏流式不中断
+                    local.kuaixiu.KxScope.app.launch {
                         runCatching {
-                            val history = msgs.filter { !it.text.startsWith("我是你的早睡教练") }
-                                .dropLast(1)
-                                .takeLast(12)
-                                .map { it.role to it.text }
+                            val history = msgs.filter {
+                                !it.text.startsWith("我是你的早睡教练") && it.text != "…"
+                            }.takeLast(12).map { it.role to it.text }
                             val sys = CoachPrompt.system(ctx)
                             LlmClient(KxStore.config.llmBaseUrl, KxStore.config.llmKey)
                                 .chatStreaming(KxStore.config.llmModel, listOf("system" to sys) + history) { full ->
@@ -171,13 +155,12 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                             if (placeholderIdx < msgs.size) {
                                 msgs[placeholderIdx] = ChatMsg("assistant", shown.ifBlank { "（建议如下）" }, action?.toString())
                             }
-                            persistNow()
+                            ChatLog.append(ctx, "assistant", shown.ifBlank { "（建议如下）" })
                             busy = false
                         }.onFailure { e ->
                             if (placeholderIdx < msgs.size) {
                                 msgs[placeholderIdx] = ChatMsg("assistant", "出错了：${e.message}\n检查设置页的 base_url / key / model。")
                             }
-                            persistNow()
                             busy = false
                         }
                     }
@@ -233,7 +216,7 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                         ))
                         runCatching {
                             KxStore.regenerate(ctx)
-                            CalendarWriter.syncPlan(ctx, KxStore.plan!!)
+                            local.kuaixiu.calendar.CalendarWriter.syncPlan(ctx, KxStore.plan!!)
                         }.onSuccess {
                             Toast.makeText(ctx, "计划已更新并写入日历（$it 个事件）", Toast.LENGTH_LONG).show()
                             applied = true
@@ -242,13 +225,10 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                         }
                     }
                     "checkin" -> {
-                        var uploaded: local.kuaixiu.data.Checkin? = null
                         if (action.has("winddown") && action.optString("winddown").isNotBlank()) {
                             local.kuaixiu.data.Checkins.logWinddown(
                                 ctx, local.kuaixiu.data.Checkins.tonightDate().toString(),
                                 action.optString("winddown"))
-                            uploaded = local.kuaixiu.data.Checkins.all(ctx)
-                                .firstOrNull { it.date == local.kuaixiu.data.Checkins.tonightDate().toString() }
                         }
                         if (action.has("status") && action.optString("status").isNotBlank()) {
                             val c = local.kuaixiu.data.Checkin(
@@ -258,13 +238,6 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                                 note = action.optString("note", ""),
                             )
                             local.kuaixiu.data.Checkins.add(ctx, c)
-                            uploaded = c
-                        }
-                        val toUpload = uploaded
-                        if (KxStore.config.pcUploadCheckin && toUpload != null) {
-                            kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
-                                runCatching { local.kuaixiu.data.Checkins.upload(ctx, KxStore.config.pcUrl, toUpload) }
-                            }
                         }
                         Toast.makeText(ctx, "已打卡 ✅", Toast.LENGTH_SHORT).show()
                         applied = true
