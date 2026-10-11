@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import local.kuaixiu.data.ChatLog
 import local.kuaixiu.data.KxStore
 import local.kuaixiu.calendar.CalendarWriter
 import local.kuaixiu.llm.CoachPrompt
