@@ -85,4 +85,21 @@ object Score {
             (r.notes.firstOrNull()?.let { " $it" } ?: "")
         else -> (if (r.total >= 80) "漂亮，保持这个节奏。" else "没关系，今晚从准时风屏开始就好。")
     }
+
+    /** 连续准时天数：从最近一次记录往前数连续 on_time 的自然日（缺记录即断）。 */
+    fun streak(checkins: List<Checkin>, today: java.time.LocalDate = java.time.LocalDate.now()): Int {
+        val byDate = checkins.associateBy { it.date }
+        var start = today
+        // 今天还没打卡就从昨天起算
+        if (byDate[start.toString()] == null) start = today.minusDays(1)
+        var n = 0
+        var d = start
+        while (true) {
+            val row = byDate[d.toString()] ?: break
+            if (row.status != "on_time") break
+            n++
+            d = d.minusDays(1)
+        }
+        return n
+    }
 }

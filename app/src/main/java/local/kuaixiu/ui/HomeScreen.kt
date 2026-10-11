@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material3.Button
@@ -36,6 +38,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import local.kuaixiu.data.Checkin
 import local.kuaixiu.data.Checkins
+import local.kuaixiu.data.ImageGen
 import local.kuaixiu.data.Score
 import local.kuaixiu.data.UsageProbe
 import local.kuaixiu.engine.PlanEngine
@@ -176,7 +179,14 @@ private fun ScoreCard() {
     val r = Score.daily(c, e?.winddown, e?.bedtime, KxStore.config.wake)
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("☀️ 昨晚评分 ${r.total}/100", style = MaterialTheme.typography.titleMedium)
+            val streak = Score.streak(Checkins.all(LocalContext.current))
+            val nextTier = listOf(3, 7, 14, 28).firstOrNull { it > streak }
+            Text(
+                "☀️ 昨晚评分 ${r.total}/100" +
+                    (if (streak > 0) "  🔥 连续准时 $streak 天" else "") +
+                    (nextTier?.let { "（$it 天徽章还差 ${it - streak} 天）" } ?: "（满级徽章 🏆）"),
+                style = MaterialTheme.typography.titleMedium,
+            )
             Text(Score.voice(KxStore.config.coachStyle, r), style = MaterialTheme.typography.bodyMedium)
             Text(
                 r.notes.joinToString("；").ifBlank { "暂无明细" },
@@ -236,6 +246,58 @@ private fun CheckinCard() {
                 } else {
                     Text("已记录 $logged ✅", color = MaterialTheme.colorScheme.secondary,
                          style = MaterialTheme.typography.titleSmall)
+                }
+                // 助眠图：已配生图模型时提供，竖屏壁纸比例
+                if (KxStore.config.imageModel.isNotBlank()) {
+                    var genBusy by remember { mutableStateOf(false) }
+                    var genErr by remember { mutableStateOf<String?>(null) }
+                    var genFile by remember { mutableStateOf<java.io.File?>(null) }
+                    var savedUri by remember { mutableStateOf<android.net.Uri?>(null) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedButton(onClick = {
+                            genBusy = true; genErr = null
+                            scope.launch(Dispatchers.IO) {
+                                val dayIdx = tonightEntry.day - 1
+                                val f = runCatching {
+                                    local.kuaixiu.data.ImageGen.generate(
+                                        ctx, KxStore.config,
+                                        local.kuaixiu.data.ImageGen.sleepPrompt(dayIdx),
+                                        local.kuaixiu.data.ImageGen.PORTRAIT_SIZE)
+                                }
+                                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                    f.onSuccess { genFile = it }
+                                        .onFailure { genErr = it.message }
+                                    genBusy = false
+                                }
+                            }
+                        }, enabled = !genBusy) {
+                            Text(if (genBusy) "绘制中…" else "🎨 生成今晚助眠图")
+                        }
+                        if (genFile != null && savedUri == null) {
+                            OutlinedButton(onClick = {
+                                genFile?.let {
+                                    savedUri = local.kuaixiu.data.ImageGen.saveToGallery(ctx, it)
+                                    if (savedUri != null) Toast.makeText(ctx, "已保存到相册", Toast.LENGTH_SHORT).show()
+                                }
+                            }) { Text("存相册") }
+                        }
+                    }
+                    genErr?.let { Text(it, color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall) }
+                    genFile?.let { f ->
+                        val bmp = remember(f.absolutePath) {
+                            runCatching { android.graphics.BitmapFactory.decodeFile(f.absolutePath) }.getOrNull()
+                        }
+                        if (bmp != null) {
+                            androidx.compose.foundation.Image(
+                                bitmap = bmp.asImageBitmap(),
+                                contentDescription = "今晚助眠图",
+                                modifier = Modifier.fillMaxWidth(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
+                            )
+                        }
+                    }
                 }
             }
 

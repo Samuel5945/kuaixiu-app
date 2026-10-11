@@ -17,6 +17,20 @@ import java.util.Base64
 object ImageGen {
 
     const val DEFAULT_SIZE = "1024x1024"
+    const val PORTRAIT_SIZE = "832x1216"  // 竖屏壁纸，32 倍数（商汤要求）
+
+    /** 助眠场景模板：按天轮换，避免每晚同一张。 */
+    val SLEEP_SCENES = listOf(
+        "深邃夜空中的银河与流星，山峦剪影，极简插画风格，柔和蓝紫渐变，安静助眠氛围，无文字",
+        "月光洒在平静海面，微微波光，远处一艘小船，柔和冷色调，极简治愈插画，无文字",
+        "雨夜窗边，暖黄台灯，雨滴在玻璃上缓缓滑落，温暖安静的室内视角，治愈插画，无文字",
+        "晨雾中的森林小屋，窗内炉火微光，暖色调，宁静治愈插画，无文字",
+        "竹林间的月光小径，几点萤火虫微光，青绿色调，极简治愈插画，无文字",
+        "雪原小木屋的夜晚，星空与淡淡极光，暖窗灯光，宁静治愈插画，无文字",
+    )
+
+    fun sleepPrompt(dayIndex: Int): String =
+        SLEEP_SCENES[Math.floorMod(dayIndex, SLEEP_SCENES.size)]
 
     fun generate(ctx: Context, cfg: KxConfig, prompt: String, size: String = DEFAULT_SIZE): File {
         require(cfg.imageModel.isNotBlank()) { "未配置生图模型：设置 → AI 教练 → 拉取模型列表 → 生图列点选一个" }
@@ -66,4 +80,27 @@ object ImageGen {
         f.writeBytes(bytes)
         return f
     }
+
+    /** 保存生成的图片到系统相册（API 29+ 走 MediaStore IS_PENDING，无需存储权限）。 */
+    fun saveToGallery(ctx: Context, file: File): android.net.Uri? = runCatching {
+        val values = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,
+                "kuaixiu_${System.currentTimeMillis()}.png")
+            put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png")
+            if (android.os.Build.VERSION.SDK_INT >= 29)
+                put(android.provider.MediaStore.Images.Media.IS_PENDING, 1)
+        }
+        val uri = ctx.contentResolver
+            .insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+            ?: return null
+        ctx.contentResolver.openOutputStream(uri)?.use { out ->
+            file.inputStream().copyTo(out)
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            values.clear()
+            values.put(android.provider.MediaStore.Images.Media.IS_PENDING, 0)
+            ctx.contentResolver.update(uri, values, null, null)
+        }
+        uri
+    }.getOrNull()
 }

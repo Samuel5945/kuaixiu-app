@@ -40,6 +40,48 @@ class LlmClient(private val baseUrl: String, private val apiKey: String) {
         }
     }
 
+    /** 流式对话：SSE 逐段回调（回调切主线程），返回完整文本。 */
+    suspend fun chatStreaming(
+        model: String,
+        messages: List<Pair<String, String>>,
+        onDelta: suspend (String) -> Unit,
+    ): String = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val arr = JSONArray()
+        for ((role, content) in messages) {
+            arr.put(JSONObject().put("role", role).put("content", content))
+        }
+        val body = JSONObject()
+            .put("model", model).put("messages", arr)
+            .put("temperature", 0.7).put("stream", true)
+        val req = Request.Builder()
+            .url(baseUrl.trimEnd('/') + "/chat/completions")
+            .header("Authorization", "Bearer " + apiKey)
+            .post(body.toString().toRequestBody("application/json".toMediaType()))
+            .build()
+        http.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) throw IOException("HTTP ${resp.code}: ${resp.body?.string()?.take(300)}")
+            val src = resp.body!!.source()
+            val sb = StringBuilder()
+            while (true) {
+                val line = src.readUtf8Line() ?: break
+                if (!line.startsWith("data:")) continue
+                val data = line.removePrefix("data:").trim()
+                if (data == "[DONE]") break
+                runCatching {
+                    val delta = JSONObject(data).optJSONArray("choices")?.optJSONObject(0)
+                        ?.optJSONObject("delta")?.optString("content", "")
+                    if (!delta.isNullOrEmpty()) {
+                        sb.append(delta)
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            onDelta(sb.toString())
+                        }
+                    }
+                }
+            }
+            sb.toString()
+        }
+    }
+
     companion object {
         /** 解析回复尾部的动作块 ```kuaixiu {...}```，返回 JSONObject 或 null。 */
         fun parseAction(text: String): JSONObject? {

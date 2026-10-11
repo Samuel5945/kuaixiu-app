@@ -143,26 +143,33 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                     input = ""
                     msgs.add(ChatMsg("user", q))
                     busy = true
-                    scope.launch(Dispatchers.IO) {
+                    val placeholderIdx = msgs.size
+                    msgs.add(ChatMsg("assistant", "…"))
+                    scope.launch {
                         runCatching {
                             val history = msgs.filter { !it.text.startsWith("我是你的早睡教练") }
+                                .dropLast(1)
                                 .takeLast(12)
                                 .map { it.role to it.text }
                             val sys = CoachPrompt.system(ctx)
                             LlmClient(KxStore.config.llmBaseUrl, KxStore.config.llmKey)
-                                .chat(KxStore.config.llmModel, listOf("system" to sys) + history)
+                                .chatStreaming(KxStore.config.llmModel, listOf("system" to sys) + history) { full ->
+                                    if (placeholderIdx < msgs.size) {
+                                        msgs[placeholderIdx] = ChatMsg("assistant", full)
+                                    }
+                                }
                         }.onSuccess { reply ->
                             val action = LlmClient.parseAction(reply)
                             val shown = LlmClient.stripAction(reply)
-                            kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                msgs.add(ChatMsg("assistant", shown.ifBlank { "（建议如下）" }, action?.toString()))
-                                busy = false
+                            if (placeholderIdx < msgs.size) {
+                                msgs[placeholderIdx] = ChatMsg("assistant", shown.ifBlank { "（建议如下）" }, action?.toString())
                             }
+                            busy = false
                         }.onFailure { e ->
-                            kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                msgs.add(ChatMsg("assistant", "出错了：${e.message}\n检查设置页的 base_url / key / model。"))
-                                busy = false
+                            if (placeholderIdx < msgs.size) {
+                                msgs[placeholderIdx] = ChatMsg("assistant", "出错了：${e.message}\n检查设置页的 base_url / key / model。")
                             }
+                            busy = false
                         }
                     }
                 },
