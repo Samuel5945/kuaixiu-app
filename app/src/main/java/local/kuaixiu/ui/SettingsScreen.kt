@@ -324,7 +324,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                                 cfg = nc
                                 KxStore.saveConfig(ctx, nc)  // 即时落盘
                                 modelsDlg = null
-                            }) { Text(m + if (nc.imageModel == m) " ✓" else "") }
+                            }) { Text(m + if (cfg.imageModel == m) " ✓" else "") }
                         }
                     }
                 }
