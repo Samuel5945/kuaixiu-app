@@ -36,6 +36,9 @@ object ChatStore {
         ChatLog.append(ctx, role, text, imagePath ?: "")
     }
 
+    /** 瞬态消息（如"生图中…"），不入盘。 */
+    fun addTransient(msg: ChatMsg) { msgs.add(msg) }
+
     /** 原地替换（流式更新/最终化），完成时落盘。 */
     fun replace(ctx: Context, index: Int, msg: ChatMsg, persisted: Boolean) {
         if (index !in msgs.indices) return
