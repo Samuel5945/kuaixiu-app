@@ -13,8 +13,8 @@ android {
         applicationId = "local.kuaixiu"
         minSdk = 26
         targetSdk = 34
-        versionCode = 10
-        versionName = "0.2.1"
+        versionCode = 15
+        versionName = "0.4.2"
     }
     buildTypes {
         release {
