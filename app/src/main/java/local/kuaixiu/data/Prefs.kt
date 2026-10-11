@@ -55,7 +55,8 @@ object Prefs {
                 s.edit().putString("llmKeyEnc", SecretStore.encrypt(legacy)).remove("llmKey").apply()
             }
         }
-        // 迁移：把历史配置归入对应供应商档案（仅当档案不存在时种子化）
+        // 迁移：把历史配置归入对应供应商档案（仅当档案不存在时种子化），并回填激活名
+        var activeProvider = s.getString("providerName", null) ?: ""
         runCatching {
             val nameByUrl = mapOf(
                 "token.sensenova.cn" to "商汤日日新",
@@ -71,6 +72,7 @@ object Prefs {
                     s.getString("llmBaseUrl", null) ?: "", key,
                     s.getString("llmModel", null) ?: "")
             }
+            if (matched != null && activeProvider.isBlank()) activeProvider = matched
         }
         return KxConfig(
             currentBedtime = s.getString("currentBedtime", null) ?: "01:15",
@@ -87,7 +89,7 @@ object Prefs {
             pcUrl = s.getString("pcUrl", null) ?: "http://192.168.2.5:8642",
             pcUploadCheckin = s.getBoolean("pcUploadCheckin", false),
             coachStyle = s.getString("coachStyle", null) ?: "gentle",
-            providerName = s.getString("providerName", null) ?: "",
+            providerName = activeProvider,
             notifyWinddown = s.getBoolean("notifyWinddown", true),
             notifyMorning = s.getBoolean("notifyMorning", true),
         )
