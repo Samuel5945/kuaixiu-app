@@ -42,15 +42,19 @@ import kotlinx.coroutines.launch
 import local.kuaixiu.data.KxConfig
 import local.kuaixiu.data.KxStore
 import local.kuaixiu.data.ModelClassifier
+import local.kuaixiu.data.ProviderProfiles
 import local.kuaixiu.llm.CoachPrompt
 import org.json.JSONObject
 
+private data class ProviderPreset(val name: String, val baseUrl: String, val modelSeed: String)
+
+// 种子值只含官方公开端点；个人 base_url/Key 存在各自档案里（不进代码）
 private val PROVIDER_PRESETS = listOf(
-    Triple("智谱", "https://open.bigmodel.cn/api/paas/v4", "glm-4-flash"),
-    Triple("DeepSeek", "https://api.deepseek.com", "deepseek-chat"),
-    Triple("Step 阶跃", "https://api.stepfun.com/v1", "step-3.5-flash"),
-    Triple("商汤日日新", "https://token.sensenova.cn/v1", "sensenova-6.8-flash-lite"),
-    Triple("基元律动", "https://tokenrhythm.studio/v1", "deepseek-v4-flash"),
+    ProviderPreset("智谱", "https://open.bigmodel.cn/api/paas/v4", "glm-4-flash"),
+    ProviderPreset("DeepSeek", "https://api.deepseek.com", "deepseek-chat"),
+    ProviderPreset("Step 阶跃", "https://api.stepfun.com/v1", "step-3.5-flash"),
+    ProviderPreset("商汤日日新", "https://api.sensenova.cn/v1", ""),
+    ProviderPreset("基元律动", "https://tokenrhythm.studio/v1", "deepseek-v4-flash"),
 )
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -186,11 +190,23 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("AI 教练（OpenAI 兼容）", style = MaterialTheme.typography.titleMedium)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        PROVIDER_PRESETS.forEach { (name, url, model) ->
+                        PROVIDER_PRESETS.forEach { preset ->
+                            val p = ProviderProfiles.get(ctx, preset.name)
+                            val keyHint = if (p != null && p.keyEnc.isNotBlank()) " 🔑" else ""
                             FilterChip(
-                                selected = cfg.llmBaseUrl == url,
-                                onClick = { edit { c -> c.copy(llmBaseUrl = url, llmModel = model) } },
-                                label = { Text(name) },
+                                selected = cfg.providerName == preset.name,
+                                onClick = {
+                                    // 切档案：载入该供应商自己的 base_url/Key/模型（没有则用官方种子）
+                                    keyInput = ""
+                                    cfg = cfg.copy(
+                                        providerName = preset.name,
+                                        llmBaseUrl = p?.baseUrl ?: preset.baseUrl,
+                                        llmModel = p?.model?.ifBlank { preset.modelSeed } ?: preset.modelSeed,
+                                        llmKey = ProviderProfiles.decryptKey(p),
+                                    )
+                                    saved = false
+                                },
+                                label = { Text(preset.name + keyHint) },
                             )
                         }
                     }
@@ -250,6 +266,10 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 val finalCfg = cfg.copy(llmKey = keyInput.trim().ifBlank { cfg.llmKey })
                 cfg = finalCfg
                 keyInput = ""
+                if (finalCfg.providerName.isNotBlank()) {
+                    ProviderProfiles.put(ctx, finalCfg.providerName,
+                        finalCfg.llmBaseUrl, finalCfg.llmKey, finalCfg.llmModel)
+                }
                 KxStore.saveConfig(ctx, finalCfg)
                 runCatching {
                     KxStore.regenerate(ctx)
