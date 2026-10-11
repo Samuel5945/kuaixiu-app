@@ -43,12 +43,19 @@ private data class ChatMsg(val role: String, val text: String, val actionJson: S
 fun ChatScreen(modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    val msgs = remember { mutableStateListOf(ChatMsg("assistant", "我是你的早睡教练。可以问我任何作息问题，也可以直接说「目标改到23:00」「昨晚1点睡的帮我打卡」。")) }
+    val msgs = remember {
+        val restored = ChatLog.load(ctx).map { ChatMsg(it.role, it.text, imagePath = it.imagePath.ifBlank { null }) }
+        mutableStateListOf(*restored.toTypedArray()).apply {
+            if (isEmpty()) add(ChatMsg("assistant",
+                "我是你的早睡教练。可以问我任何作息问题，也可以直接说「目标改到23:00」「昨晚1点睡的帮我打卡」。"))
+        }
+    }
     var input by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
 
     LaunchedEffect(msgs.size) {
+        ChatLog.persist(ctx, msgs.map { ChatLog.Entry(it.role, it.text, it.imagePath ?: "") })
         if (msgs.isNotEmpty()) listState.animateScrollToItem(msgs.size - 1)
     }
 
