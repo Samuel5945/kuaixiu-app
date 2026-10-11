@@ -39,6 +39,8 @@ import kotlinx.coroutines.launch
 import local.kuaixiu.data.Checkin
 import local.kuaixiu.data.Checkins
 import local.kuaixiu.data.ImageGen
+import local.kuaixiu.data.UsageProbe
+import local.kuaixiu.engine.PlanEngine
 import local.kuaixiu.data.Score
 import local.kuaixiu.data.UsageProbe
 import local.kuaixiu.engine.PlanEngine
@@ -172,14 +174,31 @@ private fun SyncCard() {
 
 @Composable
 private fun ScoreCard() {
+    val ctx = LocalContext.current
     val night = LocalDate.now().minusDays(1).toString()
-    val c = Checkins.all(LocalContext.current).firstOrNull { it.date == night }
+    val c0 = Checkins.all(ctx).firstOrNull { it.date == night }
     val e = KxStore.plan?.entryFor(night)
-    if (c == null && e == null) return
+    if (c0 == null && e == null) return
+    // 风屏自动补录：没手点过的夜晚，用"昨晚最后熄屏"作为实际风屏时刻（手机自己记得）
+    val fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+    var autoWinddown: String? = null
+    if (c0?.winddownAt.isNullOrBlank() && e != null && UsageProbe.hasAccess(ctx)) {
+        val facts = runCatching {
+            UsageProbe.nightFacts(
+                ctx, PlanEngine.winddownStartOf(e, KxStore.config.winddownMin),
+                java.time.LocalDateTime.of(LocalDate.parse(e.date), java.time.LocalTime.parse(KxStore.config.wake)),
+                java.time.LocalDateTime.now(),
+            )
+        }.getOrNull()
+        autoWinddown = facts?.lastScreenOff?.format(fmt)
+    }
+    val c = if (autoWinddown != null)
+        (c0 ?: Checkin(date = night)).copy(winddownAt = autoWinddown)
+    else c0
     val r = Score.daily(c, e?.winddown, e?.bedtime, KxStore.config.wake)
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            val streak = Score.streak(Checkins.all(LocalContext.current))
+            val streak = Score.streak(Checkins.all(ctx))
             val nextTier = listOf(3, 7, 14, 28).firstOrNull { it > streak }
             Text(
                 "☀️ 昨晚评分 ${r.total}/100" +
@@ -188,8 +207,12 @@ private fun ScoreCard() {
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(Score.voice(KxStore.config.coachStyle, r), style = MaterialTheme.typography.bodyMedium)
+            val notes = if (autoWinddown != null && c0?.winddownAt.isNullOrBlank())
+                r.notes.filterNot { it.contains("风屏") }.joinToString("；")
+                    .ifBlank { "暂无明细" } + "；风屏已自动记录（最后亮屏 $autoWinddown）"
+            else r.notes.joinToString("；").ifBlank { "暂无明细" }
             Text(
-                r.notes.joinToString("；").ifBlank { "暂无明细" },
+                notes,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

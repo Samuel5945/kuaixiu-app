@@ -308,9 +308,11 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     LazyColumn(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                         items(text.size) { i ->
                             TextButton(onClick = {
-                                edit { c -> c.copy(llmModel = text[i]) }
+                                val nc = cfg.copy(llmModel = text[i])
+                                cfg = nc
+                                KxStore.saveConfig(ctx, nc)  // 即时落盘
                                 modelsDlg = null
-                            }) { Text(text[i]) }
+                            }) { Text(text[i] + if (cfg.llmModel == text[i]) " ✓" else "") }
                         }
                     }
                     if (image.isNotEmpty()) {
@@ -318,9 +320,11 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                              color = MaterialTheme.colorScheme.onSurfaceVariant)
                         image.forEach { m ->
                             TextButton(onClick = {
-                                edit { c -> c.copy(imageModel = m) }
+                                val nc = cfg.copy(imageModel = m)
+                                cfg = nc
+                                KxStore.saveConfig(ctx, nc)  // 即时落盘
                                 modelsDlg = null
-                            }) { Text(m + if (cfg.imageModel == m) " ✓" else "") }
+                            }) { Text(m + if (nc.imageModel == m) " ✓" else "") }
                         }
                     }
                 }
