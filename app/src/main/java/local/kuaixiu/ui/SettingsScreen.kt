@@ -1,6 +1,7 @@
 package local.kuaixiu.ui
 
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -60,10 +61,10 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     var cfg by remember { mutableStateOf(KxStore.config) }
     var saved by remember { mutableStateOf(false) }
     var showKey by remember { mutableStateOf(false) }
+    var keyInput by remember { mutableStateOf("") }  // 空 = 保持已存 Key
     var modelsDlg by remember { mutableStateOf<Pair<List<String>, List<String>>?>(null) } // (text, image)
     var modelsErr by remember { mutableStateOf<String?>(null) }
     var modelsBusy by remember { mutableStateOf(false) }
-    var importDlg by remember { mutableStateOf<List<Triple<String, String, String>>?>(null) } // (name, baseUrl, hint)
     var importErr by remember { mutableStateOf<String?>(null) }
 
     fun edit(block: (KxConfig) -> KxConfig) {
@@ -92,34 +93,6 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             }.onFailure { e ->
                 kotlinx.coroutines.withContext(Dispatchers.Main) {
                     modelsErr = e.message ?: e.toString(); modelsBusy = false
-                }
-            }
-        }
-    }
-
-    fun importFromPc() {
-        val base = cfg.pcUrl.trimEnd('/')
-        importErr = null
-        scope.launch(Dispatchers.IO) {
-            runCatching {
-                val conn = java.net.URL("$base/api/llm-configs").openConnection() as java.net.HttpURLConnection
-                conn.connectTimeout = 8000; conn.readTimeout = 8000
-                val body = conn.inputStream.use { it.readBytes().decodeToString() }
-                val arr = JSONObject(body).optJSONArray("presets")
-                    ?: error("响应缺少 presets")
-                (0 until arr.length()).mapNotNull { p ->
-                    arr.optJSONObject(p)?.let {
-                        Triple(it.optString("name"), it.optString("baseUrl"),
-                            it.optString("keyHint", "") + it.optString("keySource", ""))
-                    }
-                }
-            }.onSuccess { list ->
-                kotlinx.coroutines.withContext(Dispatchers.Main) {
-                    importDlg = list; modelsBusy = false
-                }
-            }.onFailure { e ->
-                kotlinx.coroutines.withContext(Dispatchers.Main) {
-                    importErr = "${e.message}（手机电脑需同一 Wi-Fi）"; modelsBusy = false
                 }
             }
         }
@@ -221,40 +194,26 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                             )
                         }
                     }
-                    OutlinedButton(onClick = { importFromPc() }, enabled = !modelsBusy,
-                                   modifier = Modifier.fillMaxWidth()) {
-                        Text("彩蛋 · 导入电脑上 Agent 在用的 API（密钥不出网）")
-                    }
-                    importErr?.let {
-                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    }
                     OutlinedTextField(
                         value = cfg.llmBaseUrl, onValueChange = { edit { c -> c.copy(llmBaseUrl = it) } },
                         label = { Text("base_url") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
                     )
                     OutlinedTextField(
-                        value = cfg.llmKey, onValueChange = { edit { c -> c.copy(llmKey = it) } },
+                        value = keyInput, onValueChange = { keyInput = it },
                         label = { Text("API Key（Keystore 加密存储）") },
-                        placeholder = { Text(if (cfg.keyMasked().isBlank()) "粘贴 Key" else "已保存 ${cfg.keyMasked()}") },
+                        placeholder = { Text(if (cfg.keyMasked().isBlank()) "粘贴 Key"
+                                             else "留空保持 ${cfg.keyMasked()}") },
                         visualTransformation = if (showKey) VisualTransformation.None
                                                else PasswordVisualTransformation(),
                         trailingIcon = {
                             val icon = if (showKey) Icons.Filled.VisibilityOff else Icons.Filled.Visibility
                             Icon(icon, contentDescription = if (showKey) "隐藏" else "显示",
-                                 modifier = Modifier.padding(4.dp))
+                                 modifier = Modifier
+                                     .padding(4.dp)
+                                     .clickable { showKey = !showKey })
                         },
                         modifier = Modifier.fillMaxWidth(), singleLine = true,
                     )
-                    TextButton(onClick = { showKey = !showKey }) {
-                        Text(if (showKey) "隐藏 Key" else "显示 Key")
-                    }
-                    if (cfg.llmKey.isNotBlank()) {
-                        Text(
-                            "当前密钥：${cfg.keyMasked()}（Keystore 加密存储）",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.secondary,
-                        )
-                    }
                     OutlinedTextField(
                         value = cfg.llmModel, onValueChange = { edit { c -> c.copy(llmModel = it) } },
                         label = { Text("模型") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
@@ -288,7 +247,10 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         }
         item {
             Button(onClick = {
-                KxStore.saveConfig(ctx, cfg)
+                val finalCfg = cfg.copy(llmKey = keyInput.trim().ifBlank { cfg.llmKey })
+                cfg = finalCfg
+                keyInput = ""
+                KxStore.saveConfig(ctx, finalCfg)
                 runCatching {
                     KxStore.regenerate(ctx)
                     val n = KxStore.syncCalendar(ctx)
@@ -333,32 +295,4 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         )
     }
 
-    // 从电脑导入对话框
-    importDlg?.let { list ->
-        AlertDialog(
-            onDismissRequest = { importDlg = null },
-            confirmButton = { TextButton(onClick = { importDlg = null }) { Text("关闭") } },
-            title = { Text("电脑上的供应商配置") },
-            text = {
-                Column(Modifier.fillMaxWidth()) {
-                    Text("密钥不出网：点选后填 base_url/模型，Key 在手机端粘贴一次。",
-                         style = MaterialTheme.typography.bodySmall,
-                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    list.forEach { (name, url, hint) ->
-                        TextButton(onClick = {
-                            edit { c -> c.copy(llmBaseUrl = url) }
-                            importDlg = null
-                            Toast.makeText(ctx, "已导入 $name 的 base_url；$hint", Toast.LENGTH_LONG).show()
-                        }) {
-                            Column { Text(name); Text(url, style = MaterialTheme.typography.bodySmall) }
-                            if (hint.isNotBlank()) {
-                                Text(hint, style = MaterialTheme.typography.labelSmall,
-                                     color = MaterialTheme.colorScheme.secondary)
-                            }
-                        }
-                    }
-                }
-            },
-        )
-    }
 }
