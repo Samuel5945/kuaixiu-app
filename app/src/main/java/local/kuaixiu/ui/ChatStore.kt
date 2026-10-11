@@ -8,6 +8,9 @@ import local.kuaixiu.data.ChatLog
  * 聊天消息的应用级单例：切页签/重组都不丢（进程被杀才靠 ChatLog 恢复）。
  * 每条逻辑消息同时写入 ChatLog 落盘；占位"…"是瞬态 UI，不入盘。
  */
+data class ChatMsg(val role: String, val text: String, val actionJson: String? = null,
+                   val imagePath: String? = null)
+
 object ChatStore {
 
     val msgs = mutableStateListOf<ChatMsg>()

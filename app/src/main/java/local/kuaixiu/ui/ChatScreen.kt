@@ -39,9 +39,6 @@ import local.kuaixiu.llm.LlmClient
 import org.json.JSONObject
 import java.time.LocalDate
 
-private data class ChatMsg(val role: String, val text: String, val actionJson: String? = null,
-                           val imagePath: String? = null)
-
 @Composable
 fun ChatScreen(modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
