@@ -12,7 +12,10 @@ import kotlinx.serialization.json.Json
 object ProviderProfiles {
 
     @Serializable
-    data class Profile(val baseUrl: String = "", val keyEnc: String = "", val model: String = "")
+    data class Profile(
+        val baseUrl: String = "", val keyEnc: String = "", val model: String = "",
+        val imageModel: String = "",
+    )
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -30,13 +33,15 @@ object ProviderProfiles {
 
     fun get(ctx: Context, name: String): Profile? = all(ctx)[name]
 
-    fun put(ctx: Context, name: String, baseUrl: String, key: String, model: String) {
+    fun put(ctx: Context, name: String, baseUrl: String, key: String, model: String,
+            imageModel: String? = null) {
         if (name.isBlank()) return
         val profiles = all(ctx)
         val old = profiles[name]
-        // Key 留空 = 保持该供应商已存的 Key
+        // Key 留空 = 保持该供应商已存的 Key；生图模型 null = 保持
         val keyEnc = if (key.isBlank()) old?.keyEnc ?: "" else SecretStore.encrypt(key)
-        profiles[name] = Profile(baseUrl, keyEnc, model)
+        val img = imageModel ?: old?.imageModel ?: ""
+        profiles[name] = Profile(baseUrl, keyEnc, model, img)
         save(ctx, profiles)
     }
 

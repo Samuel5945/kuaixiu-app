@@ -33,6 +33,9 @@ object CoachPrompt {
         } ?: plan?.upcoming(today)?.let { u ->
             "计划从 ${u.date} 开始（第${u.day}天，目标入睡 ${u.bedtime}），现在尚未开始。"
         } ?: "尚未生成计划。"
+        val imgPart = if (KxStore.config.imageModel.isNotBlank())
+            "生图模型已配置（${KxStore.config.imageModel}），可以使用生图工具。"
+        else "生图模型未配置，不要提供生图。"
         val recent = Checkins.all(ctx).takeLast(7)
             .joinToString("；") { "${it.date}:${it.status}" + if (it.bedtime.isNotBlank()) "(${it.bedtime})" else "" }
 
@@ -50,6 +53,7 @@ ${styleLine(KxStore.config.coachStyle)}
 
 【当前状态】
 $statePart
+$imgPart
 最近打卡：${if (recent.isBlank()) "（无）" else recent}
 
 【动作协议】（需要改变计划或记录打卡时才用，普通回答不用）
@@ -59,6 +63,10 @@ $statePart
 记打卡：```kuaixiu {"action":"checkin","status":"on_time|late|skip","bedtime":"HH:MM","note":"..."}
   - 记录的是昨晚实际入睡，date 由 App 自动写为昨天，不要传 date 字段。
   - 也可以只记风屏过程：用户说"开始风屏了/记一下风屏"→ {"action":"checkin","winddown":"HH:MM"}（记为今晚，无需 date）。
+生图工具（仅当【当前状态】标注"生图模型已配置"时才可提供；未配置就告诉用户去设置页拉取模型点选生图模型）：
+用户想要助眠画面/晚安插画/星空图/想把某个放松场景画出来 → 回复末尾另起一行输出：
+```kuaixiu {"action":"image","prompt":"中文画面描述，具体到光线/色彩/构图，安静柔和的助眠风格"}```
+App 会用生图模型把 prompt 画出来展示。 prompt 必须是画面描述，不要包含文字渲染要求。
 ```""".trimIndent()
     }
 }

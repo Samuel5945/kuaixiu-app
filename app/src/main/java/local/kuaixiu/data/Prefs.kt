@@ -17,6 +17,7 @@ data class KxConfig(
     val llmBaseUrl: String = "https://open.bigmodel.cn/api/paas/v4",
     val llmKey: String = "",
     val llmModel: String = "glm-4-flash",
+    val imageModel: String = "",    // 生图模型（空=未启用生图）
     val pcUrl: String = "http://192.168.2.5:8642",
     val pcUploadCheckin: Boolean = false,
     val coachStyle: String = "gentle",
@@ -67,6 +68,7 @@ object Prefs {
             llmBaseUrl = s.getString("llmBaseUrl", null) ?: "https://open.bigmodel.cn/api/paas/v4",
             llmKey = key,
             llmModel = s.getString("llmModel", null) ?: "glm-4-flash",
+            imageModel = s.getString("imageModel", null) ?: "",
             pcUrl = s.getString("pcUrl", null) ?: "http://192.168.2.5:8642",
             pcUploadCheckin = s.getBoolean("pcUploadCheckin", false),
             coachStyle = s.getString("coachStyle", null) ?: "gentle",
@@ -88,6 +90,7 @@ object Prefs {
             putString("llmKeyEnc", SecretStore.encrypt(c.llmKey))
             remove("llmKey")
             putString("llmModel", c.llmModel)
+            putString("imageModel", c.imageModel)
             putString("pcUrl", c.pcUrl)
             putBoolean("pcUploadCheckin", c.pcUploadCheckin)
             putString("coachStyle", c.coachStyle)

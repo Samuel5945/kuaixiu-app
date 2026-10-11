@@ -241,6 +241,11 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                         value = cfg.llmModel, onValueChange = { edit { c -> c.copy(llmModel = it) } },
                         label = { Text("模型") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
                     )
+                    OutlinedTextField(
+                        value = cfg.imageModel, onValueChange = { edit { c -> c.copy(imageModel = it) } },
+                        label = { Text("生图模型（可选，供教练画助眠图）") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = { fetchModels() }, enabled = !modelsBusy) {
                             Text(if (modelsBusy) "拉取中…" else "拉取模型列表")
@@ -275,7 +280,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 keyInput = ""
                 if (finalCfg.providerName.isNotBlank()) {
                     ProviderProfiles.put(ctx, finalCfg.providerName,
-                        finalCfg.llmBaseUrl, finalCfg.llmKey, finalCfg.llmModel)
+                        finalCfg.llmBaseUrl, finalCfg.llmKey, finalCfg.llmModel, finalCfg.imageModel)
                 }
                 KxStore.saveConfig(ctx, finalCfg)
                 runCatching {
@@ -309,12 +314,13 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                         }
                     }
                     if (image.isNotEmpty()) {
-                        Text("生图模型（不可用于对话教练）", style = MaterialTheme.typography.labelSmall,
+                        Text("生图模型（点选给教练画图用）", style = MaterialTheme.typography.labelSmall,
                              color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        image.forEach {
-                            Text(it, style = MaterialTheme.typography.bodySmall,
-                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                 modifier = Modifier.padding(horizontal = 12.dp))
+                        image.forEach { m ->
+                            TextButton(onClick = {
+                                edit { c -> c.copy(imageModel = m) }
+                                modelsDlg = null
+                            }) { Text(m + if (cfg.imageModel == m) " ✓" else "") }
                         }
                     }
                 }

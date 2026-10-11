@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +36,8 @@ import local.kuaixiu.llm.LlmClient
 import org.json.JSONObject
 import java.time.LocalDate
 
-private data class ChatMsg(val role: String, val text: String, val actionJson: String? = null)
+private data class ChatMsg(val role: String, val text: String, val actionJson: String? = null,
+                           val imagePath: String? = null)
 
 @Composable
 fun ChatScreen(modifier: Modifier = Modifier) {
@@ -68,7 +70,48 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                 ) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(m.text)
-                        m.actionJson?.let { aj -> ActionCard(aj) }
+                        m.imagePath?.let { path ->
+                            val bmp = remember(path) {
+                                runCatching {
+                                    val bounds = android.graphics.BitmapFactory.Options().apply {
+                                        inJustDecodeBounds = true
+                                    }
+                                    android.graphics.BitmapFactory.decodeFile(path, bounds)
+                                    val sample = maxOf(1, maxOf(bounds.outWidth, bounds.outHeight) / 1024)
+                                    val o = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+                                    android.graphics.BitmapFactory.decodeFile(path, o)
+                                }.getOrNull()
+                            }
+                            if (bmp != null) {
+                                androidx.compose.foundation.Image(
+                                    bitmap = bmp.asImageBitmap(),
+                                    contentDescription = "生成的图片",
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
+                                )
+                            }
+                        }
+                        m.actionJson?.let { aj ->
+                            ActionCard(aj, onImage = { prompt ->
+                                busy = true
+                                scope.launch(Dispatchers.IO) {
+                                    runCatching {
+                                        local.kuaixiu.data.ImageGen.generate(ctx, KxStore.config, prompt)
+                                    }.onSuccess { f ->
+                                        kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                            msgs.add(ChatMsg("assistant", "🎨 ${prompt}",
+                                                imagePath = f.absolutePath))
+                                            busy = false
+                                        }
+                                    }.onFailure { e ->
+                                        kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                            msgs.add(ChatMsg("assistant", "生图失败：${e.message}"))
+                                            busy = false
+                                        }
+                                    }
+                                }
+                            })
+                        }
                     }
                 }
             }
@@ -122,7 +165,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ActionCard(actionJson: String) {
+private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
     val ctx = LocalContext.current
     var applied by remember { mutableStateOf(false) }
     val action = runCatching { JSONObject(actionJson) }.getOrNull() ?: return
@@ -197,6 +240,13 @@ private fun ActionCard(actionJson: String) {
                         }
                         Toast.makeText(ctx, "已打卡 ✅", Toast.LENGTH_SHORT).show()
                         applied = true
+                    }
+                    "image" -> {
+                        Text("🎨 教练想画一张助眠画面：", style = MaterialTheme.typography.titleSmall)
+                        Text(action.optString("prompt"))
+                        Button(onClick = {
+                            if (!applied) { applied = true; onImage(action.optString("prompt")) }
+                        }, enabled = !applied) { Text(if (applied) "生成中…" else "生成图片") }
                     }
                 }
             }, enabled = !applied) { Text(if (applied) "已应用 ✓" else "应用更改") }
