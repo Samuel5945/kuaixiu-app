@@ -16,7 +16,7 @@ data class KxConfig(
     val winddownMin: Int = 45,
     val llmBaseUrl: String = "https://open.bigmodel.cn/api/paas/v4",
     val llmKey: String = "",
-    val llmModel: String = "glm-4-flash",
+    val llmModel: String = "glm-5.3-flash",
     val imageModel: String = "",    // 生图模型（空=未启用生图）
     val pcUrl: String = "",    // 空 = 交给局域网自动发现（LanSync）
     val pcUploadCheckin: Boolean = false,
@@ -86,7 +86,7 @@ object Prefs {
             winddownMin = s.getInt("winddownMin", 45),
             llmBaseUrl = s.getString("llmBaseUrl", null) ?: "https://open.bigmodel.cn/api/paas/v4",
             llmKey = key,
-            llmModel = s.getString("llmModel", null) ?: "glm-4-flash",
+            llmModel = s.getString("llmModel", null) ?: "glm-5.3-flash",
             imageModel = s.getString("imageModel", null) ?: "",
             pcUrl = sanitizePcUrl(s.getString("pcUrl", null)),
             pcUploadCheckin = s.getBoolean("pcUploadCheckin", false),
