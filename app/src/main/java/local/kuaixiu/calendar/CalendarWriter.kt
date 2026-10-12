@@ -169,8 +169,7 @@ object CalendarWriter {
     }
 
     /** 待触发的提醒（id / 标题 / 起始毫秒）——厂商日历不给这类事件删除入口，所以自己列出来管。 */
-    fun upcomingReminders(context: Context, limit: Int = 12): List<Triple<Long, String, Long>> {
-        val calId = ensureCalendar(context, REMIND_ACCOUNT, REMIND_CALENDAR_NAME)
+    private fun queryReminders(context: Context, calId: Long, limit: Int): List<Triple<Long, String, Long>> {
         val out = ArrayList<Triple<Long, String, Long>>()
         context.contentResolver.query(
             Events.CONTENT_URI,
@@ -186,6 +185,22 @@ object CalendarWriter {
         }
         return out
     }
+
+    /** 按账户查已有日历；没有就返回 null（不创建）。 */
+    fun findCalendarId(context: Context, account: String): Long? =
+        context.contentResolver.query(
+            Calendars.CONTENT_URI, arrayOf(Calendars._ID),
+            "${Calendars.ACCOUNT_NAME}=? AND ${Calendars.ACCOUNT_TYPE}=?",
+            arrayOf(account, CalendarContract.ACCOUNT_TYPE_LOCAL), null,
+        )?.use { if (it.moveToFirst()) it.getLong(0) else null }
+
+    fun upcomingReminders(context: Context, limit: Int = 12): List<Triple<Long, String, Long>> =
+        queryReminders(context, ensureCalendar(context, REMIND_ACCOUNT, REMIND_CALENDAR_NAME), limit)
+
+    /** 只读版：还没建过「快休提醒」就返回空。给 system prompt 用，别在聊天路径上顺手写库。 */
+    fun peekReminders(context: Context, limit: Int = 12): List<Triple<Long, String, Long>> =
+        findCalendarId(context, REMIND_ACCOUNT)
+            ?.let { queryReminders(context, it, limit) } ?: emptyList()
 
     /** 删一条提醒；按标题删时返回删除条数。 */
     fun deleteReminder(context: Context, id: Long): Boolean =

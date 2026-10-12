@@ -1,6 +1,7 @@
 package local.kuaixiu.llm
 
 import android.content.Context
+import local.kuaixiu.calendar.CalendarWriter
 import local.kuaixiu.data.Checkins
 import local.kuaixiu.data.Habits
 import local.kuaixiu.data.KxStore
@@ -40,6 +41,13 @@ object CoachPrompt {
         val recent = Checkins.all(ctx).takeLast(7)
             .joinToString("；") { "${it.date}:${it.status}" + if (it.bedtime.isNotBlank()) "(${it.bedtime})" else "" }
         val habitLine = Habits.statusLine()
+        // 取消提醒要求标题逐字相等，所以先把现有提醒的准确标题喂给它，别让它猜
+        val reminders = runCatching { CalendarWriter.peekReminders(ctx) }.getOrDefault(emptyList())
+        val remindLine = if (reminders.isEmpty()) "" else "\n待办提醒：" + reminders.joinToString("；") { (_, t, ms) ->
+            val at = java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneId.of("Asia/Shanghai"))
+                .format(java.time.format.DateTimeFormatter.ofPattern("M月d日 HH:mm"))
+            "「$t」$at"
+        } + "（取消时 text 必须逐字用上面的标题，不要自己改写）"
 
         return """
 你是「快休」早睡教练，回答简短具体。总原则：计划是活的，破功了改参数重来，不叫失败。
@@ -56,7 +64,7 @@ ${styleLine(KxStore.config.coachStyle)}
 【当前状态】
 $statePart
 $imgPart
-最近打卡：${if (recent.isBlank()) "（无）" else recent}${if (habitLine.isBlank()) "" else "\n$habitLine"}
+最近打卡：${if (recent.isBlank()) "（无）" else recent}${if (habitLine.isBlank()) "" else "\n$habitLine"}${remindLine}
 
 【动作协议】（需要改计划、记打卡、加提醒、建习惯时才用，普通回答不用）
 **铁律：那个代码块是你唯一的手。你嘴上说「已加/帮你建好了/这就安排」而末尾没跟块，等于什么都没做，
