@@ -7,7 +7,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
@@ -15,12 +18,17 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -58,7 +66,9 @@ fun ChatScreen(modifier: Modifier = Modifier) {
     val msgs = ChatStore.msgs
     var input by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
-    var menuIdx by remember { mutableStateOf<Int?>(null) }   // 长按气泡弹出的复制/删除菜单
+    var menuIdx by remember { mutableStateOf<Int?>(null) }   // 长按气泡弹出的复制/多选/删除菜单
+    var selecting by remember { mutableStateOf(false) }      // 多选模式（气泡和动作卡都能选）
+    val picked = remember { mutableStateListOf<Int>() }
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     // 动作卡是列表里的独立一行，不塞进气泡：长回复会把按钮顶出视口，看着就像「没有卡片」
@@ -69,6 +79,25 @@ fun ChatScreen(modifier: Modifier = Modifier) {
     }
 
     Column(modifier = modifier.fillMaxSize().imePadding().padding(12.dp)) {
+        if (selecting) {
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text("已选 ${picked.size} 条", style = MaterialTheme.typography.titleSmall)
+                androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                TextButton(onClick = {
+                    picked.clear(); picked.addAll(msgs.indices)
+                }) { Text("全选") }
+                TextButton(onClick = {
+                    ChatStore.removeAll(ctx, picked.toList())
+                    picked.clear(); selecting = false
+                    Toast.makeText(ctx, "已删除", Toast.LENGTH_SHORT).show()
+                }, enabled = picked.isNotEmpty()) { Text("删除") }
+                TextButton(onClick = { picked.clear(); selecting = false }) { Text("取消") }
+            }
+        }
         LazyColumn(
             Modifier.weight(1f).fillMaxWidth(),
             state = listState,
@@ -78,6 +107,9 @@ fun ChatScreen(modifier: Modifier = Modifier) {
             items(rows) { r ->
                 val m = msgs[r.idx]
                 val aj = if (r.card) m.actionJson else null
+                val checked = selecting && r.idx in picked
+                val toggle = { if (r.idx in picked) picked.remove(r.idx) else picked.add(r.idx) }
+                Box(Modifier.fillMaxWidth()) {
                 if (aj != null) {
                     ActionCard(aj, onImage = { prompt ->
                         val genIdx = msgs.size
@@ -146,6 +178,19 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                     }
                 }
                 }
+                if (selecting) {
+                    if (checked) Box(Modifier.matchParentSize()
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)))
+                    Icon(
+                        if (checked) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
+                        contentDescription = if (checked) "已选" else "未选",
+                        tint = if (checked) MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.CenterStart).size(20.dp),
+                    )
+                    Box(Modifier.matchParentSize().clickable { toggle() })
+                }
+                }
             }
         }
         Row(
@@ -203,7 +248,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                         }
                     }
                 },
-                enabled = !busy,
+                enabled = !busy && !selecting,   // 多选时禁发，否则索引会错位
                 modifier = Modifier.height(56.dp),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
             ) { Text("发送") }
@@ -218,24 +263,31 @@ fun ChatScreen(modifier: Modifier = Modifier) {
             onDismissRequest = { menuIdx = null },
             title = { Text(if (m.role == "user") "我说的" else "教练说的") },
             text = {
-                Text(m.text, maxLines = 6,
-                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                     style = MaterialTheme.typography.bodySmall)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(m.text, maxLines = 6,
+                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                         style = MaterialTheme.typography.bodySmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(onClick = {
+                            clipboard.setText(androidx.compose.ui.text.AnnotatedString(m.text))
+                            menuIdx = null
+                            Toast.makeText(ctx, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
+                        }) { Text("复制") }
+                        TextButton(onClick = {
+                            selecting = true
+                            picked.clear(); picked.add(i)
+                            menuIdx = null
+                        }) { Text("多选") }
+                        TextButton(onClick = {
+                            ChatStore.remove(ctx, i)
+                            menuIdx = null
+                            Toast.makeText(ctx, "已删除这条", Toast.LENGTH_SHORT).show()
+                        }) { Text("删除") }
+                    }
+                }
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    clipboard.setText(androidx.compose.ui.text.AnnotatedString(m.text))
-                    menuIdx = null
-                    Toast.makeText(ctx, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
-                }) { Text("复制") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    ChatStore.remove(ctx, i)
-                    menuIdx = null
-                    Toast.makeText(ctx, "已删除这条", Toast.LENGTH_SHORT).show()
-                }) { Text("删除") }
-            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { menuIdx = null }) { Text("取消") } },
         )
     }
 }

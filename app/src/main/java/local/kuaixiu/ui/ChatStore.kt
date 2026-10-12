@@ -40,15 +40,20 @@ object ChatStore {
     /** 瞬态消息（如"生图中…"），不入盘。 */
     fun addTransient(msg: ChatMsg) { msgs.add(msg) }
 
-    /** 删一条消息并重写落盘——不然下次启动 ChatLog 会把它原样读回来。带图的连文件一起删。 */
-    fun remove(ctx: Context, index: Int) {
-        if (index !in msgs.indices) return
-        val m = msgs.removeAt(index)
-        m.imagePath?.let { runCatching { java.io.File(it).delete() } }
+    /** 删若干条（含它们的动作卡：卡是消息的一部分）并重写一次落盘。带图的连文件一起删。 */
+    fun removeAll(ctx: Context, indices: Collection<Int>) {
+        val gone = indices.filter { it in msgs.indices }.distinct()
+        if (gone.isEmpty()) return
+        gone.map { msgs[it] }.forEach { m ->
+            m.imagePath?.let { runCatching { java.io.File(it).delete() } }
+        }
+        gone.sortedDescending().forEach { msgs.removeAt(it) }   // 从后往前删，索引不会错位
         ChatLog.persist(ctx, msgs.map {
             ChatLog.Entry(it.role, it.text, it.imagePath ?: "", it.actionJson ?: "")
         })
     }
+
+    fun remove(ctx: Context, index: Int) = removeAll(ctx, listOf(index))
 
     /** 原地替换（流式更新/最终化），完成时落盘。 */
     fun replace(ctx: Context, index: Int, msg: ChatMsg, persisted: Boolean) {
