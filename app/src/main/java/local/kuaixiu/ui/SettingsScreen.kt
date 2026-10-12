@@ -55,7 +55,7 @@ private data class ProviderPreset(val name: String, val baseUrl: String, val mod
 
 // 种子值只含官方公开端点；个人 base_url/Key 存在各自档案里（不进代码）
 private val PROVIDER_PRESETS = listOf(
-    ProviderPreset("智谱", "https://open.bigmodel.cn/api/paas/v4", "glm-5.3-flash"),
+    ProviderPreset("智谱", "https://open.bigmodel.cn/api/paas/v4", "glm-4.7-flash"),
     ProviderPreset("DeepSeek", "https://api.deepseek.com/v1", "deepseek-chat"),
     // Step Plan 订阅套餐专属通道；按量付费的 key 要改成 https://api.stepfun.com/v1
     ProviderPreset("Step 阶跃", "https://api.stepfun.com/step_plan/v1", "step-3.5-flash"),
