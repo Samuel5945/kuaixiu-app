@@ -18,6 +18,7 @@ data class KxConfig(
     val llmKey: String = "",
     val llmModel: String = "glm-5.3-flash",
     val imageModel: String = "",    // 生图模型（空=未启用生图）
+    val imageProvider: String = "", // 生图走哪家（空 = 跟文本同一家；生图与文本可以分属不同供应商）
     val pcUrl: String = "",    // 空 = 交给局域网自动发现（LanSync）
     val pcUploadCheckin: Boolean = false,
     val coachStyle: String = "gentle",
@@ -88,6 +89,7 @@ object Prefs {
             llmKey = key,
             llmModel = s.getString("llmModel", null) ?: "glm-5.3-flash",
             imageModel = s.getString("imageModel", null) ?: "",
+            imageProvider = s.getString("imageProvider", null) ?: "",
             pcUrl = sanitizePcUrl(s.getString("pcUrl", null)),
             pcUploadCheckin = s.getBoolean("pcUploadCheckin", false),
             coachStyle = s.getString("coachStyle", null) ?: "gentle",
@@ -110,6 +112,7 @@ object Prefs {
             remove("llmKey")
             putString("llmModel", c.llmModel)
             putString("imageModel", c.imageModel)
+            putString("imageProvider", c.imageProvider)
             putString("pcUrl", c.pcUrl)
             putBoolean("pcUploadCheckin", c.pcUploadCheckin)
             putString("coachStyle", c.coachStyle)

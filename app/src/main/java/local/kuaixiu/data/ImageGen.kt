@@ -32,16 +32,25 @@ object ImageGen {
     fun sleepPrompt(dayIndex: Int): String =
         SLEEP_SCENES[Math.floorMod(dayIndex, SLEEP_SCENES.size)]
 
+    /** 生图可与文本分属不同供应商：按 imageProvider 取那家的档案（端点 + Key），为空则跟文本同一家。 */
+    fun imageEndpoint(ctx: Context, cfg: KxConfig): Pair<String, String> {
+        if (cfg.imageProvider.isBlank()) return cfg.llmBaseUrl to cfg.llmKey
+        val p = ProviderProfiles.get(ctx, cfg.imageProvider)
+        val base = p?.baseUrl?.ifBlank { cfg.llmBaseUrl } ?: cfg.llmBaseUrl
+        return base to ProviderProfiles.decryptKey(p).ifBlank { cfg.llmKey }
+    }
+
     fun generate(ctx: Context, cfg: KxConfig, prompt: String, size: String = DEFAULT_SIZE): File {
         require(cfg.imageModel.isNotBlank()) { "未配置生图模型：设置 → AI 教练 → 拉取模型列表 → 生图列点选一个" }
-        val url = cfg.llmBaseUrl.trimEnd('/') + "/images/generations"
+        val (base, key) = imageEndpoint(ctx, cfg)
+        val url = base.trimEnd('/') + "/images/generations"
         val body = JSONObject().apply {
             put("model", cfg.imageModel)
             put("prompt", prompt)
             put("n", 1)
             put("size", size)
             put("response_format", "b64_json")
-            if ("sensenova" in cfg.llmBaseUrl.lowercase()) put("watermark", false)
+            if ("sensenova" in base.lowercase()) put("watermark", false)
         }
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
@@ -49,7 +58,7 @@ object ImageGen {
             readTimeout = 180_000
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("User-Agent", "KuaixiuApp/0.3")
-            setRequestProperty("Authorization", "Bearer ${cfg.llmKey}")
+            setRequestProperty("Authorization", "Bearer $key")
             doOutput = true
             outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
         }

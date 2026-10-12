@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import local.kuaixiu.data.ImageGen
 import local.kuaixiu.data.KxConfig
 import local.kuaixiu.data.KxStore
 import local.kuaixiu.data.LanSync
@@ -100,21 +101,29 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         }
     }
 
+    fun idsAt(base: String, key: String): List<String> = runCatching {
+        val conn = java.net.URL(base.trimEnd('/') + "/models").openConnection() as java.net.HttpURLConnection
+        conn.connectTimeout = 15000; conn.readTimeout = 15000
+        conn.setRequestProperty("Authorization", "Bearer $key")
+        val body = conn.inputStream.use { it.readBytes().decodeToString() }
+        JSONObject(body).optJSONArray("data")
+            ?.let { arr -> (0 until arr.length()).mapNotNull { arr.optJSONObject(it)?.optString("id") } }
+            ?: emptyList()
+    }.getOrDefault(emptyList())
+
     fun fetchModels() {
         if (cfg.llmKey.isBlank()) { Toast.makeText(ctx, "先填 API Key", Toast.LENGTH_SHORT).show(); return }
         modelsBusy = true; modelsErr = null
         scope.launch(Dispatchers.IO) {
             runCatching {
-                val url = cfg.llmBaseUrl.trimEnd('/') + "/models"
-                val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-                conn.connectTimeout = 15000; conn.readTimeout = 15000
-                conn.setRequestProperty("Authorization", "Bearer ${cfg.llmKey}")
-                val body = conn.inputStream.use { it.readBytes().decodeToString() }
-                val ids = JSONObject(body).optJSONArray("data")
-                    ?.let { arr -> (0 until arr.length()).mapNotNull { arr.optJSONObject(it)?.optString("id") } }
-                    ?: emptyList()
-                if (ids.isEmpty()) error("接口返回了空模型列表")
-                ModelClassifier.classify(ids)
+                // 文本列表来自文本那家，生图列表来自生图那家（两家可以不同）
+                val (imgBase, imgKey) = ImageGen.imageEndpoint(ctx, cfg)
+                val textIds = idsAt(cfg.llmBaseUrl, cfg.llmKey)
+                val imageIds = if (imgBase.trimEnd('/') == cfg.llmBaseUrl.trimEnd('/')) textIds
+                               else idsAt(imgBase, imgKey)
+                if (textIds.isEmpty() && imageIds.isEmpty()) error("接口返回了空模型列表")
+                ModelClassifier.classify(textIds).first to
+                    imageIds.filter { ModelClassifier.isImageModel(it) }.sorted()
             }.onSuccess { (text, image) ->
                 withContext(Dispatchers.Main) { modelsDlg = text to image; modelsBusy = false }
             }.onFailure { e ->
@@ -314,9 +323,36 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                         value = cfg.llmModel, onValueChange = { editProvider { c -> c.copy(llmModel = it) } },
                         label = { Text("模型") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
                     )
+                    // 生图允许和文本分家：文本走智谱、生图走商汤
+                    Text("生图供应商", style = MaterialTheme.typography.labelSmall,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = cfg.imageProvider.isBlank(),
+                            onClick = { edit { c -> c.copy(imageProvider = "") } },
+                            label = { Text("同文本") },
+                        )
+                        PROVIDER_PRESETS.forEach { preset ->
+                            val sel = cfg.imageProvider == preset.name
+                            FilterChip(
+                                selected = sel,
+                                onClick = {
+                                    val stored = ProviderProfiles.get(ctx, preset.name)?.imageModel ?: ""
+                                    val img = preset.imageSeed.ifBlank { stored }
+                                    edit { c -> c.copy(imageProvider = preset.name)
+                                        .let { if (img.isNotBlank()) it.copy(imageModel = img) else it } }
+                                },
+                                label = { Text(preset.name) },
+                                leadingIcon = if (sel) {
+                                    { Icon(Icons.Filled.Check, contentDescription = "已选",
+                                          modifier = Modifier.size(18.dp)) }
+                                } else null,
+                            )
+                        }
+                    }
                     OutlinedTextField(
-                        value = cfg.imageModel, onValueChange = { editProvider { c -> c.copy(imageModel = it) } },
-                        label = { Text("生图模型（可选，供教练画助眠图）") },
+                        value = cfg.imageModel, onValueChange = { edit { c -> c.copy(imageModel = it) } },
+                        label = { Text("生图模型（走上面那家的端点与 Key）") },
                         modifier = Modifier.fillMaxWidth(), singleLine = true,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -401,7 +437,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                              color = MaterialTheme.colorScheme.onSurfaceVariant)
                         image.forEach { m ->
                             TextButton(onClick = {
-                                editProvider { c -> c.copy(imageModel = m) }
+                                edit { c -> c.copy(imageModel = m) }
                                 modelsDlg = null
                             }) { Text(m + if (cfg.imageModel == m) " ✓" else "") }
                         }
