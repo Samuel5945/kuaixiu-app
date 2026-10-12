@@ -230,10 +230,13 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                 "reminder" -> {
                     val when_ = listOf(action.optString("date"), action.optString("time"))
                         .filter { it.isNotBlank() }.joinToString(" ")
-                    Text("⏰ 教练帮你加一个提醒：${action.optString("text", "提醒")}" +
-                        (if (when_.isNotBlank()) "（$when_" +
-                            (if (action.optInt("leadMin") > 0) "，提前 ${action.optInt("leadMin")} 分钟" else "") +
-                            "）" else ""))
+                    val lead = if (action.optInt("leadMin") > 0) "，提前 ${action.optInt("leadMin")} 分钟" else ""
+                    if (action.optString("op") == "cancel") {
+                        Text("🗑 教练帮你删掉提醒：${action.optString("text", "")}")
+                    } else {
+                        Text("⏰ 教练帮你加一个提醒：${action.optString("text", "提醒")}" +
+                            (if (when_.isNotBlank()) "（$when_$lead）" else ""))
+                    }
                 }
                 else -> return@Column
             }
@@ -278,19 +281,31 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                         applied = true
                     }
                     "reminder" -> {
-                        val today = LocalDate.now()
-                        val d = action.optString("date").ifBlank { today.toString() }
-                        val t = action.optString("time", "09:00")
-                        runCatching {
-                            local.kuaixiu.calendar.CalendarWriter.addReminder(
-                                ctx, d, t, action.optString("text", "提醒"),
-                                action.optInt("leadMin", 0))
-                        }.onSuccess {
-                            Toast.makeText(ctx, "已加进日历「快休提醒」✅ 记得在日历里勾上显示",
-                                Toast.LENGTH_LONG).show()
-                            applied = true
-                        }.onFailure {
-                            Toast.makeText(ctx, "提醒写入失败：${it.message}", Toast.LENGTH_SHORT).show()
+                        if (action.optString("op") == "cancel") {
+                            val t = action.optString("text")
+                            runCatching {
+                                local.kuaixiu.calendar.CalendarWriter.deleteRemindersByText(ctx, t)
+                            }.onSuccess { n ->
+                                Toast.makeText(ctx, if (n > 0) "已删掉 $n 条「$t」" else "没找到「$t」这条提醒",
+                                    Toast.LENGTH_SHORT).show()
+                                applied = n > 0
+                            }.onFailure {
+                                Toast.makeText(ctx, "删除失败：${it.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            val today = LocalDate.now()
+                            val d = action.optString("date").ifBlank { today.toString() }
+                            val t = action.optString("time", "09:00")
+                            runCatching {
+                                local.kuaixiu.calendar.CalendarWriter.addReminder(
+                                    ctx, d, t, action.optString("text", "提醒"),
+                                    action.optInt("leadMin", 0))
+                            }.onSuccess {
+                                Toast.makeText(ctx, "已加进日历「快休提醒」✅", Toast.LENGTH_LONG).show()
+                                applied = true
+                            }.onFailure {
+                                Toast.makeText(ctx, "提醒写入失败：${it.message}", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
                     "image" -> {
@@ -299,9 +314,11 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                     }
                 }
             }, enabled = !applied) {
-                Text(when (kind) {
-                    "image" -> if (applied) "已交给画师 ✓" else "🎨 生成这张助眠图"
-                    "reminder" -> if (applied) "已加进日历 ✓" else "加进日历"
+                val cancel = kind == "reminder" && action.optString("op") == "cancel"
+                Text(when {
+                    kind == "image" -> if (applied) "已交给画师 ✓" else "🎨 生成这张助眠图"
+                    cancel -> if (applied) "已删掉 ✓" else "删掉这个提醒"
+                    kind == "reminder" -> if (applied) "已加进日历 ✓" else "加进日历"
                     else -> if (applied) "已应用 ✓" else "应用更改"
                 })
             }

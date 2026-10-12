@@ -124,6 +124,38 @@ object CalendarWriter {
         return n
     }
 
+    /** 待触发的提醒（id / 标题 / 起始毫秒）——厂商日历不给这类事件删除入口，所以自己列出来管。 */
+    fun upcomingReminders(context: Context, limit: Int = 12): List<Triple<Long, String, Long>> {
+        val calId = ensureCalendar(context, REMIND_ACCOUNT, REMIND_CALENDAR_NAME)
+        val out = ArrayList<Triple<Long, String, Long>>()
+        context.contentResolver.query(
+            Events.CONTENT_URI,
+            arrayOf(Events._ID, Events.TITLE, Events.DTSTART),
+            "${Events.CALENDAR_ID}=? AND ${Events.DTSTART}>=? AND ${Events.DELETED}=0",
+            arrayOf(calId.toString(), System.currentTimeMillis().toString()),
+            "${Events.DTSTART} ASC LIMIT $limit",
+        )?.use { c ->
+            while (c.moveToNext()) {
+                val t = c.getString(1) ?: "(无标题)"
+                out += Triple(c.getLong(0), t, if (c.isNull(2)) 0L else c.getLong(2))
+            }
+        }
+        return out
+    }
+
+    /** 删一条提醒；按标题删时返回删除条数。 */
+    fun deleteReminder(context: Context, id: Long): Boolean =
+        context.contentResolver.delete(
+            syncAdapterUri(Events.CONTENT_URI, REMIND_ACCOUNT),
+            "${Events._ID}=?", arrayOf(id.toString()),
+        ) > 0
+
+    fun deleteRemindersByText(context: Context, text: String): Int =
+        context.contentResolver.delete(
+            syncAdapterUri(Events.CONTENT_URI, REMIND_ACCOUNT),
+            "${Events.TITLE}=?", arrayOf(text),
+        )
+
     /** 清空该日历（卸载计划用）。 */
     fun clearPlan(context: Context): Int {
         val cr = context.contentResolver

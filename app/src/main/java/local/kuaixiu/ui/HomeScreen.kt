@@ -69,9 +69,10 @@ fun HomeScreen(modifier: Modifier = Modifier) {
         if (plan == null) {
             item { EmptyCard() }
         } else {
-            // 顺序：昨晚成绩 → 今晚行动（风屏/打卡）→ 今日参考 → 未来 → 低频操作
+            // 顺序：昨晚成绩 → 今晚行动（风屏/打卡）→ 待办提醒 → 今日参考 → 未来 → 低频操作
             item { ScoreCard() }
             item { CheckinCard() }
+            item { ReminderCard() }
             item { TodayCard(plan) }
             item { UpcomingCard(plan) }
             item { SyncCard() }
@@ -150,6 +151,64 @@ private fun shiftRemaining(plan: Plan, bedtime: String): Int {
     val target = local.kuaixiu.engine.PlanEngine.hhmmToMin(plan.config.targetBedtime)
     val cur = local.kuaixiu.engine.PlanEngine.hhmmToMin(bedtime)
     return (cur - target).mod(1440)
+}
+
+/**
+ * 待办提醒卡：教练加的一次性提醒列在这儿，带删除。
+ * 厂商日历不给 sync-adapter 本地账户的事件提供删除入口，所以删除必须我们自己给。
+ */
+@Composable
+private fun ReminderCard() {
+    val ctx = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var items by remember {
+        mutableStateOf<List<Triple<Long, String, Long>>>(emptyList())
+    }
+
+    fun reload() {
+        scope.launch(Dispatchers.IO) {
+            val list = runCatching {
+                local.kuaixiu.calendar.CalendarWriter.upcomingReminders(ctx)
+            }.onFailure { android.util.Log.w("Kuaixiu", "提醒列表读取失败: ${it.message}") }
+                .getOrDefault(emptyList())
+            kotlinx.coroutines.withContext(Dispatchers.Main) { items = list }
+        }
+    }
+    LaunchedEffect(Unit) { reload() }
+    if (items.isEmpty()) return
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("待办提醒", style = MaterialTheme.typography.titleMedium)
+            items.forEach { (id, title, startMs) ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(title)
+                        val at = java.time.Instant.ofEpochMilli(startMs)
+                            .atZone(java.time.ZoneId.systemDefault())
+                            .format(java.time.format.DateTimeFormatter.ofPattern("M月d日 HH:mm"))
+                        Text(at, style = MaterialTheme.typography.bodySmall,
+                             color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    TextButton(onClick = {
+                        scope.launch(Dispatchers.IO) {
+                            val ok = runCatching {
+                                local.kuaixiu.calendar.CalendarWriter.deleteReminder(ctx, id)
+                            }.onFailure { android.util.Log.w("Kuaixiu", "提醒删除失败: ${it.message}") }
+                                .getOrDefault(false)
+                            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                Toast.makeText(ctx, if (ok) "已删除" else "删除失败",
+                                    Toast.LENGTH_SHORT).show()
+                                if (ok) reload()
+                            }
+                        }
+                    }) { Text("删除") }
+                }
+            }
+            Text("到点由系统日历弹通知，不依赖本 App 后台。",
+                 style = MaterialTheme.typography.bodySmall,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }
 
 @Composable
