@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -23,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
@@ -33,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
@@ -54,6 +58,8 @@ fun ChatScreen(modifier: Modifier = Modifier) {
     val msgs = ChatStore.msgs
     var input by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var menuIdx by remember { mutableStateOf<Int?>(null) }   // 长按气泡弹出的复制/删除菜单
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     // 动作卡是列表里的独立一行，不塞进气泡：长回复会把按钮顶出视口，看着就像「没有卡片」
     val rows = rowsOf(msgs)
@@ -108,7 +114,10 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                         ),
                         color = if (isUser) MaterialTheme.colorScheme.secondaryContainer
                                 else MaterialTheme.colorScheme.surfaceContainerHigh,
-                        modifier = Modifier.widthIn(max = 1080.dp).fillMaxWidth(0.92f),
+                        modifier = Modifier.widthIn(max = 1080.dp).fillMaxWidth(0.92f)
+                            .pointerInput(r.idx) {
+                                detectTapGestures(onLongPress = { menuIdx = r.idx })
+                            },
                     ) {
                     Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(m.text)
@@ -199,6 +208,35 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
             ) { Text("发送") }
         }
+    }
+
+    // 长按气泡 → 复制 / 删除
+    menuIdx?.let { i ->
+        val m = msgs.getOrNull(i)
+        if (m == null) { menuIdx = null; return@let }
+        AlertDialog(
+            onDismissRequest = { menuIdx = null },
+            title = { Text(if (m.role == "user") "我说的" else "教练说的") },
+            text = {
+                Text(m.text, maxLines = 6,
+                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                     style = MaterialTheme.typography.bodySmall)
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    clipboard.setText(androidx.compose.ui.text.AnnotatedString(m.text))
+                    menuIdx = null
+                    Toast.makeText(ctx, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
+                }) { Text("复制") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    ChatStore.remove(ctx, i)
+                    menuIdx = null
+                    Toast.makeText(ctx, "已删除这条", Toast.LENGTH_SHORT).show()
+                }) { Text("删除") }
+            },
+        )
     }
 }
 
