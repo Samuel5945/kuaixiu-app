@@ -51,7 +51,9 @@ import local.kuaixiu.data.ProviderProfiles
 import local.kuaixiu.llm.CoachPrompt
 import org.json.JSONObject
 
-private data class ProviderPreset(val name: String, val baseUrl: String, val modelSeed: String)
+private data class ProviderPreset(
+    val name: String, val baseUrl: String, val modelSeed: String, val imageSeed: String = "",
+)
 
 // 种子值只含官方公开端点；个人 base_url/Key 存在各自档案里（不进代码）
 private val PROVIDER_PRESETS = listOf(
@@ -60,7 +62,8 @@ private val PROVIDER_PRESETS = listOf(
     // Step Plan 订阅套餐专属通道；按量付费的 key 要改成 https://api.stepfun.com/v1
     ProviderPreset("Step 阶跃", "https://api.stepfun.com/step_plan/v1", "step-3.5-flash"),
     // 商汤走 token.sensenova.cn（api.sensenova.cn 上没有任何 /v1 路由，实测 404）
-    ProviderPreset("商汤日日新", "https://token.sensenova.cn/v1", ""),
+    ProviderPreset("商汤日日新", "https://token.sensenova.cn/v1",
+        "sensenova-6.8-flash-lite", "sensenova-u1.5-lite"),
     ProviderPreset("基元律动", "https://tokenrhythm.studio/v1", "deepseek-v4-flash"),
 )
 
@@ -261,10 +264,13 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                                     keyInput = ""
                                     // 切档案：载入该供应商自己的 base_url/Key/模型（没有则用官方种子）
                                     val np = ProviderProfiles.get(ctx, preset.name)
+                                    val img = np?.imageModel?.ifBlank { preset.imageSeed } ?: preset.imageSeed
                                     persist(cfg.copy(
                                         providerName = preset.name,
                                         llmBaseUrl = np?.baseUrl?.ifBlank { preset.baseUrl } ?: preset.baseUrl,
                                         llmModel = np?.model?.ifBlank { preset.modelSeed } ?: preset.modelSeed,
+                                        // 只有这家有生图种子时才覆盖，否则保留原值不清空
+                                        imageModel = if (img.isBlank()) cfg.imageModel else img,
                                         llmKey = ProviderProfiles.decryptKey(np),
                                     ))
                                 },
