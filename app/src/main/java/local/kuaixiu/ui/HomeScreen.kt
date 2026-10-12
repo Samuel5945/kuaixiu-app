@@ -69,31 +69,40 @@ fun HomeScreen(modifier: Modifier = Modifier) {
     LaunchedEffect(Unit) { perms.launch(CALENDAR_PERMS) }
 
     val plan = KxStore.plan
-    // 三张时间卡各自的「距现在多少分钟」，用来决定谁排前面（都得在这里算：LazyColumn 作用域里不能 remember）
-    var nextRemind by remember { mutableStateOf<Int?>(null) }
+    // 三张时间卡按「下一次该发生的那一刻」排序——用绝对日期时间，不是只看 HH:MM，
+    // 否则「3 天后的 09:00 提醒」会排到「今天 22:00 的习惯」前面。（remember 不能写在 LazyColumn 里）
+    var nextRemind by remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(Unit) {
         val at = kotlinx.coroutines.withContext(Dispatchers.IO) {
             runCatching { local.kuaixiu.calendar.CalendarWriter.peekReminders(ctx).firstOrNull()?.third }
                 .onFailure { android.util.Log.w("Kuaixiu", "提醒排序读取失败: ${it.message}") }
                 .getOrNull()
         }
-        nextRemind = at?.let { ((it - System.currentTimeMillis()) / 60000).toInt().coerceAtLeast(0) }
+        nextRemind = at
     }
-    val nowMin = LocalTime.now()
-    fun rawDelta(hhmm: String): Int? = runCatching {
-        java.time.Duration.between(nowMin, LocalTime.parse(hhmm)).toMinutes().toInt()
+    val today = LocalDate.now()
+    fun atMs(date: LocalDate, hhmm: String): Long? = runCatching {
+        java.time.LocalDateTime.of(date, LocalTime.parse(hhmm))
+            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
     }.getOrNull()
-    fun untilToday(hhmm: String): Int? = rawDelta(hhmm)?.let { if (it < 0) it + 1440 else it }
-    // 习惯：到点没打卡 = 欠着的排最前；已打卡的排到明天；未到点的按实际分钟数
-    val nextHabit = Habits.items.minOfOrNull { h ->
-        val raw = rawDelta(h.cueTime) ?: Int.MAX_VALUE
+    // 习惯：没到开始日 → 排到开始那天；今天已打卡 → 排到明天；今天到点没打卡 →
+    // 用今天那一刻（已经过去的时间戳）自然排最前，代表"欠着"
+    val nextHabit = Habits.items.filter { !Habits.expired(it) }.mapNotNull { h ->
+        val start = runCatching { LocalDate.parse(h.startDate) }.getOrNull() ?: return@mapNotNull null
         when {
-            Habits.isDoneToday(h.id) -> (if (raw < 0) raw + 1440 else raw) + 1440
-            raw < 0 -> 0
-            else -> raw
+            start.isAfter(today) -> atMs(start, h.cueTime)
+            Habits.isDoneToday(h.id) -> atMs(today.plusDays(1), h.cueTime)
+            else -> atMs(today, h.cueTime)
         }
-    }?.takeIf { it != Int.MAX_VALUE }
-    val sleepAt = plan?.entryFor(LocalDate.now().toString())?.winddown?.let { untilToday(it) }
+    }.minOrNull()
+    // 早睡：计划已开始取今天那档；还没开始就用起始那天的档位，卡片不会因此消失。
+    // 入睡/风屏时间属于「当晚」，00:00–11:59 的要落到次日凌晨（00:30 是明天凌晨，不是今早）
+    fun bedtimeMs(planDate: LocalDate, hhmm: String): Long? {
+        val t = runCatching { LocalTime.parse(hhmm) }.getOrNull() ?: return null
+        return atMs(if (t.hour < 12) planDate.plusDays(1) else planDate, hhmm)
+    }
+    val sleepDay = plan?.entryFor(today.toString()) ?: plan?.upcoming(today.toString())
+    val sleepAt = sleepDay?.let { bedtimeMs(LocalDate.parse(it.date), it.winddown) }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
