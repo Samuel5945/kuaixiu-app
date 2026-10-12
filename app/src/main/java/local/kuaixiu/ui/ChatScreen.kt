@@ -227,6 +227,14 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                              color = MaterialTheme.colorScheme.secondary)
                     }
                 }
+                "reminder" -> {
+                    val when_ = listOf(action.optString("date"), action.optString("time"))
+                        .filter { it.isNotBlank() }.joinToString(" ")
+                    Text("⏰ 教练帮你加一个提醒：${action.optString("text", "提醒")}" +
+                        (if (when_.isNotBlank()) "（$when_" +
+                            (if (action.optInt("leadMin") > 0) "，提前 ${action.optInt("leadMin")} 分钟" else "") +
+                            "）" else ""))
+                }
                 else -> return@Column
             }
             Button(onClick = {
@@ -269,6 +277,22 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                         Toast.makeText(ctx, "已打卡 ✅", Toast.LENGTH_SHORT).show()
                         applied = true
                     }
+                    "reminder" -> {
+                        val today = LocalDate.now()
+                        val d = action.optString("date").ifBlank { today.toString() }
+                        val t = action.optString("time", "09:00")
+                        runCatching {
+                            local.kuaixiu.calendar.CalendarWriter.addReminder(
+                                ctx, d, t, action.optString("text", "提醒"),
+                                action.optInt("leadMin", 0))
+                        }.onSuccess {
+                            Toast.makeText(ctx, "已加进日历「快休提醒」✅ 记得在日历里勾上显示",
+                                Toast.LENGTH_LONG).show()
+                            applied = true
+                        }.onFailure {
+                            Toast.makeText(ctx, "提醒写入失败：${it.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
                     "image" -> {
                         applied = true
                         onImage(action.optString("prompt"))
@@ -277,6 +301,7 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
             }, enabled = !applied) {
                 Text(when (kind) {
                     "image" -> if (applied) "已交给画师 ✓" else "🎨 生成这张助眠图"
+                    "reminder" -> if (applied) "已加进日历 ✓" else "加进日历"
                     else -> if (applied) "已应用 ✓" else "应用更改"
                 })
             }

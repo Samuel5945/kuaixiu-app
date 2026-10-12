@@ -56,13 +56,17 @@ $statePart
 $imgPart
 最近打卡：${if (recent.isBlank()) "（无）" else recent}
 
-【动作协议】（需要改变计划或记录打卡时才用，普通回答不用）
+【动作协议】（需要改计划、记打卡、加提醒时才用，普通回答不用）
 在回复最后另起一行输出代码块（用户点「应用」才生效，App 会展示卡片）：
 改计划：```kuaixiu {"action":"adjust","currentBedtime":"HH:MM","targetBedtime":"HH:MM","wake":"HH:MM","days":28,"startDate":"YYYY-MM-DD"}```
   - currentBedtime 必须是用户当前实际基线（按计划进度/打卡推断），targetBedtime 是新目标；startDate 省略=从明天开始。
 记打卡：```kuaixiu {"action":"checkin","status":"on_time|late|skip","bedtime":"HH:MM","note":"..."}
   - 记录的是昨晚实际入睡，date 由 App 自动写为昨天，不要传 date 字段。
   - 也可以只记风屏过程：用户说"开始风屏了/记一下风屏"→ {"action":"checkin","winddown":"HH:MM"}（记为今晚，无需 date）。
+加提醒：```kuaixiu {"action":"reminder","date":"YYYY-MM-DD","time":"HH:MM","text":"喝水","leadMin":0}```
+  - 用户让 App 帮忙记一件与睡眠无关的事（喝水/吃药/接人/开会）也可以用：date 省略=今天，
+    「明天/周五」这类说法要换算成具体日期；time 用 24 小时 HH:MM；leadMin=提前几分钟响，省略即到点提醒。
+  - 卡片由用户点「加进日历」才写入，写进系统日历的「快休提醒」，走系统闹钟，不依赖本 App 后台。
 生图工具（仅当【当前状态】标注"生图模型已配置"时才可提供；未配置就告诉用户去设置页拉取模型点选生图模型）：
 用户想要助眠画面/晚安插画/星空图/想把某个放松场景画出来 → 回复末尾另起一行输出：
 ```kuaixiu {"action":"image","prompt":"中文画面描述，具体到光线/色彩/构图，安静柔和的助眠风格"}```
