@@ -113,8 +113,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
         } else {
             // 顺序：昨晚成绩 → 今晚行动（风屏/打卡）→ 提醒/习惯/早睡按到点时间 → 未来 → 低频操作
             item { ScoreCard() }
-            item { CheckinCard() }
-            // 提醒 / 习惯 / 早睡三张卡按「下一次到点」排序：最近要做的排前面
+            // 提醒 / 习惯 / 早睡（风屏行动卡）按「下一次到点」排序：最近要做的排前面
             listOfNotNull(
                 nextRemind?.let { it to "提醒" },
                 nextHabit?.let { it to "习惯" },
@@ -123,9 +122,11 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                 when (which) {
                     "提醒" -> item { ReminderCard() }
                     "习惯" -> item { HabitCard() }
-                    else -> item { TodayCard(plan) }
+                    else -> item { CheckinCard() }   // 今晚风屏：到点就要点「开始风屏了」
                 }
             }
+            // 计划轴这两张必须挨着，别被习惯卡插开：今日参考 → 接下来几天
+            item { TodayCard(plan) }
             item { UpcomingCard(plan) }
             item { SyncCard() }
         }
