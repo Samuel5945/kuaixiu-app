@@ -43,7 +43,23 @@ object Prefs {
 
     /** 早期版本把开发机局域网 IP 写死为默认值；读到它一律视为未设置，交给自动发现。 */
     const val LEGACY_PC_URL = "http://192.168.2.5:8642"
+
+    /**
+     * pcUrl 净化：写死的开发机地址、以及被误存成 TCP 同步端口 8766 的（那端口永远不可能是
+     * 信息页），一律当作未填写丢掉，让 LanSync 重新发现。
+     */
+    private fun sanitizePcUrl(v: String?): String {
+        val u = (v ?: "").trim().trimEnd('/')
+        return if (u.isBlank() || u == LEGACY_PC_URL || u.contains(":8766")) "" else u
+    }
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
+
+    /** PC 端 plan.json 是 snake_case（单一事实源的权威格式）；导入按它解码，本地存储仍用驼峰。 */
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    private val pcJson = Json {
+        ignoreUnknownKeys = true
+        namingStrategy = kotlinx.serialization.json.JsonNamingStrategy.SnakeCase
+    }
 
     fun loadConfig(ctx: Context): KxConfig {
         val s = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -72,7 +88,7 @@ object Prefs {
             llmKey = key,
             llmModel = s.getString("llmModel", null) ?: "glm-4-flash",
             imageModel = s.getString("imageModel", null) ?: "",
-            pcUrl = (s.getString("pcUrl", null) ?: "").takeUnless { it == LEGACY_PC_URL } ?: "",
+            pcUrl = sanitizePcUrl(s.getString("pcUrl", null)),
             pcUploadCheckin = s.getBoolean("pcUploadCheckin", false),
             coachStyle = s.getString("coachStyle", null) ?: "gentle",
             providerName = s.getString("providerName", null) ?: "",
@@ -108,17 +124,19 @@ object Prefs {
     fun importPlanFromFile(ctx: Context): Plan? = runCatching {
         val f = java.io.File(ctx.filesDir, "plan.json")
         if (!f.exists()) return null
-        val p = json.decodeFromString<Plan>(f.readText())
+        val p = pcJson.decodeFromString<Plan>(f.readText())
         savePlan(ctx, p)
         p
-    }.getOrNull()
+    }.onFailure { android.util.Log.w("KuaixiuPrefs", "plan.json 导入失败: ${it.message}") }
+        .getOrNull()
 
     /** 从字符串导入计划（LAN 同步通道入口）。 */
     fun importPlanFromString(ctx: Context, raw: String): Plan? = runCatching {
-        val p = json.decodeFromString<Plan>(raw.trimStart('﻿'))
+        val p = pcJson.decodeFromString<Plan>(raw.trimStart('﻿'))
         savePlan(ctx, p)
         p
-    }.getOrNull()
+    }.onFailure { android.util.Log.w("KuaixiuPrefs", "计划导入失败: ${it.message}") }
+        .getOrNull()
 
     fun loadPlan(ctx: Context): Plan? = runCatching {
         val s = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)

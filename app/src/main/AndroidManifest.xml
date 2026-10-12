@@ -11,7 +11,10 @@
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.Kuaixiu"
-        android:allowBackup="true">
+        android:allowBackup="true"
+        android:usesCleartextTraffic="true">
+        <!-- 明文 HTTP 只用于局域网内的 PC 信息页/打卡回传，地址是动态发现的，
+             没法按域名放行；对公网的 LLM 与生图请求仍是 https。 -->
         <receiver android:name=".SyncReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="local.kuaixiu.SYNC_PLAN" />

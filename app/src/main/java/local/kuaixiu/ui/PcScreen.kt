@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import local.kuaixiu.data.KxStore
+import local.kuaixiu.data.LanSync
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.time.Duration
@@ -33,7 +35,8 @@ import java.time.Duration
 fun PcScreen(modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    var url by remember { mutableStateOf(KxStore.config.pcUrl) }
+    val found = LanSync.discoveredUrl
+    var url by remember { mutableStateOf(KxStore.config.pcUrl.ifBlank { found ?: "" }) }
     var raw by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
@@ -63,6 +66,10 @@ fun PcScreen(modifier: Modifier = Modifier) {
         }
     }
 
+    // 没填过就用自动发现的地址；打开这页即拉一次，不用手点刷新
+    LaunchedEffect(found) { if (url.isBlank() && !found.isNullOrBlank()) url = found }
+    LaunchedEffect(Unit) { if (url.isNotBlank()) fetch() }
+
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -76,9 +83,18 @@ fun PcScreen(modifier: Modifier = Modifier) {
                         OutlinedTextField(
                             value = url, onValueChange = { url = it },
                             label = { Text("PC 信息页地址") },
+                            placeholder = { Text("留空 = 自动发现") },
                             modifier = Modifier.weight(1f), singleLine = true,
                         )
                         Button(onClick = { fetch() }, enabled = !busy) { Text(if (busy) "…" else "刷新") }
+                    }
+                    if (url.isBlank()) {
+                        Text(
+                            if (found == null) "未发现电脑：电脑上运行 KuaixiuTray，与手机同一 Wi-Fi 即自动填入"
+                            else "已发现 $found",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                     error?.let {
                         Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
