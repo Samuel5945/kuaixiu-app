@@ -52,6 +52,7 @@ import local.kuaixiu.data.Score
 import local.kuaixiu.data.KxStore
 import local.kuaixiu.engine.Plan
 import java.time.LocalDate
+import java.time.LocalTime
 
 private val CALENDAR_PERMS = arrayOf(
     android.Manifest.permission.READ_CALENDAR,
@@ -68,6 +69,31 @@ fun HomeScreen(modifier: Modifier = Modifier) {
     LaunchedEffect(Unit) { perms.launch(CALENDAR_PERMS) }
 
     val plan = KxStore.plan
+    // 三张时间卡各自的「距现在多少分钟」，用来决定谁排前面（都得在这里算：LazyColumn 作用域里不能 remember）
+    var nextRemind by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(Unit) {
+        val at = kotlinx.coroutines.withContext(Dispatchers.IO) {
+            runCatching { local.kuaixiu.calendar.CalendarWriter.peekReminders(ctx).firstOrNull()?.third }
+                .onFailure { android.util.Log.w("Kuaixiu", "提醒排序读取失败: ${it.message}") }
+                .getOrNull()
+        }
+        nextRemind = at?.let { ((it - System.currentTimeMillis()) / 60000).toInt().coerceAtLeast(0) }
+    }
+    val nowMin = LocalTime.now()
+    fun rawDelta(hhmm: String): Int? = runCatching {
+        java.time.Duration.between(nowMin, LocalTime.parse(hhmm)).toMinutes().toInt()
+    }.getOrNull()
+    fun untilToday(hhmm: String): Int? = rawDelta(hhmm)?.let { if (it < 0) it + 1440 else it }
+    // 习惯：到点没打卡 = 欠着的排最前；已打卡的排到明天；未到点的按实际分钟数
+    val nextHabit = Habits.items.minOfOrNull { h ->
+        val raw = rawDelta(h.cueTime) ?: Int.MAX_VALUE
+        when {
+            Habits.isDoneToday(h.id) -> (if (raw < 0) raw + 1440 else raw) + 1440
+            raw < 0 -> 0
+            else -> raw
+        }
+    }?.takeIf { it != Int.MAX_VALUE }
+    val sleepAt = plan?.entryFor(LocalDate.now().toString())?.winddown?.let { untilToday(it) }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
@@ -76,12 +102,21 @@ fun HomeScreen(modifier: Modifier = Modifier) {
         if (plan == null) {
             item { EmptyCard() }
         } else {
-            // 顺序：昨晚成绩 → 今晚行动（风屏/打卡）→ 待办提醒 → 习惯 → 今日参考 → 未来 → 低频操作
+            // 顺序：昨晚成绩 → 今晚行动（风屏/打卡）→ 提醒/习惯/早睡按到点时间 → 未来 → 低频操作
             item { ScoreCard() }
             item { CheckinCard() }
-            item { ReminderCard() }
-            item { HabitCard() }
-            item { TodayCard(plan) }
+            // 提醒 / 习惯 / 早睡三张卡按「下一次到点」排序：最近要做的排前面
+            listOfNotNull(
+                nextRemind?.let { it to "提醒" },
+                nextHabit?.let { it to "习惯" },
+                sleepAt?.let { it to "早睡" },
+            ).sortedBy { it.first }.forEach { (_, which) ->
+                when (which) {
+                    "提醒" -> item { ReminderCard() }
+                    "习惯" -> item { HabitCard() }
+                    else -> item { TodayCard(plan) }
+                }
+            }
             item { UpcomingCard(plan) }
             item { SyncCard() }
         }
