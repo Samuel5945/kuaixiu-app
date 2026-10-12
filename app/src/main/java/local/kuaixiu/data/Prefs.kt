@@ -101,6 +101,15 @@ object Prefs {
         }
     }
 
+    /** 从 files/plan.json 导入（exe 经 adb 推送后的入口）。 */
+    fun importPlanFromFile(ctx: Context): Plan? = runCatching {
+        val f = java.io.File(ctx.filesDir, "plan.json")
+        if (!f.exists()) return null
+        val p = json.decodeFromString<Plan>(f.readText())
+        savePlan(ctx, p)
+        p
+    }.getOrNull()
+
     fun loadPlan(ctx: Context): Plan? = runCatching {
         val s = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
         s.getString("plan", null)?.let { json.decodeFromString<Plan>(it) }

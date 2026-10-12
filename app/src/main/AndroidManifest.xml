@@ -12,6 +12,12 @@
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.Kuaixiu"
         android:allowBackup="true">
+        <receiver android:name=".SyncReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="local.kuaixiu.SYNC_PLAN" />
+            </intent-filter>
+        </receiver>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
