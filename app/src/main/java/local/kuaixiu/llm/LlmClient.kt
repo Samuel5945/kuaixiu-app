@@ -89,21 +89,27 @@ class LlmClient(private val baseUrl: String, private val apiKey: String) {
         fun extractAction(text: String): String? =
             BLOCK.findAll(text).lastOrNull()?.groupValues?.get(1)?.trim()
 
-        /** 解析动作块；解析不出来就返回 null，调用侧必须保留原文，不能让它凭空消失。 */
+        /**
+         * 解析动作块。**必须和 stripAction 同一套取舍**：模型偶尔一次发多块，
+         * 若这里死盯最后一块而它恰好畸形，有效块已被 stripAction 删掉，卡片就凭空消失——
+         * 所以取「最后一个解析得出来的块」，解析不出来才返回 null。
+         */
         fun parseAction(text: String): JSONObject? =
-            extractAction(text)?.let { raw -> parseJson(raw) }
+            BLOCK.findAll(text).mapNotNull { parseJson(it.groupValues[1].trim()) }.lastOrNull()
 
         private fun parseJson(raw: String): JSONObject? =
-            sequenceOf(raw, repairJson(raw))
-                .mapNotNull { runCatching { JSONObject(it) }.getOrNull() }
-                .firstOrNull()
+            runCatching { JSONObject(raw) }.getOrNull()
+                ?: runCatching { JSONObject(repairJson(raw)) }.getOrNull()
 
-        /** 模型常把引号/冒号/逗号写成全角，或留个尾逗号——修一遍再试一次。 */
+        /**
+         * 模型常把引号/冒号/逗号写成全角，或留个尾逗号——修一遍再试一次。
+         * 注意：Android 的正则后端是 ICU，裸 } 会直接抛 PatternSyntaxException，
+         * 所以 [}\\]] 必须转义；这条在真机上崩过整个 App。
+         */
         private fun repairJson(raw: String): String = raw
             .replace('“', '"').replace('”', '"')
             .replace('：', ':').replace('，', ',')
-            .replace(Regex(",\\s*}"), "}")
-            .replace(Regex(",\\s*]"), "]")
+            .replace(Regex(",(\\s*[}\\]])"), "$1")
             .trim()
 
         /**
@@ -120,7 +126,8 @@ class LlmClient(private val baseUrl: String, private val apiKey: String) {
                 }
             }
             kept.append(text, last, text.length)
-            return kept.toString().trim()
+            // 块被摘走后剩下的连续换行会在气泡里留一个洞，折叠成一个段落空行
+            return kept.toString().trim().replace(Regex("\n{3,}"), "\n\n")
         }
     }
 }
