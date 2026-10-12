@@ -11,6 +11,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -55,11 +58,14 @@ import local.kuaixiu.data.HabitCheck
 import local.kuaixiu.data.Habits
 import local.kuaixiu.data.ImageGen
 import local.kuaixiu.data.KxStore
+import local.kuaixiu.llm.ActionRunner
 import local.kuaixiu.llm.CoachPrompt
 import local.kuaixiu.llm.LlmClient
+import local.kuaixiu.llm.LocalCoach
 import org.json.JSONObject
 import java.time.LocalDate
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ChatScreen(modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
@@ -194,6 +200,87 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                 }
             }
         }
+        // 发送：有 Key 走 LLM 流式；没 Key 走离线教练（同一个「text→动作卡」链路）
+        fun send(text: String) {
+            val q = text.trim()
+            if (q.isEmpty() || busy) return
+            input = ""
+            ChatStore.add(ctx, "user", q)
+            if (KxStore.config.llmKey.isBlank()) {
+                val knownReminders = runCatching {
+                    local.kuaixiu.calendar.CalendarWriter.peekReminders(ctx)
+                }.getOrDefault(emptyList()).map { it.second }
+                val knownHabits = Habits.items.filter { it.enabled }.map { it.name }
+                val reply = LocalCoach.reply(q, KxStore.config,
+                    knownReminders = knownReminders, knownHabits = knownHabits)
+                msgs.add(ChatMsg("assistant", reply.text, actionJson = reply.actionJson))
+                ChatLog.append(ctx, "assistant", reply.text, actionJson = reply.actionJson ?: "")
+                return
+            }
+            busy = true
+            val placeholderIdx = msgs.size
+            msgs.add(ChatMsg("assistant", "…"))  // 瞬态占位，不入盘
+            // 应用级作用域：切页签/锁屏流式不中断
+            local.kuaixiu.KxScope.app.launch {
+                runCatching {
+                    val history = msgs.filter {
+                        !it.text.startsWith("我是你的早睡教练") &&
+                            !it.text.startsWith("离线教练") && it.text != "…"
+                    }.takeLast(12).map { it.role to it.text }
+                    val sys = CoachPrompt.system(ctx)
+                    LlmClient(KxStore.config.llmBaseUrl, KxStore.config.llmKey)
+                        .chatStreaming(KxStore.config.llmModel, listOf("system" to sys) + history) { full ->
+                            if (placeholderIdx < msgs.size) {
+                                msgs[placeholderIdx] = ChatMsg("assistant", full)
+                            }
+                        }
+                }.onSuccess { reply ->
+                    val action = LlmClient.parseAction(reply)
+                    val shown = LlmClient.stripAction(reply)
+                    if (placeholderIdx < msgs.size) {
+                        msgs[placeholderIdx] = ChatMsg("assistant", shown.ifBlank { "（建议如下）" }, action?.toString())
+                    }
+                    ChatLog.append(ctx, "assistant", shown.ifBlank { "（建议如下）" },
+                        actionJson = action?.toString() ?: "")
+                    busy = false
+                }.onFailure { e ->
+                    if (placeholderIdx < msgs.size) {
+                        msgs[placeholderIdx] = ChatMsg("assistant", "出错了：${e.message}\n检查设置页的 base_url / key / model。")
+                    }
+                    busy = false
+                }
+            }
+        }
+        // 没配 Key：离线教练 + 快捷面板（点一下填进输入框，或直接发）
+        if (KxStore.config.llmKey.isBlank()) {
+            Column(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    "离线教练：只认下面这些说法（想自由聊就去「设置」配 LLM Key）",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    listOf(
+                        "目标改到23:00" to false,
+                        "起床改到7点" to false,
+                        "开始风屏了" to true,
+                        "明天08:00 提醒我 喝水" to false,
+                        "把喝水那条提醒删了" to false,
+                        "建个习惯：饭后散步，20:30，21天" to false,
+                        "做到了" to true,
+                        "这个计划科学吗" to true,
+                    ).forEach { (tpl, auto) ->
+                        AssistChip(
+                            onClick = { if (auto) send(tpl) else input = tpl },
+                            label = { Text(tpl, maxLines = 1) },
+                        )
+                    }
+                }
+            }
+        }
         Row(
             Modifier.fillMaxWidth().padding(top = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -207,48 +294,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                 maxLines = 4,
             )
             Button(
-                onClick = {
-                    val q = input.trim()
-                    if (q.isEmpty() || busy) return@Button
-                    if (KxStore.config.llmKey.isBlank()) {
-                        Toast.makeText(ctx, "先到「设置」里填 LLM API Key", Toast.LENGTH_LONG).show()
-                        return@Button
-                    }
-                    input = ""
-                    ChatStore.add(ctx, "user", q)
-                    busy = true
-                    val placeholderIdx = msgs.size
-                    msgs.add(ChatMsg("assistant", "…"))  // 瞬态占位，不入盘
-                    // 应用级作用域：切页签/锁屏流式不中断
-                    local.kuaixiu.KxScope.app.launch {
-                        runCatching {
-                            val history = msgs.filter {
-                                !it.text.startsWith("我是你的早睡教练") && it.text != "…"
-                            }.takeLast(12).map { it.role to it.text }
-                            val sys = CoachPrompt.system(ctx)
-                            LlmClient(KxStore.config.llmBaseUrl, KxStore.config.llmKey)
-                                .chatStreaming(KxStore.config.llmModel, listOf("system" to sys) + history) { full ->
-                                    if (placeholderIdx < msgs.size) {
-                                        msgs[placeholderIdx] = ChatMsg("assistant", full)
-                                    }
-                                }
-                        }.onSuccess { reply ->
-                            val action = LlmClient.parseAction(reply)
-                            val shown = LlmClient.stripAction(reply)
-                            if (placeholderIdx < msgs.size) {
-                                msgs[placeholderIdx] = ChatMsg("assistant", shown.ifBlank { "（建议如下）" }, action?.toString())
-                            }
-                            ChatLog.append(ctx, "assistant", shown.ifBlank { "（建议如下）" },
-                                actionJson = action?.toString() ?: "")
-                            busy = false
-                        }.onFailure { e ->
-                            if (placeholderIdx < msgs.size) {
-                                msgs[placeholderIdx] = ChatMsg("assistant", "出错了：${e.message}\n检查设置页的 base_url / key / model。")
-                            }
-                            busy = false
-                        }
-                    }
-                },
+                onClick = { send(input) },
                 enabled = !busy && !selecting,   // 多选时禁发，否则索引会错位
                 modifier = Modifier.height(56.dp),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
@@ -444,7 +490,7 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                         if (action.optString("op") == "cancel") {
                             val t = action.optString("text")
                             runCatching {
-                                local.kuaixiu.calendar.CalendarWriter.deleteRemindersByText(ctx, t)
+                                ActionRunner.cancelReminder(ctx, t)
                             }.onSuccess { n ->
                                 Toast.makeText(ctx, if (n > 0) "已删掉 $n 条「$t」" else "没找到「$t」这条提醒",
                                     Toast.LENGTH_SHORT).show()
@@ -456,11 +502,10 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                             val today = LocalDate.now()
                             val d = action.optString("date").ifBlank { today.toString() }
                             val t = action.optString("time", "09:00")
-                            runCatching {
-                                local.kuaixiu.calendar.CalendarWriter.addReminder(
-                                    ctx, d, t, action.optString("text", "提醒"),
-                                    action.optInt("leadMin", 0))
-                            }.onSuccess {
+                            ActionRunner.applyReminder(
+                                ctx, d, t, action.optString("text", "提醒"),
+                                action.optInt("leadMin", 0)
+                            ).onSuccess {
                                 Toast.makeText(ctx, "已加进日历「快休提醒」✅", Toast.LENGTH_LONG).show()
                                 applied = true
                             }.onFailure {
@@ -501,8 +546,8 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                                         }
                                 }
                             }
-                            else -> when (val r = Habits.create(
-                                ctx, h.name, h.cue, h.days, h.start, ackCost = ackCost)) {
+                            else -> when (val r = ActionRunner.applyHabitAdd(
+                                ctx, h.name, h.cue, h.days, h.start, ackCost)) {
                                 is HabitCheck.Ok -> {
                                     Toast.makeText(ctx,
                                         (if (habitUpdate) "已改好，日历里那条重写了" else "已写进日历「快休习惯」") +
@@ -554,7 +599,7 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                     when {
                         reminderExists -> OutlinedButton(onClick = {
                             runCatching {
-                                local.kuaixiu.calendar.CalendarWriter.deleteRemindersByText(ctx, remindText)
+                                ActionRunner.cancelReminder(ctx, remindText)
                             }.onSuccess { n ->
                                 Toast.makeText(ctx, if (n > 0) "已删掉这条提醒" else "没找到「$remindText」",
                                     Toast.LENGTH_SHORT).show()

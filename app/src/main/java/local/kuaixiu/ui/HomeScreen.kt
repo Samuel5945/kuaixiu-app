@@ -103,6 +103,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
     }
     val sleepDay = plan?.entryFor(today.toString()) ?: plan?.upcoming(today.toString())
     val sleepAt = sleepDay?.let { bedtimeMs(LocalDate.parse(it.date), it.winddown) }
+    var quickRev by remember { mutableStateOf(0) }   // 手动加提醒后，把提醒卡顶着重载一次
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
@@ -120,7 +121,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                 sleepAt?.let { it to "早睡" },
             ).sortedBy { it.first }.forEach { (_, which) ->
                 when (which) {
-                    "提醒" -> item { ReminderCard() }
+                    "提醒" -> item { ReminderCard(quickRev) }
                     "习惯" -> item { HabitCard() }
                     else -> item { CheckinCard() }   // 今晚风屏：到点就要点「开始风屏了」
                 }
@@ -130,6 +131,8 @@ fun HomeScreen(modifier: Modifier = Modifier) {
             item { UpcomingCard(plan) }
             item { SyncCard() }
         }
+        // 常显：不经过教练也能手动加提醒 / 建习惯（两张原有的卡在空列表时不渲染，塞不进去）
+        item { QuickAddCard(onSaved = { quickRev++ }) }
         item {
             Text(
                 "提醒由系统日历触发；荣耀日历里勾选显示「快休早睡」即可。",
@@ -211,7 +214,7 @@ private fun shiftRemaining(plan: Plan, bedtime: String): Int {
  * 厂商日历不给 sync-adapter 本地账户的事件提供删除入口，所以删除必须我们自己给。
  */
 @Composable
-private fun ReminderCard() {
+private fun ReminderCard(refreshKey: Int = 0) {
     val ctx = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var items by remember {
@@ -227,7 +230,7 @@ private fun ReminderCard() {
             kotlinx.coroutines.withContext(Dispatchers.Main) { items = list }
         }
     }
-    LaunchedEffect(Unit) { reload() }
+    LaunchedEffect(refreshKey) { reload() }
     if (items.isEmpty()) return
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -706,4 +709,30 @@ private fun UpcomingCard(plan: Plan) {
             }
         }
     }
+}
+
+/**
+ * 常显的手动添加入口。教练页要配 Key 才能用「加提醒/建习惯」的动作卡，
+ * 这里给出不依赖任何 AI 的直连入口（写库逻辑与动作卡同一套，见 ActionRunner）。
+ */
+@Composable
+private fun QuickAddCard(onSaved: () -> Unit) {
+    var addReminder by remember { mutableStateOf(false) }
+    var addHabit by remember { mutableStateOf(false) }
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("手动添加", style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { addReminder = true }) { Text("+ 加提醒") }
+                OutlinedButton(onClick = { addHabit = true }) { Text("+ 新习惯") }
+            }
+            Text(
+                "不经过教练也能直接加；提醒走系统日历一次，习惯连响 N 天。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    if (addReminder) ReminderDialog(onDismiss = { addReminder = false; onSaved() })
+    if (addHabit) HabitDialog(onDismiss = { addHabit = false })
 }
