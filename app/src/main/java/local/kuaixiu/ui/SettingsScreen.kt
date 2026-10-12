@@ -82,6 +82,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     var keyInput by remember { mutableStateOf("") }  // 空 = 保持已存 Key
     var planBusy by remember { mutableStateOf(false) }
     var modelsDlg by remember { mutableStateOf<Pair<List<String>, List<String>>?>(null) } // (text, image)
+    var imgSrc by remember { mutableStateOf("") }  // 本次生图列表来自哪家
     var modelsErr by remember { mutableStateOf<String?>(null) }
     var modelsBusy by remember { mutableStateOf(false) }
 
@@ -114,6 +115,12 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     fun fetchModels() {
         if (cfg.llmKey.isBlank()) { Toast.makeText(ctx, "先填 API Key", Toast.LENGTH_SHORT).show(); return }
         modelsBusy = true; modelsErr = null
+        // 记下生图列表来自哪家，点选时把这份归属一起存下来（文本供应商随后切走也不影响）
+        val imgHome = if (cfg.imageProvider.isBlank()) cfg.providerName else {
+            val base = ProviderProfiles.get(ctx, cfg.imageProvider)?.baseUrl?.trimEnd('/')
+            if (base.isNullOrBlank() || base == cfg.llmBaseUrl.trimEnd('/')) cfg.providerName else cfg.imageProvider
+        }
+        imgSrc = imgHome
         scope.launch(Dispatchers.IO) {
             runCatching {
                 // 文本列表来自文本那家，生图列表来自生图那家（两家可以不同）
@@ -273,13 +280,13 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                                     keyInput = ""
                                     // 切档案：载入该供应商自己的 base_url/Key/模型（没有则用官方种子）
                                     val np = ProviderProfiles.get(ctx, preset.name)
-                                    val img = np?.imageModel?.ifBlank { preset.imageSeed } ?: preset.imageSeed
+                                    val seed = np?.imageModel?.ifBlank { preset.imageSeed } ?: preset.imageSeed
                                     persist(cfg.copy(
                                         providerName = preset.name,
                                         llmBaseUrl = np?.baseUrl?.ifBlank { preset.baseUrl } ?: preset.baseUrl,
                                         llmModel = np?.model?.ifBlank { preset.modelSeed } ?: preset.modelSeed,
-                                        // 只有这家有生图种子时才覆盖，否则保留原值不清空
-                                        imageModel = if (img.isBlank()) cfg.imageModel else img,
+                                        // 生图只在「还没配过」时用种子填一下；已配好的不跟文本供应商换
+                                        imageModel = if (cfg.imageModel.isBlank()) seed else cfg.imageModel,
                                         llmKey = ProviderProfiles.decryptKey(np),
                                     ))
                                 },
@@ -323,36 +330,11 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                         value = cfg.llmModel, onValueChange = { editProvider { c -> c.copy(llmModel = it) } },
                         label = { Text("模型") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
                     )
-                    // 生图允许和文本分家：文本走智谱、生图走商汤
-                    Text("生图供应商", style = MaterialTheme.typography.labelSmall,
-                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(
-                            selected = cfg.imageProvider.isBlank(),
-                            onClick = { edit { c -> c.copy(imageProvider = "") } },
-                            label = { Text("同文本") },
-                        )
-                        PROVIDER_PRESETS.forEach { preset ->
-                            val sel = cfg.imageProvider == preset.name
-                            FilterChip(
-                                selected = sel,
-                                onClick = {
-                                    val stored = ProviderProfiles.get(ctx, preset.name)?.imageModel ?: ""
-                                    val img = preset.imageSeed.ifBlank { stored }
-                                    edit { c -> c.copy(imageProvider = preset.name)
-                                        .let { if (img.isNotBlank()) it.copy(imageModel = img) else it } }
-                                },
-                                label = { Text(preset.name) },
-                                leadingIcon = if (sel) {
-                                    { Icon(Icons.Filled.Check, contentDescription = "已选",
-                                          modifier = Modifier.size(18.dp)) }
-                                } else null,
-                            )
-                        }
-                    }
+                    // 生图归属哪家由「这个模型是从哪家的列表里选的」决定，切文本供应商不动它
                     OutlinedTextField(
-                        value = cfg.imageModel, onValueChange = { edit { c -> c.copy(imageModel = it) } },
-                        label = { Text("生图模型（走上面那家的端点与 Key）") },
+                        value = cfg.imageModel,
+                        onValueChange = { edit { c -> c.copy(imageModel = it, imageProvider = cfg.providerName) } },
+                        label = { Text("生图模型（从列表选会自动记住来自哪家；手填按当前文本这家算）") },
                         modifier = Modifier.fillMaxWidth(), singleLine = true,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -433,11 +415,12 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                         }
                     }
                     if (image.isNotEmpty()) {
-                        Text("生图模型（点选给教练画图用）", style = MaterialTheme.typography.labelSmall,
+                        Text("生图模型（来自 ${imgSrc.ifBlank { "当前这家" }}，点选即归它管）",
+                             style = MaterialTheme.typography.labelSmall,
                              color = MaterialTheme.colorScheme.onSurfaceVariant)
                         image.forEach { m ->
                             TextButton(onClick = {
-                                edit { c -> c.copy(imageModel = m) }
+                                edit { c -> c.copy(imageModel = m, imageProvider = imgSrc) }
                                 modelsDlg = null
                             }) { Text(m + if (cfg.imageModel == m) " ✓" else "") }
                         }
