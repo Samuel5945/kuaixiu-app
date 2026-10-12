@@ -249,11 +249,13 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                             FilterChip(
                                 selected = selected,
                                 onClick = {
-                                    // 先把当前供应商的 Key 归位到它自己的档案：老配置的 Key 只存在
-                                    // llmKeyEnc 里，切走时空 Key 会把它覆盖掉
-                                    if (cfg.providerName.isNotBlank() && cfg.llmKey.isNotBlank()) {
+                                    // 离开当前供应商前先把 Key 归位到它自己的档案：框里没点
+                                    // 「保存 Key」的输入、以及只存在 llmKeyEnc 里的老 Key，
+                                    // 否则切过来时带的是新档案的空 Key，会把上一家冲掉
+                                    val pending = keyInput.trim().ifBlank { cfg.llmKey }
+                                    if (cfg.providerName.isNotBlank() && pending.isNotBlank()) {
                                         ProviderProfiles.put(ctx, cfg.providerName, cfg.llmBaseUrl,
-                                            cfg.llmKey, cfg.llmModel, cfg.imageModel)
+                                            pending, cfg.llmModel, cfg.imageModel)
                                     }
                                     keyInput = ""
                                     // 切档案：载入该供应商自己的 base_url/Key/模型（没有则用官方种子）
