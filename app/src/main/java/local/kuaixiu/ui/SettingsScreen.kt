@@ -59,7 +59,8 @@ private val PROVIDER_PRESETS = listOf(
     ProviderPreset("DeepSeek", "https://api.deepseek.com/v1", "deepseek-chat"),
     // Step Plan 订阅套餐专属通道；按量付费的 key 要改成 https://api.stepfun.com/v1
     ProviderPreset("Step 阶跃", "https://api.stepfun.com/step_plan/v1", "step-3.5-flash"),
-    ProviderPreset("商汤日日新", "https://api.sensenova.cn/v1", ""),
+    // 商汤走 token.sensenova.cn（api.sensenova.cn 上没有任何 /v1 路由，实测 404）
+    ProviderPreset("商汤日日新", "https://token.sensenova.cn/v1", ""),
     ProviderPreset("基元律动", "https://tokenrhythm.studio/v1", "deepseek-v4-flash"),
 )
 
