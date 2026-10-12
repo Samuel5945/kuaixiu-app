@@ -88,18 +88,30 @@ object Score {
 
     /** 连续准时天数：从最近一次记录往前数连续 on_time 的自然日（缺记录即断）。 */
     fun streak(checkins: List<Checkin>, today: java.time.LocalDate = java.time.LocalDate.now()): Int {
-        val byDate = checkins.associateBy { it.date }
-        var start = today
-        // 今天还没打卡就从昨天起算
-        if (byDate[start.toString()] == null) start = today.minusDays(1)
+        // 今晚已经记了迟睡/没做到 → 当场归零，不能沿用昨天的连续
+        val row = checkins.firstOrNull { it.date == today.toString() }
+        if (row != null && row.status != "on_time") return 0
+        return streakOn(checkins.filter { it.status == "on_time" }.map { it.date }.toSet(), today)
+    }
+
+    /** 连续天数通用核心：睡眠用 on_time 日期集合，习惯用 habitId 的打卡日期集合。 */
+    fun streakOn(done: Set<String>, today: java.time.LocalDate = java.time.LocalDate.now()): Int {
+        var d = if (today.toString() in done) today else today.minusDays(1)
         var n = 0
-        var d = start
-        while (true) {
-            val row = byDate[d.toString()] ?: break
-            if (row.status != "on_time") break
+        while (d.toString() in done) {
             n++
             d = d.minusDays(1)
         }
         return n
+    }
+
+    /** 达成率：已走过的天数里打卡占比（未开始/已超期分别夹到边界）。 */
+    fun completion(done: Set<String>, startDate: java.time.LocalDate, planDays: Int,
+                   today: java.time.LocalDate = java.time.LocalDate.now()): Pair<Int, Int> {
+        val elapsed = if (today.isBefore(startDate)) 0
+            else kotlin.math.min(planDays, java.time.temporal.ChronoUnit.DAYS
+                .between(startDate, today).toInt() + 1)
+        val hits = (0 until elapsed).count { startDate.plusDays(it.toLong()).toString() in done }
+        return hits to elapsed
     }
 }
