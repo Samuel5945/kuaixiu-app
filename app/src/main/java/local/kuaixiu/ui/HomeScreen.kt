@@ -3,7 +3,10 @@ package local.kuaixiu.ui
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -12,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.asImageBitmap
@@ -38,6 +42,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import local.kuaixiu.data.Checkin
 import local.kuaixiu.data.Checkins
+import local.kuaixiu.data.Habit
+import local.kuaixiu.data.HabitCheck
+import local.kuaixiu.data.Habits
 import local.kuaixiu.data.ImageGen
 import local.kuaixiu.data.UsageProbe
 import local.kuaixiu.engine.PlanEngine
@@ -69,10 +76,11 @@ fun HomeScreen(modifier: Modifier = Modifier) {
         if (plan == null) {
             item { EmptyCard() }
         } else {
-            // 顺序：昨晚成绩 → 今晚行动（风屏/打卡）→ 待办提醒 → 今日参考 → 未来 → 低频操作
+            // 顺序：昨晚成绩 → 今晚行动（风屏/打卡）→ 待办提醒 → 习惯 → 今日参考 → 未来 → 低频操作
             item { ScoreCard() }
             item { CheckinCard() }
             item { ReminderCard() }
+            item { HabitCard() }
             item { TodayCard(plan) }
             item { UpcomingCard(plan) }
             item { SyncCard() }
@@ -207,6 +215,117 @@ private fun ReminderCard() {
             Text("到点由系统日历弹通知，不依赖本 App 后台。",
                  style = MaterialTheme.typography.bodySmall,
                  color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/**
+ * 习惯卡：点阵看 N 天进度，今天做到了就点一下，暂停/删除的入口也在这儿。
+ * 事件在独立日历「快休习惯」里，重算作息计划（删旧插新）碰不到它。
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HabitCard() {
+    val items = Habits.items
+    if (items.isEmpty()) return
+    val today = LocalDate.now()
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("习惯", style = MaterialTheme.typography.titleMedium)
+            items.forEach { HabitRow(it, today) }
+            Text(
+                "到点由系统日历在「快休习惯」里提醒，一次写入连响 N 天；重算作息计划不会动它。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HabitRow(h: Habit, today: LocalDate) {
+    val ctx = LocalContext.current
+    val done = Habits.doneDates[h.id].orEmpty()
+    val day = Habits.dayOf(h, today)
+    val expired = Habits.expired(h, today)
+    val doneToday = Habits.isDoneToday(h.id, today.toString())
+    val hits = Habits.completionOf(h, today)
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(h.name, modifier = Modifier.weight(1f),
+                 style = MaterialTheme.typography.titleSmall)
+            if (!h.enabled) {
+                TextButton(onClick = {
+                    runCatching { Habits.setEnabled(ctx, h.id, on = true) }.onSuccess { r ->
+                        when (r) {
+                            is HabitCheck.Ok -> Toast.makeText(ctx, "已恢复，从今天起再走 ${r.habit.days} 天",
+                                Toast.LENGTH_LONG).show()
+                            is HabitCheck.QuotaFull -> Toast.makeText(ctx,
+                                "「${r.activeNames.joinToString("、")}」还在跑，先暂停一个再恢复", Toast.LENGTH_LONG).show()
+                            is HabitCheck.AnchorConflict -> Toast.makeText(ctx,
+                                "锚点和「${r.otherName}」只差 ${r.gapMin} 分钟，恢复会被拦下", Toast.LENGTH_LONG).show()
+                            is HabitCheck.Invalid -> Toast.makeText(ctx, r.reason, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }) { Text("恢复") }
+            } else {
+                TextButton(onClick = {
+                    runCatching { Habits.setEnabled(ctx, h.id, on = false) }.onSuccess {
+                        Toast.makeText(ctx, "已暂停，日历不再提醒（已打卡的天数留着）", Toast.LENGTH_LONG).show()
+                    }
+                }) { Text("暂停") }
+            }
+            TextButton(onClick = {
+                runCatching { Habits.remove(ctx, h.id) }
+                    .onSuccess { Toast.makeText(ctx, "已删除「${h.name}」，日历事件一并清掉", Toast.LENGTH_LONG).show() }
+            }) { Text("删除") }
+        }
+        Text(
+            when {
+                !h.enabled -> "暂停中 · 锚点 ${h.cueTime}"
+                day == 0 -> "还没开始 · ${h.startDate} 起每天 ${h.cueTime}"
+                expired -> "已满 ${h.days} 天 · 锚点 ${h.cueTime} · 达成 ${hits.first}/${hits.second}"
+                else -> "第 $day/${h.days} 天 · 锚点 ${h.cueTime} · 连续 ${Habits.streakOf(h, today)} 天" +
+                    " · 达成 ${hits.first}/${hits.second}"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            val start = runCatching { LocalDate.parse(h.startDate) }.getOrElse { today }
+            val todayS = today.toString()
+            val shape = androidx.compose.foundation.shape.CircleShape
+            for (i in 0 until h.days) {
+                val d = start.plusDays(i.toLong()).toString()
+                val c = when {
+                    d in done -> MaterialTheme.colorScheme.primary
+                    !h.enabled || expired -> MaterialTheme.colorScheme.surfaceVariant
+                    d == todayS -> MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                    d < todayS -> MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                }
+                Box(
+                    Modifier.size(11.dp)
+                        .background(c, shape)
+                        .then(if (d == todayS && h.enabled && !expired)
+                                  Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, shape)
+                              else Modifier),
+                )
+            }
+        }
+        if (h.enabled && !expired && day > 0) {
+            if (doneToday) {
+                Text("今日已打卡 ✓", color = MaterialTheme.colorScheme.secondary,
+                     style = MaterialTheme.typography.titleSmall)
+            } else {
+                Button(onClick = {
+                    Habits.markDone(ctx, h.id)
+                    Toast.makeText(ctx, "记上了，第 $day 天 🔥", Toast.LENGTH_SHORT).show()
+                }) { Text("今天做到了，打卡") }
+            }
         }
     }
 }

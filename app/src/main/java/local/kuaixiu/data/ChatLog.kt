@@ -14,8 +14,10 @@ object ChatLog {
 
     const val MAX = 200
 
+    /** actionJson 一起落盘：这台机器随时会杀进程，动作卡不能因为重启就凭空消失。 */
     @Serializable
-    data class Entry(val role: String, val text: String, val imagePath: String = "")
+    data class Entry(val role: String, val text: String, val imagePath: String = "",
+                     val actionJson: String = "")
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -26,8 +28,9 @@ object ChatLog {
         if (!f.exists()) emptyList() else json.decodeFromString<List<Entry>>(f.readText())
     }.getOrDefault(emptyList())
 
-    fun append(ctx: Context, role: String, text: String, imagePath: String = ""): List<Entry> {
-        val list = (load(ctx) + Entry(role, text, imagePath)).takeLast(MAX)
+    fun append(ctx: Context, role: String, text: String, imagePath: String = "",
+               actionJson: String = ""): List<Entry> {
+        val list = (load(ctx) + Entry(role, text, imagePath, actionJson)).takeLast(MAX)
         file(ctx).writeText(json.encodeToString(list))
         return list
     }

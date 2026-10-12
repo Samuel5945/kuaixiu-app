@@ -21,7 +21,8 @@ object ChatStore {
         if (loaded) return
         loaded = true
         val restored = ChatLog.load(ctx).map {
-            ChatMsg(it.role, it.text, imagePath = it.imagePath.ifBlank { null })
+            ChatMsg(it.role, it.text, actionJson = it.actionJson.ifBlank { null },
+                    imagePath = it.imagePath.ifBlank { null })
         }
         msgs.addAll(restored)
         if (msgs.isEmpty()) {

@@ -38,6 +38,8 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import local.kuaixiu.data.ChatLog
+import local.kuaixiu.data.HabitCheck
+import local.kuaixiu.data.Habits
 import local.kuaixiu.data.ImageGen
 import local.kuaixiu.data.KxStore
 import local.kuaixiu.llm.CoachPrompt
@@ -53,9 +55,11 @@ fun ChatScreen(modifier: Modifier = Modifier) {
     var input by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    // 动作卡是列表里的独立一行，不塞进气泡：长回复会把按钮顶出视口，看着就像「没有卡片」
+    val rows = rowsOf(msgs)
 
-    LaunchedEffect(msgs.size) {
-        if (msgs.isNotEmpty()) listState.animateScrollToItem(msgs.size - 1)
+    LaunchedEffect(rows.size) {
+        if (rows.isNotEmpty()) listState.animateScrollToItem(rows.size - 1)
     }
 
     Column(modifier = modifier.fillMaxSize().imePadding().padding(12.dp)) {
@@ -65,7 +69,32 @@ fun ChatScreen(modifier: Modifier = Modifier) {
             contentPadding = PaddingValues(vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(msgs) { m ->
+            items(rows) { r ->
+                val m = msgs[r.idx]
+                val aj = if (r.card) m.actionJson else null
+                if (aj != null) {
+                    ActionCard(aj, onImage = { prompt ->
+                        val genIdx = msgs.size
+                        ChatStore.addTransient(ChatMsg("assistant", "🎨 生图中…（约半分钟）"))
+                        // 应用级作用域：切页签/锁屏不中断，完成后原地变成图片并落盘
+                        local.kuaixiu.KxScope.app.launch {
+                            runCatching { ImageGen.generate(ctx, KxStore.config, prompt) }
+                                .onSuccess { f ->
+                                    kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                        ChatStore.replace(ctx, genIdx,
+                                            ChatMsg("assistant", "🎨 ${prompt}", imagePath = f.absolutePath),
+                                            persisted = true)
+                                    }
+                                }
+                                .onFailure { e ->
+                                    kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                        ChatStore.replace(ctx, genIdx,
+                                            ChatMsg("assistant", "生图失败：${e.message}"), persisted = true)
+                                    }
+                                }
+                        }
+                    })
+                } else {
                 val isUser = m.role == "user"
                 Column(
                     Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -104,31 +133,9 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                                 )
                             }
                         }
-                        m.actionJson?.let { aj ->
-                            ActionCard(aj, onImage = { prompt ->
-                                val genIdx = msgs.size
-                                ChatStore.addTransient(ChatMsg("assistant", "🎨 生图中…（约半分钟）"))
-                                // 应用级作用域：切页签/锁屏不中断，完成后原地变成图片并落盘
-                                local.kuaixiu.KxScope.app.launch {
-                                    runCatching {
-                                        ImageGen.generate(ctx, KxStore.config, prompt)
-                                    }.onSuccess { f ->
-                                        kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                            ChatStore.replace(ctx, genIdx,
-                                                ChatMsg("assistant", "🎨 ${prompt}", imagePath = f.absolutePath),
-                                                persisted = true)
-                                        }
-                                    }.onFailure { e ->
-                                        kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                            ChatStore.replace(ctx, genIdx,
-                                                ChatMsg("assistant", "生图失败：${e.message}"), persisted = true)
-                                        }
-                                    }
-                                }
-                            })
-                        }
                     }
                     }
+                }
                 }
             }
         }
@@ -176,7 +183,8 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                             if (placeholderIdx < msgs.size) {
                                 msgs[placeholderIdx] = ChatMsg("assistant", shown.ifBlank { "（建议如下）" }, action?.toString())
                             }
-                            ChatLog.append(ctx, "assistant", shown.ifBlank { "（建议如下）" })
+                            ChatLog.append(ctx, "assistant", shown.ifBlank { "（建议如下）" },
+                                actionJson = action?.toString() ?: "")
                             busy = false
                         }.onFailure { e ->
                             if (placeholderIdx < msgs.size) {
@@ -200,7 +208,19 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
     var applied by remember { mutableStateOf(false) }
     val action = runCatching { JSONObject(actionJson) }.getOrNull() ?: return
     val kind = action.optString("action")
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))) {
+    val habit = if (kind == "habit") parseHabit(action) else null
+    // 第 3 个并行习惯不硬拦，但要用户看过代价再点第二次
+    var ackCost by remember { mutableStateOf(false) }
+    val habitCheck = habit?.takeIf { it.op == "add" }?.let {
+        Habits.check(Habits.items, it.name, it.cue, it.days, it.start)
+    }
+    val habitBlocked = habitCheck is HabitCheck.AnchorConflict || habitCheck is HabitCheck.Invalid
+    // 同名 add 就是"改这个习惯"（协议里没有 edit 动作，教练说"改成明天开始"只会再发一次 add）
+    val habitUpdate = habit != null && habit.op == "add" &&
+        Habits.items.any { it.name.trim() == habit.name.trim() }
+    val actionable = kind in setOf("adjust", "checkin", "image", "reminder", "habit")
+    Card(Modifier.fillMaxWidth(),
+         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             when (kind) {
                 "adjust" -> {
@@ -238,9 +258,45 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                             (if (when_.isNotBlank()) "（$when_$lead）" else ""))
                     }
                 }
-                else -> return@Column
+                "habit" -> {
+                    val h = habit ?: return@Column
+                    when (h.op) {
+                        "done" -> Text("✅ 教练帮你记一笔习惯打卡：${h.name}（今天）")
+                        "pause" -> Text("⏸ 教练帮你暂停习惯：${h.name}（日历先不响，已打的天数留着）")
+                        else -> {
+                            Text(
+                                if (habitUpdate) "🌱 教练要改这个习惯的参数：${h.name}"
+                                else "🌱 教练想帮你开一个习惯：${h.name}",
+                                style = MaterialTheme.typography.titleSmall,
+                            )
+                            Text((if (habitUpdate) "改成：" else "") +
+                                "${h.start} 起，每天 ${h.cue} 系统日历提醒，连响 ${h.days} 天")
+                            when (val r = habitCheck) {
+                                is HabitCheck.AnchorConflict -> Text(
+                                    "锚点和「${r.otherName}」只差 ${r.gapMin} 分钟——挨太近的两个执行意图会互相抵消，" +
+                                        "先错开时间再来。",
+                                    color = MaterialTheme.colorScheme.error)
+                                is HabitCheck.QuotaFull -> Text(
+                                    if (ackCost) "你已经看过代价，再点一次就写进日历。"
+                                    else "「${r.activeNames.joinToString("、")}」还在跑。同时开第 3 个，" +
+                                        "研究里成功率明显下降，建议先跑稳这两个。",
+                                    color = MaterialTheme.colorScheme.tertiary)
+                                is HabitCheck.Invalid -> Text(r.reason,
+                                    color = MaterialTheme.colorScheme.error)
+                                null, is HabitCheck.Ok -> {}
+                            }
+                        }
+                    }
+                }
+                else -> {
+                    // 不认识的动作也要看得见，否则卡片凭空消失，谁都不知道模型给了什么
+                    Text("⚠️ App 还不认识这个动作：${kind.ifBlank { "（块里没有 action 字段）" }}",
+                         style = MaterialTheme.typography.titleSmall)
+                    Text(action.toString(), style = MaterialTheme.typography.bodySmall,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            Button(onClick = {
+            if (actionable) Button(onClick = {
                 if (applied) return@Button
                 when (kind) {
                     "adjust" -> {
@@ -308,20 +364,109 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                             }
                         }
                     }
+                    "habit" -> {
+                        val h = habit ?: return@Button
+                        when (h.op) {
+                            "done" -> {
+                                val target = Habits.findByName(h.name)
+                                if (target == null) {
+                                    Toast.makeText(ctx, "没找到「${h.name}」这个习惯", Toast.LENGTH_SHORT).show()
+                                } else if (Habits.dayOf(target) == 0) {
+                                    Toast.makeText(ctx, "「${target.name}」还没开始（${target.startDate} 起），" +
+                                        "今天先不记", Toast.LENGTH_LONG).show()
+                                } else {
+                                    Habits.markDone(ctx, target.id)
+                                    Toast.makeText(ctx, "「${target.name}」第 ${Habits.dayOf(target)} 天已打卡 ✅",
+                                        Toast.LENGTH_SHORT).show()
+                                    applied = true
+                                }
+                            }
+                            "pause" -> {
+                                val target = Habits.findByName(h.name)
+                                if (target == null) {
+                                    Toast.makeText(ctx, "没找到「${h.name}」这个习惯", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    runCatching { Habits.setEnabled(ctx, target.id, on = false) }
+                                        .onSuccess {
+                                            Toast.makeText(ctx, "已暂停「${target.name}」，日历不再响",
+                                                Toast.LENGTH_LONG).show()
+                                            applied = true
+                                        }
+                                        .onFailure {
+                                            Toast.makeText(ctx, "暂停失败：${it.message}", Toast.LENGTH_SHORT).show()
+                                        }
+                                }
+                            }
+                            else -> when (val r = Habits.create(
+                                ctx, h.name, h.cue, h.days, h.start, ackCost = ackCost)) {
+                                is HabitCheck.Ok -> {
+                                    Toast.makeText(ctx,
+                                        (if (habitUpdate) "已改好，日历里那条重写了" else "已写进日历「快休习惯」") +
+                                            "，连响 ${r.habit.days} 天 ✅", Toast.LENGTH_LONG).show()
+                                    applied = true
+                                }
+                                is HabitCheck.QuotaFull -> {
+                                    ackCost = true
+                                    Toast.makeText(ctx, "第 3 个习惯要先确认代价，再点一次才真的加上",
+                                        Toast.LENGTH_LONG).show()
+                                }
+                                is HabitCheck.AnchorConflict -> Toast.makeText(ctx,
+                                    "锚点和「${r.otherName}」只差 ${r.gapMin} 分钟，先错开时间",
+                                    Toast.LENGTH_LONG).show()
+                                is HabitCheck.Invalid -> Toast.makeText(ctx, r.reason,
+                                    Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
                     "image" -> {
                         applied = true
                         onImage(action.optString("prompt"))
                     }
                 }
-            }, enabled = !applied) {
+            }, enabled = !applied && !habitBlocked) {
                 val cancel = kind == "reminder" && action.optString("op") == "cancel"
                 Text(when {
                     kind == "image" -> if (applied) "已交给画师 ✓" else "🎨 生成这张助眠图"
                     cancel -> if (applied) "已删掉 ✓" else "删掉这个提醒"
                     kind == "reminder" -> if (applied) "已加进日历 ✓" else "加进日历"
+                    kind == "habit" -> when {
+                        applied -> when (habit?.op) {
+                            "done" -> "已打卡 ✓"
+                            "pause" -> "已暂停 ✓"
+                            else -> if (habitUpdate) "已改好 ✓" else "已写进日历 ✓"
+                        }
+                        habit?.op == "done" -> "记为今天做到了"
+                        habit?.op == "pause" -> "暂停这个习惯"
+                        habitBlocked -> "先解决冲突再来"
+                        ackCost -> "我了解代价，照样加"
+                        else -> if (habitUpdate) "就按这个改" else "开这个习惯"
+                    }
                     else -> if (applied) "已应用 ✓" else "应用更改"
                 })
             }
         }
     }
 }
+
+private data class HabitArgs(
+    val op: String, val name: String, val cue: String, val days: Int, val start: String,
+)
+
+/** 列表行：一条消息一行，它带的动作卡另起一行排在它下面。 */
+private data class ChatRow(val idx: Int, val card: Boolean)
+
+private fun rowsOf(msgs: List<ChatMsg>): List<ChatRow> = buildList {
+    msgs.forEachIndexed { i, m ->
+        add(ChatRow(i, false))
+        if (m.actionJson != null) add(ChatRow(i, true))
+    }
+}
+
+/** 教练给的 habit 参数：缺 startDate 就当今天，缺 days 按 21 天档。 */
+private fun parseHabit(a: JSONObject) = HabitArgs(
+    op = a.optString("op", "add").ifBlank { "add" },
+    name = a.optString("name", ""),
+    cue = a.optString("cueTime", ""),
+    days = if (a.has("days")) a.optInt("days", 21) else 21,
+    start = a.optString("startDate").ifBlank { LocalDate.now().toString() },
+)
