@@ -83,14 +83,44 @@ class LlmClient(private val baseUrl: String, private val apiKey: String) {
     }
 
     companion object {
-        /** 解析回复尾部的动作块 ```kuaixiu {...}```，返回 JSONObject 或 null。 */
-        fun parseAction(text: String): JSONObject? {
-            val m = Regex("```kuaixiu\\s*\\n?([\\s\\S]*?)```").find(text) ?: return null
-            return runCatching { JSONObject(m.groupValues[1].trim()) }.getOrNull()
-        }
+        private val BLOCK = Regex("```kuaixiu\\s*\\n?([\\s\\S]*?)```")
 
-        /** 去掉动作块，得到展示用正文。 */
-        fun stripAction(text: String): String =
-            text.replace(Regex("```kuaixiu\\s*\\n?[\\s\\S]*?```"), "").trim()
+        /** 取最后一个动作块原文（模型有时会发多块，最后一块才是结论）。 */
+        fun extractAction(text: String): String? =
+            BLOCK.findAll(text).lastOrNull()?.groupValues?.get(1)?.trim()
+
+        /** 解析动作块；解析不出来就返回 null，调用侧必须保留原文，不能让它凭空消失。 */
+        fun parseAction(text: String): JSONObject? =
+            extractAction(text)?.let { raw -> parseJson(raw) }
+
+        private fun parseJson(raw: String): JSONObject? =
+            sequenceOf(raw, repairJson(raw))
+                .mapNotNull { runCatching { JSONObject(it) }.getOrNull() }
+                .firstOrNull()
+
+        /** 模型常把引号/冒号/逗号写成全角，或留个尾逗号——修一遍再试一次。 */
+        private fun repairJson(raw: String): String = raw
+            .replace('“', '"').replace('”', '"')
+            .replace('：', ':').replace('，', ',')
+            .replace(Regex(",\\s*}"), "}")
+            .replace(Regex(",\\s*]"), "]")
+            .trim()
+
+        /**
+         * 去掉动作块得到展示用正文。**只删解析得掉的块**：解析失败的块留着显示，
+         * 否则卡片没出来、原文又被吞掉，用户和模型都只能看见一句「这就安排」后面空空如也。
+         */
+        fun stripAction(text: String): String {
+            val kept = StringBuilder()
+            var last = 0
+            for (m in BLOCK.findAll(text)) {
+                if (parseJson(m.groupValues[1].trim()) != null) {
+                    kept.append(text, last, m.range.first)
+                    last = m.range.last + 1
+                }
+            }
+            kept.append(text, last, text.length)
+            return kept.toString().trim()
+        }
     }
 }
