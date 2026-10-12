@@ -23,6 +23,11 @@ object LanSync {
     private var running = false
     private var lastSig = ""
 
+    /** 最近一次成功连上的电脑地址（设置页展示用）。 */
+    @Volatile
+    var discoveredUrl: String? = null
+        private set
+
     @Synchronized
     fun startIfNotRunning(ctx: Context) {
         if (running) return
@@ -71,6 +76,7 @@ object LanSync {
             sendLine("PULL")
             val header = readLine() ?: return
             if (!header.startsWith("PLAN ")) return
+            discoveredUrl = "http://$host:$PC_PORT"
             val len = header.substring(5).trim().toInt()
             val data = ByteArray(len)
             var off = 0
