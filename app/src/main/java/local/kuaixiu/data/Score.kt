@@ -86,12 +86,26 @@ object Score {
         else -> (if (r.total >= 80) "漂亮，保持这个节奏。" else "没关系，今晚从准时风屏开始就好。")
     }
 
-    /** 连续准时天数：从最近一次记录往前数连续 on_time 的自然日（缺记录即断）。 */
-    fun streak(checkins: List<Checkin>, today: java.time.LocalDate = java.time.LocalDate.now()): Int {
-        // 今晚已经记了迟睡/没做到 → 当场归零，不能沿用昨天的连续
-        val row = checkins.firstOrNull { it.date == today.toString() }
-        if (row != null && row.status != "on_time") return 0
-        return streakOn(checkins.filter { it.status == "on_time" }.map { it.date }.toSet(), today)
+    /**
+     * 连续准时天数。[pending] = 当前这一晚归属的计划日（默认按真实时间算：当天 12 点前算昨晚）。
+     * **不能因为"当晚还没记"就把连续清零**——当晚要次日早上才记，所以只允许最近一次准时和
+     * 当晚之间空一晚；再早就是真断；那一晚若已记成迟到/没做到，照样断。
+     */
+    fun streak(
+        checkins: List<Checkin>,
+        pending: java.time.LocalDate = Checkins.tonightDate(),
+    ): Int {
+        val rows = checkins.mapNotNull { c ->
+            runCatching { java.time.LocalDate.parse(c.date) }.getOrNull()?.let { it to c }
+        }
+        // 当晚已记迟睡/没做到 → 当场归零，不能沿用之前的连续
+        rows.firstOrNull { (d, _) -> d == pending }?.let { if (it.second.status != "on_time") return 0 }
+        val done = rows.filter { (_, c) -> c.status == "on_time" }.map { (d, _) -> d }.toSet()
+        val last = done.maxOrNull() ?: return 0
+        if (last.isBefore(pending.minusDays(1))) return 0
+        // 最近一次准时之后、当晚之前记成非准时的，也算断
+        if (rows.any { (d, c) -> d > last && d <= pending && c.status != "on_time" }) return 0
+        return streakOn(done.map { it.toString() }.toSet(), last)
     }
 
     /** 连续天数通用核心：睡眠用 on_time 日期集合，习惯用 habitId 的打卡日期集合。 */
