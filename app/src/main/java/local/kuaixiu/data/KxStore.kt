@@ -22,6 +22,7 @@ object KxStore {
     fun load(ctx: Context) {
         config = Prefs.loadConfig(ctx)
         plan = Prefs.loadPlan(ctx)
+        Habits.load(ctx)
     }
 
     fun saveConfig(ctx: Context, newCfg: KxConfig) {

@@ -22,6 +22,9 @@ object CalendarWriter {
     /** 一次性提醒单独一个账户+日历：syncPlan 是删旧插新，混在一起会被连带删掉。 */
     const val REMIND_ACCOUNT = "kuaixiu.remind"
     const val REMIND_CALENDAR_NAME = "快休提醒"
+    /** 习惯同理必须自带日历：作息计划重算时只动「快休早睡」，碰不到这里。 */
+    const val HABIT_ACCOUNT = "kuaixiu.habit"
+    const val HABIT_CALENDAR_NAME = "快休习惯"
     private val TZ = ZoneId.of("Asia/Shanghai")
 
     private fun syncAdapterUri(base: android.net.Uri, account: String = ACCOUNT) = base.buildUpon()
@@ -84,6 +87,47 @@ object CalendarWriter {
         })
         return id
     }
+
+    /**
+     * 习惯 = 一条带 RRULE 的事件（FREQ=DAILY;COUNT=N），一次写入、系统日历连响 N 天。
+     * App 没有后台服务，所以绝不解耦成"每天插一条"。
+     */
+    fun addHabitEvent(context: Context, name: String, cueTime: String,
+                      startDate: String, days: Int, leadMin: Int = 0): Long {
+        val cr = context.contentResolver
+        val calId = ensureCalendar(context, HABIT_ACCOUNT, HABIT_CALENDAR_NAME)
+        val start = java.time.LocalDateTime.of(
+            java.time.LocalDate.parse(startDate),
+            java.time.LocalTime.parse(cueTime),
+        )
+        val cv = ContentValues().apply {
+            put(Events.CALENDAR_ID, calId)
+            put(Events.TITLE, name)
+            put(Events.DESCRIPTION, "快休习惯 · 连续 $days 天，锚点 $cueTime")
+            put(Events.DTSTART, start.atZone(TZ).toInstant().toEpochMilli())
+            put(Events.DTEND, start.plusMinutes(10).atZone(TZ).toInstant().toEpochMilli())
+            put(Events.RRULE, "FREQ=DAILY;COUNT=$days")
+            put(Events.EVENT_TIMEZONE, TZ.id)
+            put(Events.AVAILABILITY, Events.AVAILABILITY_FREE)
+            put(Events.GUESTS_CAN_MODIFY, 0)
+        }
+        val uri = cr.insert(syncAdapterUri(Events.CONTENT_URI, HABIT_ACCOUNT), cv)
+            ?: throw IllegalStateException("习惯事件写入失败")
+        val id = uri.lastPathSegment!!.toLong()
+        cr.insert(Reminders.CONTENT_URI, ContentValues().apply {
+            put(Reminders.EVENT_ID, id)
+            put(Reminders.MINUTES, leadMin.coerceAtLeast(0))
+            put(Reminders.METHOD, Reminders.METHOD_ALERT)
+        })
+        return id
+    }
+
+    /** 删掉整条习惯事件（含它的全部未来实例）；暂停和删除都走这里。 */
+    fun deleteHabitEvent(context: Context, id: Long): Boolean =
+        context.contentResolver.delete(
+            syncAdapterUri(Events.CONTENT_URI, HABIT_ACCOUNT),
+            "${Events._ID}=?", arrayOf(id.toString()),
+        ) > 0
 
     /** 删旧插新，返回写入事件数。 */
     fun syncPlan(context: Context, plan: Plan): Int {
