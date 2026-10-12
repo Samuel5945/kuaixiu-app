@@ -30,6 +30,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +52,7 @@ import local.kuaixiu.engine.PlanEngine
 import local.kuaixiu.data.Score
 import local.kuaixiu.data.KxStore
 import local.kuaixiu.engine.Plan
+import local.kuaixiu.engine.PlanDay
 import java.time.LocalDate
 import java.time.LocalTime
 
@@ -64,9 +66,23 @@ private val CALENDAR_PERMS = arrayOf(
 fun HomeScreen(modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    val perms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
-
-    LaunchedEffect(Unit) { perms.launch(CALENDAR_PERMS) }
+    fun calGrantedNow() = CALENDAR_PERMS.all {
+        ctx.checkSelfPermission(it) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    }
+    var calGranted by remember { mutableStateOf(calGrantedNow()) }
+    val perms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        calGranted = calGrantedNow()
+    }
+    // 回到本页再核一次：用户可能刚在系统设置里授过权
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) calGranted = calGrantedNow()
+        }
+        lifecycleOwner.lifecycle.addObserver(obs)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+    }
+    LaunchedEffect(Unit) { if (!calGranted) perms.launch(CALENDAR_PERMS) }
 
     val plan = KxStore.plan
     // 三张时间卡按「下一次该发生的那一刻」排序——用绝对日期时间，不是只看 HH:MM，
@@ -95,14 +111,17 @@ fun HomeScreen(modifier: Modifier = Modifier) {
             else -> atMs(today, h.cueTime)
         }
     }.minOrNull()
-    // 早睡：计划已开始取今天那档；还没开始就用起始那天的档位，卡片不会因此消失。
     // 入睡/风屏时间属于「当晚」，00:00–11:59 的要落到次日凌晨（00:30 是明天凌晨，不是今早）
     fun bedtimeMs(planDate: LocalDate, hhmm: String): Long? {
         val t = runCatching { LocalTime.parse(hhmm) }.getOrNull() ?: return null
         return atMs(if (t.hour < 12) planDate.plusDays(1) else planDate, hhmm)
     }
-    val sleepDay = plan?.entryFor(today.toString()) ?: plan?.upcoming(today.toString())
-    val sleepAt = sleepDay?.let { bedtimeMs(LocalDate.parse(it.date), it.winddown) }
+    // 风屏/早睡卡用哪一天：跟卡片内容保持一致（中午 12 点前「今晚」算昨晚）。
+    // 排序和显示必须是同一天，否则会出现「显示 00:30 就要开始、却排在 19:30 习惯后面」。
+    // 计划第一天/还没开始时落不到档位，退到计划里最靠前的一档顶上，别让卡片消失。
+    val tonightEntry = plan?.entryFor(Checkins.tonightDate().toString())
+        ?: plan?.upcoming(today.toString())
+    val sleepAt = tonightEntry?.let { bedtimeMs(LocalDate.parse(it.date), it.winddown) }
     var quickRev by remember { mutableStateOf(0) }   // 手动加提醒后，把提醒卡顶着重载一次
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -123,7 +142,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                 when (which) {
                     "提醒" -> item { ReminderCard(quickRev) }
                     "习惯" -> item { HabitCard() }
-                    else -> item { CheckinCard() }   // 今晚风屏：到点就要点「开始风屏了」
+                    else -> item { CheckinCard(tonightEntry) }   // 今晚风屏：到点就要点「开始风屏了」
                 }
             }
             // 计划轴这两张必须挨着，别被习惯卡插开：今日参考 → 接下来几天
@@ -133,12 +152,35 @@ fun HomeScreen(modifier: Modifier = Modifier) {
         }
         // 常显：不经过教练也能手动加提醒 / 建习惯（两张原有的卡在空列表时不渲染，塞不进去）
         item { QuickAddCard(onSaved = { quickRev++ }) }
-        item {
-            Text(
-                "提醒由系统日历触发；荣耀日历里勾选显示「快休早睡」即可。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        // 没授权日历权限时才提示 + 给按钮；授权过就整块不出现
+        if (!calGranted) {
+            item {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "使用前请先授权日历权限，否则计划、提醒、习惯都写不进系统日历。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Button(onClick = {
+                        val act = ctx as? android.app.Activity
+                        // 还能弹系统弹窗就弹；已被永久拒绝只能去应用设置里开
+                        val canAsk = act != null &&
+                            CALENDAR_PERMS.any { act.shouldShowRequestPermissionRationale(it) }
+                        if (canAsk) {
+                            perms.launch(CALENDAR_PERMS)
+                        } else {
+                            runCatching {
+                                ctx.startActivity(
+                                    android.content.Intent(
+                                        android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                        android.net.Uri.fromParts("package", ctx.packageName, null),
+                                    ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+                            }
+                        }
+                    }) { Text("授权日历权限") }
+                }
+            }
         }
     }
 }
@@ -447,7 +489,7 @@ private fun ScoreCard() {
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun CheckinCard() {
+private fun CheckinCard(tonightEntry: PlanDay?) {
     val ctx = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var status by remember { mutableStateOf("on_time") }
@@ -463,10 +505,10 @@ private fun CheckinCard() {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
 
             // —— 今晚风屏（过程打卡：现在就能记）——
-            val tonight = Checkins.tonightDate()
-            val tonightEntry = KxStore.plan?.entryFor(tonight.toString())
+            // 用哪一天由外层统一算好传进来（排序和显示必须是同一天）
+            val tonightIso = tonightEntry?.date ?: Checkins.tonightDate().toString()
             var winddownLogged by remember { mutableStateOf(
-                Checkins.all(ctx).firstOrNull { it.date == tonight.toString() }?.winddownAt) }
+                Checkins.all(ctx).firstOrNull { it.date == tonightIso }?.winddownAt) }
             if (tonightEntry != null) {
                 Text("🌙 今晚风屏 · 计划 ${tonightEntry.winddown} 开始",
                     style = MaterialTheme.typography.titleMedium)
@@ -480,10 +522,10 @@ private fun CheckinCard() {
                     Button(onClick = {
                         val now = java.time.LocalTime.now()
                         val t = "%02d:%02d".format(now.hour, now.minute)
-                        Checkins.logWinddown(ctx, tonight.toString(), t)
+                        Checkins.logWinddown(ctx, tonightIso, t)
                         if (KxStore.config.pcUploadCheckin) {
-                            val c = Checkins.all(ctx).firstOrNull { it.date == tonight.toString() }
-                                ?: Checkin(tonight.toString())
+                            val c = Checkins.all(ctx).firstOrNull { it.date == tonightIso }
+                                ?: Checkin(tonightIso)
                             scope.launch(Dispatchers.IO) {
                                 runCatching { Checkins.upload(ctx, KxStore.config.pcUrl, c) }
                             }
