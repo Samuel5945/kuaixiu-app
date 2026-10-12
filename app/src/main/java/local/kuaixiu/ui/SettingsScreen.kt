@@ -248,13 +248,20 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                             FilterChip(
                                 selected = selected,
                                 onClick = {
-                                    // 切档案：载入该供应商自己的 base_url/Key/模型（没有则用官方种子）
+                                    // 先把当前供应商的 Key 归位到它自己的档案：老配置的 Key 只存在
+                                    // llmKeyEnc 里，切走时空 Key 会把它覆盖掉
+                                    if (cfg.providerName.isNotBlank() && cfg.llmKey.isNotBlank()) {
+                                        ProviderProfiles.put(ctx, cfg.providerName, cfg.llmBaseUrl,
+                                            cfg.llmKey, cfg.llmModel, cfg.imageModel)
+                                    }
                                     keyInput = ""
+                                    // 切档案：载入该供应商自己的 base_url/Key/模型（没有则用官方种子）
+                                    val np = ProviderProfiles.get(ctx, preset.name)
                                     persist(cfg.copy(
                                         providerName = preset.name,
-                                        llmBaseUrl = p?.baseUrl?.ifBlank { preset.baseUrl } ?: preset.baseUrl,
-                                        llmModel = p?.model?.ifBlank { preset.modelSeed } ?: preset.modelSeed,
-                                        llmKey = ProviderProfiles.decryptKey(p),
+                                        llmBaseUrl = np?.baseUrl?.ifBlank { preset.baseUrl } ?: preset.baseUrl,
+                                        llmModel = np?.model?.ifBlank { preset.modelSeed } ?: preset.modelSeed,
+                                        llmKey = ProviderProfiles.decryptKey(np),
                                     ))
                                 },
                                 label = { Text(preset.name + keyHint) },
