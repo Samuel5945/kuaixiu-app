@@ -30,6 +30,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -309,6 +310,15 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
     val habitUpdate = habit != null && habit.op == "add" &&
         Habits.items.any { it.name.trim() == habit.name.trim() }
     val actionable = kind in setOf("adjust", "checkin", "image", "reminder", "habit")
+    // 删除按钮的显示条件看"东西还在不在"，不看 applied——applied 不落盘，重启后旧卡也该能删
+    val remindText = action.optString("text")
+    val reminderExists = remember(actionJson) {
+        kind == "reminder" && action.optString("op") != "cancel" && remindText.isNotBlank() &&
+            runCatching {
+                local.kuaixiu.calendar.CalendarWriter.peekReminders(ctx).any { it.second == remindText }
+            }.getOrDefault(false)
+    }
+    val habitExists = kind == "habit" && habit?.op == "add" && Habits.findByName(habit.name) != null
     Card(Modifier.fillMaxWidth(),
          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -386,7 +396,11 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                          color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            if (actionable) Button(onClick = {
+            if (actionable) Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+            Button(onClick = {
                 if (applied) return@Button
                 when (kind) {
                     "adjust" -> {
@@ -533,6 +547,34 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                     }
                     else -> if (applied) "已应用 ✓" else "应用更改"
                 })
+            }
+                // 那张卡对应的提醒/习惯还在，就顺手给"删掉"
+                if (reminderExists || habitExists) {
+                    val h = habit
+                    when {
+                        reminderExists -> OutlinedButton(onClick = {
+                            runCatching {
+                                local.kuaixiu.calendar.CalendarWriter.deleteRemindersByText(ctx, remindText)
+                            }.onSuccess { n ->
+                                Toast.makeText(ctx, if (n > 0) "已删掉这条提醒" else "没找到「$remindText」",
+                                    Toast.LENGTH_SHORT).show()
+                            }.onFailure {
+                                Toast.makeText(ctx, "删除失败：${it.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        }) { Text("删掉这条提醒") }
+                        habitExists && h != null -> OutlinedButton(onClick = {
+                            val target = Habits.findByName(h.name)
+                            if (target == null) {
+                                Toast.makeText(ctx, "没找到「${h.name}」", Toast.LENGTH_SHORT).show()
+                            } else if (runCatching { Habits.remove(ctx, target.id) }.getOrDefault(false)) {
+                                Toast.makeText(ctx, "已删掉「${target.name}」，日历里那条也清了",
+                                    Toast.LENGTH_LONG).show()
+                            } else {
+                                Toast.makeText(ctx, "删除失败", Toast.LENGTH_SHORT).show()
+                            }
+                        }) { Text("删掉这个习惯") }
+                    }
+                }
             }
         }
     }
