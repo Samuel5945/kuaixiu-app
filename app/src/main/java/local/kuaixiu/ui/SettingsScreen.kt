@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -30,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,8 +42,10 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import local.kuaixiu.data.KxConfig
 import local.kuaixiu.data.KxStore
+import local.kuaixiu.data.LanSync
 import local.kuaixiu.data.ModelClassifier
 import local.kuaixiu.data.ProviderProfiles
 import local.kuaixiu.llm.CoachPrompt
@@ -51,28 +56,43 @@ private data class ProviderPreset(val name: String, val baseUrl: String, val mod
 // 种子值只含官方公开端点；个人 base_url/Key 存在各自档案里（不进代码）
 private val PROVIDER_PRESETS = listOf(
     ProviderPreset("智谱", "https://open.bigmodel.cn/api/paas/v4", "glm-4-flash"),
-    ProviderPreset("DeepSeek", "https://api.deepseek.com", "deepseek-chat"),
+    ProviderPreset("DeepSeek", "https://api.deepseek.com/v1", "deepseek-chat"),
     ProviderPreset("Step 阶跃", "https://api.stepfun.com/v1", "step-3.5-flash"),
     ProviderPreset("商汤日日新", "https://api.sensenova.cn/v1", ""),
     ProviderPreset("基元律动", "https://tokenrhythm.studio/v1", "deepseek-v4-flash"),
 )
 
+/**
+ * 设置页。除「作息参数」外全部改动即时落盘、立即生效；
+ * 只有作息参数需要重算计划并写日历（单独按钮，走 IO 线程）。
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
     var cfg by remember { mutableStateOf(KxStore.config) }
-    var saved by remember { mutableStateOf(false) }
     var showKey by remember { mutableStateOf(false) }
     var keyInput by remember { mutableStateOf("") }  // 空 = 保持已存 Key
+    var planBusy by remember { mutableStateOf(false) }
     var modelsDlg by remember { mutableStateOf<Pair<List<String>, List<String>>?>(null) } // (text, image)
     var modelsErr by remember { mutableStateOf<String?>(null) }
     var modelsBusy by remember { mutableStateOf(false) }
-    var importErr by remember { mutableStateOf<String?>(null) }
 
-    fun edit(block: (KxConfig) -> KxConfig) {
-        cfg = block(cfg); saved = false
+    fun persist(nc: KxConfig) {
+        cfg = nc
+        KxStore.saveConfig(ctx, nc)
+    }
+
+    fun edit(block: (KxConfig) -> KxConfig) = persist(block(cfg))
+
+    /** AI 教练字段：配置与该供应商档案一起更新（Key 传空 = 保持档案里已存的 Key）。 */
+    fun editProvider(block: (KxConfig) -> KxConfig) {
+        val nc = block(cfg)
+        persist(nc)
+        if (nc.providerName.isNotBlank()) {
+            ProviderProfiles.put(ctx, nc.providerName, nc.llmBaseUrl, "", nc.llmModel, nc.imageModel)
+        }
     }
 
     fun fetchModels() {
@@ -91,12 +111,28 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 if (ids.isEmpty()) error("接口返回了空模型列表")
                 ModelClassifier.classify(ids)
             }.onSuccess { (text, image) ->
-                kotlinx.coroutines.withContext(Dispatchers.Main) {
-                    modelsDlg = text to image; modelsBusy = false
+                withContext(Dispatchers.Main) { modelsDlg = text to image; modelsBusy = false }
+            }.onFailure { e ->
+                withContext(Dispatchers.Main) { modelsErr = e.message ?: e.toString(); modelsBusy = false }
+            }
+        }
+    }
+
+    fun regeneratePlan() {
+        planBusy = true
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                KxStore.regenerate(ctx)
+                KxStore.syncCalendar(ctx)
+            }.onSuccess { n ->
+                withContext(Dispatchers.Main) {
+                    planBusy = false; cfg = KxStore.config
+                    Toast.makeText(ctx, "计划已重算，写入 $n 个日历事件", Toast.LENGTH_LONG).show()
                 }
             }.onFailure { e ->
-                kotlinx.coroutines.withContext(Dispatchers.Main) {
-                    modelsErr = e.message ?: e.toString(); modelsBusy = false
+                withContext(Dispatchers.Main) {
+                    planBusy = false; cfg = KxStore.config
+                    Toast.makeText(ctx, "重算失败：${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -155,6 +191,16 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                             }
                         }
                     }
+                    // 只有这一块参数影响计划，所以重算单独放这里，别的地方改完不碰日历
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(onClick = { regeneratePlan() }, enabled = !planBusy) {
+                            Text(if (planBusy) "重算中…" else "重算计划并写入日历")
+                        }
+                        Text("其他设置改完即生效",
+                             style = MaterialTheme.typography.bodySmall,
+                             color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }
@@ -164,10 +210,15 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     Text("教练风格", style = MaterialTheme.typography.titleMedium)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         CoachPrompt.STYLES.forEach { (k, label) ->
+                            val selected = cfg.coachStyle == k
                             FilterChip(
-                                selected = cfg.coachStyle == k,
+                                selected = selected,
                                 onClick = { edit { c -> c.copy(coachStyle = k) } },
                                 label = { Text(label) },
+                                leadingIcon = if (selected) {
+                                    { Icon(Icons.Filled.Check, contentDescription = "已选",
+                                          modifier = Modifier.size(18.dp)) }
+                                } else null,
                             )
                         }
                     }
@@ -192,27 +243,32 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         PROVIDER_PRESETS.forEach { preset ->
                             val p = ProviderProfiles.get(ctx, preset.name)
+                            val selected = cfg.providerName == preset.name
                             val keyHint = if (p != null && p.keyEnc.isNotBlank()) " 🔑" else ""
                             FilterChip(
-                                selected = cfg.providerName == preset.name,
+                                selected = selected,
                                 onClick = {
                                     // 切档案：载入该供应商自己的 base_url/Key/模型（没有则用官方种子）
                                     keyInput = ""
-                                    cfg = cfg.copy(
+                                    persist(cfg.copy(
                                         providerName = preset.name,
-                                        llmBaseUrl = p?.baseUrl ?: preset.baseUrl,
+                                        llmBaseUrl = p?.baseUrl?.ifBlank { preset.baseUrl } ?: preset.baseUrl,
                                         llmModel = p?.model?.ifBlank { preset.modelSeed } ?: preset.modelSeed,
                                         llmKey = ProviderProfiles.decryptKey(p),
-                                    )
-                                    saved = false
+                                    ))
                                 },
                                 label = { Text(preset.name + keyHint) },
+                                leadingIcon = if (selected) {
+                                    { Icon(Icons.Filled.Check, contentDescription = "已选",
+                                          modifier = Modifier.size(18.dp)) }
+                                } else null,
                             )
                         }
                     }
                     OutlinedTextField(
-                        value = cfg.llmBaseUrl, onValueChange = { edit { c -> c.copy(llmBaseUrl = it) } },
-                        label = { Text("base_url") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                        value = cfg.llmBaseUrl, onValueChange = { editProvider { c -> c.copy(llmBaseUrl = it) } },
+                        label = { Text("base_url（OpenAI 兼容端点，通常带 /v1）") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true,
                     )
                     OutlinedTextField(
                         value = keyInput, onValueChange = { keyInput = it },
@@ -238,11 +294,11 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                         modifier = Modifier.fillMaxWidth(), singleLine = true,
                     )
                     OutlinedTextField(
-                        value = cfg.llmModel, onValueChange = { edit { c -> c.copy(llmModel = it) } },
+                        value = cfg.llmModel, onValueChange = { editProvider { c -> c.copy(llmModel = it) } },
                         label = { Text("模型") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
                     )
                     OutlinedTextField(
-                        value = cfg.imageModel, onValueChange = { edit { c -> c.copy(imageModel = it) } },
+                        value = cfg.imageModel, onValueChange = { editProvider { c -> c.copy(imageModel = it) } },
                         label = { Text("生图模型（可选，供教练画助眠图）") },
                         modifier = Modifier.fillMaxWidth(), singleLine = true,
                     )
@@ -250,6 +306,17 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                         OutlinedButton(onClick = { fetchModels() }, enabled = !modelsBusy) {
                             Text(if (modelsBusy) "拉取中…" else "拉取模型列表")
                         }
+                        OutlinedButton(onClick = {
+                            val k = keyInput.trim()
+                            if (k.isEmpty()) return@OutlinedButton
+                            keyInput = ""
+                            persist(cfg.copy(llmKey = k))
+                            if (cfg.providerName.isNotBlank()) {
+                                ProviderProfiles.put(ctx, cfg.providerName, cfg.llmBaseUrl, k,
+                                    cfg.llmModel, cfg.imageModel)
+                            }
+                            Toast.makeText(ctx, "Key 已加密保存", Toast.LENGTH_SHORT).show()
+                        }, enabled = keyInput.isNotBlank()) { Text("保存 Key") }
                     }
                     modelsErr?.let {
                         Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -263,8 +330,27 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     Text("电脑联动（可选）", style = MaterialTheme.typography.titleMedium)
                     OutlinedTextField(
                         value = cfg.pcUrl, onValueChange = { edit { c -> c.copy(pcUrl = it) } },
-                        label = { Text("PC 信息页地址") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                        label = { Text("PC 信息页地址") },
+                        placeholder = { Text("留空 = 按局域网自动发现") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true,
                     )
+                    val found = LanSync.discoveredUrl
+                    when {
+                        found != null && found != cfg.pcUrl -> Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text("已发现 $found", style = MaterialTheme.typography.bodySmall,
+                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            TextButton(onClick = { edit { c -> c.copy(pcUrl = found) } }) { Text("用它") }
+                        }
+                        found != null -> Text("已发现 $found 🟢",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        else -> Text("未发现电脑：电脑上运行 KuaixiuTray，与手机连同一 Wi-Fi 即自动填入",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(checked = cfg.pcUploadCheckin,
                                onCheckedChange = { edit { c -> c.copy(pcUploadCheckin = it) } })
@@ -272,26 +358,6 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     }
                 }
             }
-        }
-        item {
-            Button(onClick = {
-                val finalCfg = cfg.copy(llmKey = keyInput.trim().ifBlank { cfg.llmKey })
-                cfg = finalCfg
-                keyInput = ""
-                if (finalCfg.providerName.isNotBlank()) {
-                    ProviderProfiles.put(ctx, finalCfg.providerName,
-                        finalCfg.llmBaseUrl, finalCfg.llmKey, finalCfg.llmModel, finalCfg.imageModel)
-                }
-                KxStore.saveConfig(ctx, finalCfg)
-                runCatching {
-                    KxStore.regenerate(ctx)
-                    val n = KxStore.syncCalendar(ctx)
-                    saved = true
-                    Toast.makeText(ctx, "已保存：计划重生成 + $n 事件 + 通知已排", Toast.LENGTH_LONG).show()
-                }.onFailure {
-                    Toast.makeText(ctx, "已保存，但日历写入失败：${it.message}", Toast.LENGTH_LONG).show()
-                }
-            }, enabled = !saved) { Text(if (saved) "已保存 ✓" else "保存并重新生成计划") }
         }
     }
 
@@ -308,9 +374,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     LazyColumn(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                         items(text.size) { i ->
                             TextButton(onClick = {
-                                val nc = cfg.copy(llmModel = text[i])
-                                cfg = nc
-                                KxStore.saveConfig(ctx, nc)  // 即时落盘
+                                editProvider { c -> c.copy(llmModel = text[i]) }
                                 modelsDlg = null
                             }) { Text(text[i] + if (cfg.llmModel == text[i]) " ✓" else "") }
                         }
@@ -320,9 +384,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                              color = MaterialTheme.colorScheme.onSurfaceVariant)
                         image.forEach { m ->
                             TextButton(onClick = {
-                                val nc = cfg.copy(imageModel = m)
-                                cfg = nc
-                                KxStore.saveConfig(ctx, nc)  // 即时落盘
+                                editProvider { c -> c.copy(imageModel = m) }
                                 modelsDlg = null
                             }) { Text(m + if (cfg.imageModel == m) " ✓" else "") }
                         }

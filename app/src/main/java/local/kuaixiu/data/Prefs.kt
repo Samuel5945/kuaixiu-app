@@ -18,7 +18,7 @@ data class KxConfig(
     val llmKey: String = "",
     val llmModel: String = "glm-4-flash",
     val imageModel: String = "",    // 生图模型（空=未启用生图）
-    val pcUrl: String = "http://192.168.2.5:8642",
+    val pcUrl: String = "",    // 空 = 交给局域网自动发现（LanSync）
     val pcUploadCheckin: Boolean = false,
     val coachStyle: String = "gentle",
     val providerName: String = "",   // 当前激活的供应商档案名
@@ -40,6 +40,9 @@ data class KxConfig(
 
 object Prefs {
     private const val FILE = "kuaixiu"
+
+    /** 早期版本把开发机局域网 IP 写死为默认值；读到它一律视为未设置，交给自动发现。 */
+    const val LEGACY_PC_URL = "http://192.168.2.5:8642"
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
 
     fun loadConfig(ctx: Context): KxConfig {
@@ -69,7 +72,7 @@ object Prefs {
             llmKey = key,
             llmModel = s.getString("llmModel", null) ?: "glm-4-flash",
             imageModel = s.getString("imageModel", null) ?: "",
-            pcUrl = s.getString("pcUrl", null) ?: "http://192.168.2.5:8642",
+            pcUrl = (s.getString("pcUrl", null) ?: "").takeUnless { it == LEGACY_PC_URL } ?: "",
             pcUploadCheckin = s.getBoolean("pcUploadCheckin", false),
             coachStyle = s.getString("coachStyle", null) ?: "gentle",
             providerName = s.getString("providerName", null) ?: "",
@@ -106,6 +109,13 @@ object Prefs {
         val f = java.io.File(ctx.filesDir, "plan.json")
         if (!f.exists()) return null
         val p = json.decodeFromString<Plan>(f.readText())
+        savePlan(ctx, p)
+        p
+    }.getOrNull()
+
+    /** 从字符串导入计划（LAN 同步通道入口）。 */
+    fun importPlanFromString(ctx: Context, raw: String): Plan? = runCatching {
+        val p = json.decodeFromString<Plan>(raw.trimStart('﻿'))
         savePlan(ctx, p)
         p
     }.getOrNull()

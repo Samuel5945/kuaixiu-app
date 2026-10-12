@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -131,11 +132,16 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
             OutlinedTextField(
                 value = input, onValueChange = { input = it },
                 modifier = Modifier.weight(1f),
                 placeholder = { Text("和教练聊聊…") },
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
                 maxLines = 4,
             )
             Button(
@@ -181,6 +187,8 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                     }
                 },
                 enabled = !busy,
+                modifier = Modifier.height(56.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
             ) { Text("发送") }
         }
     }

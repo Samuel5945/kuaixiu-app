@@ -33,6 +33,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         KxStore.load(this)
+        local.kuaixiu.data.LanSync.startIfNotRunning(applicationContext)
         setContent {
             KxTheme { App() }
         }
