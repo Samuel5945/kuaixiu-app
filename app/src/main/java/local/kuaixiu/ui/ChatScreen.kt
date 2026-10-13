@@ -118,12 +118,14 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                 val toggle = { if (r.idx in picked) picked.remove(r.idx) else picked.add(r.idx) }
                 Box(Modifier.fillMaxWidth()) {
                 if (aj != null) {
-                    ActionCard(aj, onImage = { prompt ->
+                    ActionCard(aj, onImage = { prompt, ratio ->
                         val genIdx = msgs.size
                         ChatStore.addTransient(ChatMsg("assistant", "🎨 生图中…（约半分钟）"))
+                        val size = if (ratio.equals("portrait", ignoreCase = true))
+                            ImageGen.PORTRAIT_SIZE else ImageGen.DEFAULT_SIZE
                         // 应用级作用域：切页签/锁屏不中断，完成后原地变成图片并落盘
                         local.kuaixiu.KxScope.app.launch {
-                            runCatching { ImageGen.generate(ctx, KxStore.config, prompt) }
+                            runCatching { ImageGen.generate(ctx, KxStore.config, prompt, size) }
                                 .onSuccess { f ->
                                     kotlinx.coroutines.withContext(Dispatchers.Main) {
                                         ChatStore.replace(ctx, genIdx,
@@ -340,7 +342,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
+private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: String) -> Unit) {
     val ctx = LocalContext.current
     var applied by remember { mutableStateOf(false) }
     val action = runCatching { JSONObject(actionJson) }.getOrNull() ?: return
@@ -569,7 +571,7 @@ private fun ActionCard(actionJson: String, onImage: (String) -> Unit) {
                     }
                     "image" -> {
                         applied = true
-                        onImage(action.optString("prompt"))
+                        onImage(action.optString("prompt"), action.optString("ratio"))
                     }
                 }
             }, enabled = !applied && !habitBlocked) {

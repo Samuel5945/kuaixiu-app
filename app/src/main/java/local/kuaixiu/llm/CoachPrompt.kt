@@ -24,17 +24,45 @@ object CoachPrompt {
         else -> "【教练风格】温和陪伴：温暖、肯定微小进步、建议具体；绝不指责。"
     }
 
+    /**
+     * 距「下一次」这个钟点还有多少分钟。跨午夜按下一趟算（14:07 距 00:15 = 10 小时 8 分），
+     * 正好到点算满一圈，解析不了返回 null。
+     */
+    internal fun minutesUntil(nowMin: Int, hhmm: String): Int? {
+        val t = runCatching { java.time.LocalTime.parse(hhmm) }.getOrNull() ?: return null
+        val d = t.toSecondOfDay() / 60 - nowMin
+        return if (d > 0) d else d + 1440
+    }
+
+    internal fun countdown(min: Int): String =
+        if (min >= 60) "${min / 60} 小时 ${"%02d".format(min % 60)} 分" else "$min 分钟"
+
     fun system(ctx: Context): String {
         val today = LocalDate.now().toString()
         val plan = KxStore.plan
         val cfg = KxStore.config
-        val statePart = plan?.entryFor(today)?.let { d ->
+        val entry = plan?.entryFor(today)
+        val statePart = entry?.let { d ->
             "今天是第${d.day}天（${d.date} ${d.weekday}，${d.stage}·${d.theme}）。" +
                 "今晚目标入睡 ${d.bedtime}，${d.winddown} 开始风屏，起床锚点 ${cfg.wake}。" +
                 "今日微任务：${d.tasks.joinToString("；")}。"
         } ?: plan?.upcoming(today)?.let { u ->
             "计划从 ${u.date} 开始（第${u.day}天，目标入睡 ${u.bedtime}），现在尚未开始。"
         } ?: "尚未生成计划。"
+        // 不给它钟点，它就自己编一个：实测 14 点说成 23 点，然后拿"太晚了"当理由什么都不答
+        val now = java.time.LocalDateTime.now()
+        val nowMin = now.toLocalTime().toSecondOfDay() / 60
+        val countdowns = listOfNotNull(
+            entry?.winddown?.let { t ->
+                minutesUntil(nowMin, t)?.let { "距下一次风屏（$t）还有 ${countdown(it)}" }
+            },
+            entry?.bedtime?.let { t ->
+                minutesUntil(nowMin, t)?.let { "距下一次目标入睡（$t）还有 ${countdown(it)}" }
+            },
+        ).joinToString("；")
+        val clockLine = "现在是 " + now.format(
+            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) +
+            "（设备时间，以它为准）" + (if (countdowns.isBlank()) "" else "；$countdowns") + "。"
         val imgPart = if (KxStore.config.imageModel.isNotBlank())
             "生图模型已配置（${KxStore.config.imageModel}），可以使用生图工具。"
         else "生图模型未配置，不要提供生图。"
@@ -60,8 +88,11 @@ ${styleLine(KxStore.config.coachStyle)}
 4. 过早上床（比习惯早2小时以上）会在生物钟觉醒高峰前睡着 → 前半夜耗完睡眠压力，3-4点早醒。处理：困了先做低刺激活动撑一撑；真早醒了不碰手机不开灯，黑暗躺到起床锚点。
 5. 破功安抚：单晚破功什么都不用改，当晚按计划档位继续；连续多晚或生活节奏变了就调整计划。
 6. 周末浮动 ≤±30 分钟；午睡 ≤20 分钟且不晚于 15:00。
+7. 时间只认下面【当前状态】第一行的「现在是」：不许自己推断现在几点，也不许拿"太晚了/该睡了"当理由回避问题——对方白天提问就正常答。
+   App 没写明的限制（额度、配额、调用次数、模型能不能用）一律不许编，是就是、不是就不是；生图能不能用只看【当前状态】里那句。
 
 【当前状态】
+$clockLine
 $statePart
 $imgPart
 最近打卡：${if (recent.isBlank()) "（无）" else recent}${if (habitLine.isBlank()) "" else "\n$habitLine"}${remindLine}
@@ -98,8 +129,9 @@ $imgPart
     别把它说成「加进日历」（那是提醒的按钮），告诉用户点哪个就照这个名说。
 生图工具（仅当【当前状态】标注"生图模型已配置"时才可提供；未配置就告诉用户去设置页拉取模型点选生图模型）：
 用户想要助眠画面/晚安插画/星空图/想把某个放松场景画出来 → 回复末尾另起一行输出：
-```kuaixiu {"action":"image","prompt":"中文画面描述，具体到光线/色彩/构图，安静柔和的助眠风格"}```
+```kuaixiu {"action":"image","prompt":"中文画面描述，具体到光线/色彩/构图，安静柔和的助眠风格","ratio":"portrait"}```
 App 会用生图模型把 prompt 画出来展示。 prompt 必须是画面描述，不要包含文字渲染要求。
+  - ratio：要当壁纸/锁屏/竖着看的填 "portrait"（出 832x1216 竖幅），其余情况省略或填 "square"（1024x1024 方图）。别自己写尺寸。
 动作块规则：一次回复只给一个块，块里只放一个 JSON 对象，键和引号半角，不要注释、不要尾逗号、不要额外文字。""".trimIndent()
     }
 }
