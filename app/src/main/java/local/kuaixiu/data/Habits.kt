@@ -90,21 +90,21 @@ object Habits {
     }
 
     /** 今天是这个习惯的第几天：未开始 0，最后一天后仍是 days。 */
-    fun dayOf(h: Habit, today: LocalDate = LocalDate.now()): Int = runCatching {
+    fun dayOf(h: Habit, today: LocalDate = Time.today()): Int = runCatching {
         val s = LocalDate.parse(h.startDate)
         if (today.isBefore(s)) 0
         else (ChronoUnit.DAYS.between(s, today).toInt() + 1).coerceAtMost(h.days)
     }.getOrDefault(0)
 
     /** 计划期是否已走完（走完后不再提醒，只留复盘/删除）。 */
-    fun expired(h: Habit, today: LocalDate = LocalDate.now()): Boolean = runCatching {
+    fun expired(h: Habit, today: LocalDate = Time.today()): Boolean = runCatching {
         !today.isBefore(LocalDate.parse(h.startDate).plusDays(h.days.toLong()))
     }.getOrDefault(false)
 
-    fun streakOf(h: Habit, today: LocalDate = LocalDate.now()): Int =
+    fun streakOf(h: Habit, today: LocalDate = Time.today()): Int =
         Score.streakOn(doneDates[h.id].orEmpty(), today)
 
-    fun completionOf(h: Habit, today: LocalDate = LocalDate.now()): Pair<Int, Int> =
+    fun completionOf(h: Habit, today: LocalDate = Time.today()): Pair<Int, Int> =
         Score.completion(doneDates[h.id].orEmpty(), LocalDate.parse(h.startDate), h.days, today)
 
     /** 教练给的口语化时间统一成 HH:MM，否则日历那侧 LocalTime.parse 会炸。 */
@@ -119,7 +119,7 @@ object Habits {
     /** 只查冲突，不写任何东西（教练卡片先问一遍，用户点确认才落盘）。 */
     fun check(existing: List<Habit>, name: String, cueTime: String, days: Int,
               startDate: String, activeLimit: Int = MAX_ACTIVE, ackCost: Boolean = false,
-              today: LocalDate = LocalDate.now()): HabitCheck {
+              today: LocalDate = Time.today()): HabitCheck {
         if (name.isBlank()) return HabitCheck.Invalid("习惯名字不能空着")
         val cue = normalizeCue(cueTime) ?: return HabitCheck.Invalid("锚点时间格式不对（要 HH:MM）")
         val start = runCatching { LocalDate.parse(startDate.trim()) }.getOrNull()
@@ -159,13 +159,13 @@ object Habits {
     }
 
     /** 今天打卡（重复点不产生第二条）。 */
-    fun markDone(ctx: Context, id: String, date: String = LocalDate.now().toString()) {
+    fun markDone(ctx: Context, id: String, date: String = Time.today().toString()) {
         val marks = checkinMarks(ctx)
         if (marks.any { it.habitId == id && it.date == date }) return
         saveMarks(ctx, marks + HabitMark(id, date))
     }
 
-    fun isDoneToday(id: String, today: String = LocalDate.now().toString()): Boolean =
+    fun isDoneToday(id: String, today: String = Time.today().toString()): Boolean =
         doneDates[id]?.contains(today) == true
 
     private fun checkinMarks(ctx: Context): List<HabitMark> = runCatching {
@@ -188,7 +188,7 @@ object Habits {
             if (onAir.size >= MAX_ACTIVE) return HabitCheck.QuotaFull(onAir.map { it.name })
             val elapsed = dayOf(h).coerceAtLeast(1)
             val left = (h.days - elapsed + 1).coerceAtLeast(1)
-            val today = LocalDate.now().toString()
+            val today = Time.today().toString()
             val evtId = CalendarWriter.addHabitEvent(ctx, h.name, h.cueTime, today, left)
             saveHabits(ctx, items.map {
                 if (it.id == id) it.copy(enabled = true, startDate = today, days = left, eventId = evtId) else it
@@ -210,7 +210,7 @@ object Habits {
     }
 
     /** 状态行注入 system prompt 用：进行中习惯的第 n/N 天 + 连续 m 天。 */
-    fun statusLine(onAir: List<Habit> = items, today: LocalDate = LocalDate.now()): String {
+    fun statusLine(onAir: List<Habit> = items, today: LocalDate = Time.today()): String {
         val live = onAir.filter { it.enabled && !expired(it, today) }
         if (live.isEmpty()) return ""
         return "进行中的习惯：" + live.joinToString("；") { h ->

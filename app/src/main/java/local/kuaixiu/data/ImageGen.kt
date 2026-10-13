@@ -41,11 +41,12 @@ object ImageGen {
     }
 
     fun generate(ctx: Context, cfg: KxConfig, prompt: String, size: String = DEFAULT_SIZE): File {
-        require(cfg.imageModel.isNotBlank()) { "未配置生图模型：设置 → AI 教练 → 拉取模型列表 → 生图列点选一个" }
+        val imageModel = cfg.effectiveImageModel()
+        require(imageModel.isNotBlank()) { "未配置生图模型：设置 → AI 教练 → 拉取模型列表 → 生图列点选一个" }
         val (base, key) = imageEndpoint(ctx, cfg)
         val url = base.trimEnd('/') + "/images/generations"
         val body = JSONObject().apply {
-            put("model", cfg.imageModel)
+            put("model", imageModel)
             put("prompt", prompt)
             put("n", 1)
             put("size", size)

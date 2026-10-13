@@ -55,6 +55,7 @@ import local.kuaixiu.data.UsageProbe
 import local.kuaixiu.engine.PlanEngine
 import local.kuaixiu.data.Score
 import local.kuaixiu.data.KxStore
+import local.kuaixiu.data.Time
 import local.kuaixiu.engine.Plan
 import local.kuaixiu.engine.PlanDay
 import java.time.LocalDate
@@ -100,7 +101,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
         }
         nextRemind = at
     }
-    val today = LocalDate.now()
+    val today = Time.today()
     fun atMs(date: LocalDate, hhmm: String): Long? = runCatching {
         java.time.LocalDateTime.of(date, LocalTime.parse(hhmm))
             .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
@@ -209,7 +210,7 @@ private fun EmptyCard() {
 
 @Composable
 private fun TodayCard(plan: Plan) {
-    val today = LocalDate.now().toString()
+    val today = Time.today().toString()
     val d = plan.entryFor(today) ?: plan.upcoming(today) ?: plan.days.last()
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -316,7 +317,7 @@ private fun ReminderCard(refreshKey: Int = 0) {
 private fun HabitCard() {
     val items = Habits.items
     if (items.isEmpty()) return
-    val today = LocalDate.now()
+    val today = Time.today()
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("习惯", style = MaterialTheme.typography.titleMedium)
@@ -421,7 +422,7 @@ private fun HabitRow(h: Habit, today: LocalDate) {
 @Composable
 private fun ScoreCard() {
     val ctx = LocalContext.current
-    val night = LocalDate.now().minusDays(1).toString()
+    val night = Time.today().minusDays(1).toString()
     val c0 = Checkins.all(ctx).firstOrNull { it.date == night }
     val e = KxStore.plan?.entryFor(night)
     if (c0 == null && e == null) return
@@ -433,7 +434,7 @@ private fun ScoreCard() {
             UsageProbe.nightFacts(
                 ctx, PlanEngine.winddownStartOf(e, KxStore.config.winddownMin),
                 java.time.LocalDateTime.of(LocalDate.parse(e.date), java.time.LocalTime.parse(KxStore.config.wake)),
-                java.time.LocalDateTime.now(),
+                Time.now().toLocalDateTime(),
             )
         }.getOrNull()
         autoWinddown = facts?.lastScreenOff?.format(fmt)
@@ -479,7 +480,7 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
     val ctx = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var status by remember { mutableStateOf("on_time") }
-    val night = LocalDate.now().minusDays(1)
+    val night = Time.today().minusDays(1)
     val nightEntry = KxStore.plan?.entryFor(night.toString())
     // 预设目标入睡：昨晚在计划内用昨晚档位；计划外（含计划前夜晚）用当晚实际基准
     val presetTarget = nightEntry?.bedtime ?: KxStore.config.currentBedtime
@@ -488,7 +489,7 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
     var showPick by remember { mutableStateOf(false) }
     // 风屏块只在「快到点 / 刚过点」时出现：风屏时刻前 1 小时起，到过点后 6 小时内。
     // 白天不给——早上 7 点顶着「今晚风屏 00:30 开始」没意义，还把卡片撑得很长。
-    val nowLdt = java.time.LocalDateTime.now()
+    val nowLdt = Time.now().toLocalDateTime()
     val winddownDay: PlanDay? = tonightEntry?.takeIf {
         val at = PlanEngine.winddownStartOf(it, KxStore.config.winddownMin)
         !nowLdt.isBefore(at.minusMinutes(60)) && nowLdt.isBefore(at.plusHours(6))
@@ -511,7 +512,7 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
                 val logged = winddownLogged
                 if (logged.isNullOrBlank()) {
                     Button(onClick = {
-                        val now = java.time.LocalTime.now()
+                        val now = Time.now().toLocalTime()
                         val t = "%02d:%02d".format(now.hour, now.minute)
                         Checkins.logWinddown(ctx, tonightIso, t)
                         if (KxStore.config.pcUploadCheckin) {
@@ -528,8 +529,8 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
                     Text("已记录 $logged ✅", color = MaterialTheme.colorScheme.secondary,
                          style = MaterialTheme.typography.titleSmall)
                 }
-                // 助眠图：已配生图模型时提供，竖屏壁纸比例
-                if (KxStore.config.imageModel.isNotBlank()) {
+                // 助眠图：已配生图模型或文本模型支持生图时提供，竖屏壁纸比例
+                if (KxStore.config.effectiveImageModel().isNotBlank()) {
                     var genBusy by remember { mutableStateOf(false) }
                     var genErr by remember { mutableStateOf<String?>(null) }
                     var genFile by remember { mutableStateOf<java.io.File?>(null) }
@@ -615,13 +616,13 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
                     return@LaunchedEffect
                 }
                 val wd = PlanEngine.winddownStartOf(entry, KxStore.config.winddownMin)
-                val anchor = java.time.LocalDateTime.of(java.time.LocalDate.now(),
+                val anchor = java.time.LocalDateTime.of(Time.today(),
                     java.time.LocalTime.parse(KxStore.config.wake))
-                facts = UsageProbe.nightFacts(ctx, wd, anchor, java.time.LocalDateTime.now())
+                facts = UsageProbe.nightFacts(ctx, wd, anchor, Time.now().toLocalDateTime())
             }
             val fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
             facts?.let { f2 ->
-                val inMorning = java.time.LocalTime.now().hour in 4..12
+                val inMorning = Time.now().toLocalTime().hour in 4..12
                 val pickup = if (inMorning) f2.firstMorningPickup else null
                 val lastOn = f2.lastInteractive?.takeIf { pickup == null || it < pickup }
                 if (lastOn != null) {
@@ -748,7 +749,7 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
 
 @Composable
 private fun UpcomingCard(plan: Plan) {
-    val today = LocalDate.now().toString()
+    val today = Time.today().toString()
     val upcoming = plan.days.filter { it.date > today }.take(5)
     if (upcoming.isEmpty()) return
     Card(Modifier.fillMaxWidth()) {

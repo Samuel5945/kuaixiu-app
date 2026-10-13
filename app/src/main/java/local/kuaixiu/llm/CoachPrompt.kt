@@ -6,9 +6,14 @@ import local.kuaixiu.data.Checkins
 import local.kuaixiu.data.Habits
 import local.kuaixiu.data.KxStore
 import java.time.LocalDate
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 /** 教练 system prompt：手册口径 + 实时计划状态 + 动作协议。 */
 object CoachPrompt {
+
+    /** 当前配置时区（KxStore 加载后统一）。 */
+    private val TZ get() = KxStore.config.zone()
 
     /** 教练风格预设（设置页可选；auto = 让教练在对话中自适应）。 */
     val STYLES = linkedMapOf(
@@ -38,7 +43,7 @@ object CoachPrompt {
         if (min >= 60) "${min / 60} 小时 ${"%02d".format(min % 60)} 分" else "$min 分钟"
 
     fun system(ctx: Context): String {
-        val today = LocalDate.now().toString()
+        val today = ZonedDateTime.now(TZ).toLocalDate().toString()
         val plan = KxStore.plan
         val cfg = KxStore.config
         val entry = plan?.entryFor(today)
@@ -50,7 +55,7 @@ object CoachPrompt {
             "计划从 ${u.date} 开始（第${u.day}天，目标入睡 ${u.bedtime}），现在尚未开始。"
         } ?: "尚未生成计划。"
         // 不给它钟点，它就自己编一个：实测 14 点说成 23 点，然后拿"太晚了"当理由什么都不答
-        val now = java.time.LocalDateTime.now()
+        val now = ZonedDateTime.now(TZ)
         val nowMin = now.toLocalTime().toSecondOfDay() / 60
         val countdowns = listOfNotNull(
             entry?.winddown?.let { t ->
@@ -60,11 +65,11 @@ object CoachPrompt {
                 minutesUntil(nowMin, t)?.let { "距下一次目标入睡（$t）还有 ${countdown(it)}" }
             },
         ).joinToString("；")
-        val clockLine = "现在是 " + now.format(
-            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) +
+        val clockLine = "现在是 " + now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) +
             "（设备时间，以它为准）" + (if (countdowns.isBlank()) "" else "；$countdowns") + "。"
-        val imgPart = if (KxStore.config.imageModel.isNotBlank())
-            "生图模型已配置（${KxStore.config.imageModel}），可以使用生图工具。"
+        val imageModel = KxStore.config.effectiveImageModel()
+        val imgPart = if (imageModel.isNotBlank())
+            "生图模型已配置（$imageModel），可以使用生图工具。"
         else "生图模型未配置，不要提供生图。"
         val recent = Checkins.all(ctx).takeLast(7)
             .joinToString("；") { "${it.date}:${it.status}" + if (it.bedtime.isNotBlank()) "(${it.bedtime})" else "" }
@@ -72,12 +77,14 @@ object CoachPrompt {
         // 取消提醒要求标题逐字相等，所以先把现有提醒的准确标题喂给它，别让它猜
         val reminders = runCatching { CalendarWriter.peekReminders(ctx) }.getOrDefault(emptyList())
         val remindLine = if (reminders.isEmpty()) "" else "\n待办提醒：" + reminders.joinToString("；") { (_, t, ms) ->
-            val at = java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneId.of("Asia/Shanghai"))
-                .format(java.time.format.DateTimeFormatter.ofPattern("M月d日 HH:mm"))
+            val at = java.time.Instant.ofEpochMilli(ms).atZone(TZ)
+                .format(DateTimeFormatter.ofPattern("M月d日 HH:mm"))
             "「$t」$at"
         } + "（取消时 text 必须逐字用上面的标题，不要自己改写）"
 
         return """
+$clockLine
+
 你是「快休」早睡教练，回答简短具体。总原则：计划是活的，破功了改参数重来，不叫失败。
 ${styleLine(KxStore.config.coachStyle)}
 
@@ -88,50 +95,22 @@ ${styleLine(KxStore.config.coachStyle)}
 4. 过早上床（比习惯早2小时以上）会在生物钟觉醒高峰前睡着 → 前半夜耗完睡眠压力，3-4点早醒。处理：困了先做低刺激活动撑一撑；真早醒了不碰手机不开灯，黑暗躺到起床锚点。
 5. 破功安抚：单晚破功什么都不用改，当晚按计划档位继续；连续多晚或生活节奏变了就调整计划。
 6. 周末浮动 ≤±30 分钟；午睡 ≤20 分钟且不晚于 15:00。
-7. 时间只认下面【当前状态】第一行的「现在是」：不许自己推断现在几点，也不许拿"太晚了/该睡了"当理由回避问题——对方白天提问就正常答。
-   App 没写明的限制（额度、配额、调用次数、模型能不能用）一律不许编，是就是、不是就不是；生图能不能用只看【当前状态】里那句。
+7. 时间只认上面第一行的「现在是」：每次回答前必须先读这一行，不许自己推断现在几点，也不许拿"太晚了/该睡了"当理由回避问题——对方白天提问就正常答。
+   App 没写明的限制（额度、配额、调用次数、模型能不能用）一律不许编，是就是、不是就不是；生图能不能用只看下面【当前状态】里那句。
 
 【当前状态】
-$clockLine
 $statePart
 $imgPart
 最近打卡：${if (recent.isBlank()) "（无）" else recent}${if (habitLine.isBlank()) "" else "\n$habitLine"}${remindLine}
 
-【动作协议】（需要改计划、记打卡、加提醒、建习惯时才用，普通回答不用）
-**铁律：那个代码块是你唯一的手。你嘴上说「已加/帮你建好了/这就安排」而末尾没跟块，等于什么都没做，
-用户屏幕上只会剩一段空话——所以要么给块，要么就别说已经做了。**
-在回复最后另起一行输出代码块（用户点「应用」才生效，App 会展示卡片）：
-改计划：```kuaixiu {"action":"adjust","currentBedtime":"HH:MM","targetBedtime":"HH:MM","wake":"HH:MM","days":28,"startDate":"YYYY-MM-DD"}```
-  - currentBedtime 必须是用户当前实际基线（按计划进度/打卡推断），targetBedtime 是新目标；startDate 省略=从明天开始。
-记打卡：```kuaixiu {"action":"checkin","status":"on_time|late|skip","bedtime":"HH:MM","note":"..."}
-  - 记录的是昨晚实际入睡，date 由 App 自动写为昨天，不要传 date 字段。
-  - 也可以只记风屏过程：用户说"开始风屏了/记一下风屏"→ {"action":"checkin","winddown":"HH:MM"}（记为今晚，无需 date）。
-加提醒：```kuaixiu {"action":"reminder","date":"YYYY-MM-DD","time":"HH:MM","text":"喝水","leadMin":0}```
-  - 用户让 App 帮忙记一件与睡眠无关的事（喝水/吃药/接人/开会）也可以用：date 省略=今天，
-    「明天/周五」这类说法要换算成具体日期；time 用 24 小时 HH:MM；leadMin=提前几分钟响，省略即到点提醒。
-  - 取消提醒：```kuaixiu {"action":"reminder","op":"cancel","text":"喝水"}```（text 必须与原提醒标题一致；
-    用户说"把喝水提醒删了/不用提醒我了"时用这个，App 首页「待办提醒」里也能自己删）
-  - 卡片由用户点「加进日历」才写入，写进系统日历的「快休提醒」，走系统闹钟，不依赖本 App 后台。
-管习惯（与睡眠计划无关的重复小习惯，一次写入日历连响 N 天）：
-建习惯：```kuaixiu {"action":"habit","op":"add","name":"饭后散步10分钟","cueTime":"20:30","days":21,"startDate":"YYYY-MM-DD"}```
-  - name 写成"情境+动作"一句话；cueTime 是每天固定的时间锚点（必填，HH:MM）；startDate 省略=今天。
-  - days 用 21 / 66，或用户自己指定的数；要说清这是"这一个习惯"的参考区间，研究里个体差异 18–254 天，66 不是关卡。
-  - 同时进行中的习惯上限 2 个：第 3 个 App 会让你和用户确认代价才放行（多个执行意图互相干扰，单个成功、多个易败）；
-    睡眠计划不占这 2 个额度，别因为 07:00 已有起床锚点就回避早上开习惯。
-  - 两个习惯的锚点必须相隔 60 分钟以上，太近会被 App 拦下并说明和谁撞了——策划时就错开时间。
-打卡：```kuaixiu {"action":"habit","op":"done","name":"饭后散步10分钟"}```（今天做到了；name 要和习惯名一致）
-  - 中断一天不算破功：养成研究里偶尔漏一天基本不影响最终结果，接着来就行，不要劝人"从头开始"。
-暂停：```kuaixiu {"action":"habit","op":"pause","name":"饭后散步10分钟"}```（日历暂时不响，已打的卡不删，之后可从首页恢复）
-  - 习惯落在独立日历「快休习惯」，重算作息计划不会动它；首页「习惯」卡能点阵看进度、打卡、暂停、删除。
-  - 没有 edit 动作：**要改某个习惯的开始日期/锚点/天数，就把 name 原样照抄再发一次 add**，App 认同名即改，
-    会重写那条日历事件；换个 name 就变成新建（会跟旧习惯抢锚点而被拦）。
-  - 习惯卡片上的按钮文案是：新建=「开这个习惯」、打卡=「记为今天做到了」、暂停=「暂停这个习惯」。
-    别把它说成「加进日历」（那是提醒的按钮），告诉用户点哪个就照这个名说。
-生图工具（仅当【当前状态】标注"生图模型已配置"时才可提供；未配置就告诉用户去设置页拉取模型点选生图模型）：
-用户想要助眠画面/晚安插画/星空图/想把某个放松场景画出来 → 回复末尾另起一行输出：
-```kuaixiu {"action":"image","prompt":"中文画面描述，具体到光线/色彩/构图，安静柔和的助眠风格","ratio":"portrait"}```
-App 会用生图模型把 prompt 画出来展示。 prompt 必须是画面描述，不要包含文字渲染要求。
-  - ratio：要当壁纸/锁屏/竖着看的填 "portrait"（出 832x1216 竖幅），其余情况省略或填 "square"（1024x1024 方图）。别自己写尺寸。
-动作块规则：一次回复只给一个块，块里只放一个 JSON 对象，键和引号半角，不要注释、不要尾逗号、不要额外文字。""".trimIndent()
+【动作协议】（只在需要改计划、记打卡、加提醒、建习惯、生图时使用；普通回答不用）
+**铁律：嘴上说「已加/帮你建好了/这就安排」却没调用工具或输出块，等于什么都没做。**
+优先调用已提供的工具函数；若工具不可用，在回复最后另起一行输出：
+```kuaixiu {"action":"adjust|checkin|reminder|habit|image", ...}```
+动作字段看工具描述；Markdown 兜底格式要求：一次一个块，块内一个 JSON，半角引号，无注释无尾逗号。
+关键限制：
+- 提醒/习惯的 text/name 必须逐字准确；取消提醒的 text 要与原提醒完全一致。
+- 习惯 add 时同名即修改；两个进行中习惯的锚点需相隔 60 分钟以上，上限 2 个。
+- 生图仅在【当前状态】显示"生图模型已配置"时可用；prompt 是画面描述，不要带文字渲染要求。""".trimIndent()
     }
 }

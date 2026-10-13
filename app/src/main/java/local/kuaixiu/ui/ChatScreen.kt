@@ -1,5 +1,6 @@
 package local.kuaixiu.ui
 
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -58,9 +59,12 @@ import local.kuaixiu.data.HabitCheck
 import local.kuaixiu.data.Habits
 import local.kuaixiu.data.ImageGen
 import local.kuaixiu.data.KxStore
+import local.kuaixiu.data.LlmLogger
+import local.kuaixiu.data.Time
 import local.kuaixiu.llm.ActionRunner
 import local.kuaixiu.llm.CoachPrompt
 import local.kuaixiu.llm.LlmClient
+import local.kuaixiu.llm.LlmReply
 import local.kuaixiu.llm.LocalCoach
 import org.json.JSONObject
 import java.time.LocalDate
@@ -224,32 +228,73 @@ fun ChatScreen(modifier: Modifier = Modifier) {
             msgs.add(ChatMsg("assistant", "…"))  // 瞬态占位，不入盘
             // 应用级作用域：切页签/锁屏流式不中断
             local.kuaixiu.KxScope.app.launch {
-                runCatching {
-                    val history = msgs.filter {
-                        !it.text.startsWith("我是你的早睡教练") &&
-                            !it.text.startsWith("离线教练") && it.text != "…"
-                    }.takeLast(12).map { it.role to it.text }
-                    val sys = CoachPrompt.system(ctx)
-                    LlmClient(KxStore.config.llmBaseUrl, KxStore.config.llmKey)
-                        .chatStreaming(KxStore.config.llmModel, listOf("system" to sys) + history) { full ->
-                            if (placeholderIdx < msgs.size) {
-                                msgs[placeholderIdx] = ChatMsg("assistant", full)
-                            }
-                        }
-                }.onSuccess { reply ->
-                    val action = LlmClient.parseAction(reply)
-                    val shown = LlmClient.stripAction(reply)
+                val history = msgs.filter {
+                    !it.text.startsWith("我是你的早睡教练") &&
+                        !it.text.startsWith("离线教练") && it.text != "…"
+                }.takeLast(12).map { it.role to it.text }
+                val onDelta: suspend (String) -> Unit = { full ->
                     if (placeholderIdx < msgs.size) {
-                        msgs[placeholderIdx] = ChatMsg("assistant", shown.ifBlank { "（建议如下）" }, action?.toString())
+                        // 流式过程中就把 Markdown 动作块剥掉，用户看不到 raw JSON
+                        msgs[placeholderIdx] = ChatMsg("assistant", LlmClient.stripAction(full))
                     }
-                    ChatLog.append(ctx, "assistant", shown.ifBlank { "（建议如下）" },
-                        actionJson = action?.toString() ?: "")
+                }
+                fun finalize(reply: LlmReply) {
+                    val shown = LlmClient.stripAction(reply.text).ifBlank { "（建议如下）" }
+                    val actionJson = reply.actionJson
+                    // 如果工具/Markdown 都没解析出动作，但原文里有 kuaixiu 块，把它暴露成排查卡片
+                    val fallbackAction = if (actionJson == null) {
+                        LlmClient.extractKuaixiuRaw(reply.text)
+                    } else null
+                    if (placeholderIdx < msgs.size) {
+                        msgs[placeholderIdx] = ChatMsg("assistant", shown,
+                            actionJson = actionJson ?: fallbackAction)
+                    }
+                    ChatLog.append(ctx, "assistant", shown,
+                        actionJson = actionJson ?: fallbackAction ?: "")
                     busy = false
-                }.onFailure { e ->
+                }
+                fun showError(e: Throwable) {
+                    LlmLogger.log(ctx, KxStore.config.llmModel, raw = "", error = e.message ?: e.toString())
                     if (placeholderIdx < msgs.size) {
                         msgs[placeholderIdx] = ChatMsg("assistant", "出错了：${e.message}\n检查设置页的 base_url / key / model。")
                     }
                     busy = false
+                }
+                suspend fun tryOnce(hist: List<Pair<String, String>>): Result<LlmReply> = runCatching {
+                    callCoachStreaming(ctx, hist, withTools = true, onDelta)
+                }.recoverCatching { e ->
+                    // 部分 provider/模型不支持 tools，失败一次后关掉 tools 重试
+                    if (looksLikeToolsError(e)) {
+                        callCoachStreaming(ctx, hist, withTools = false, onDelta)
+                    } else throw e
+                }
+
+                val first = tryOnce(history)
+                if (first.isFailure) {
+                    showError(first.exceptionOrNull()!!)
+                    return@launch
+                }
+                val reply1 = first.getOrThrow()
+                val hasAction = reply1.actionJson != null ||
+                    LlmClient.extractKuaixiuRaw(reply1.text) != null
+                if (!hasAction && hasActionIntent(q)) {
+                    // 模型嘴上答应却没执行：追加追呼系统消息再调一次
+                    val retryHist = history + listOf(
+                        "assistant" to reply1.text,
+                        "system" to "用户刚刚的要求明显需要执行具体动作（改计划/记打卡/加提醒/建习惯/生图），" +
+                            "但你没有调用工具函数，也没有输出动作块。请立即调用对应工具完成，不要只回复文本。"
+                    )
+                    val second = tryOnce(retryHist)
+                    if (second.isSuccess) {
+                        val reply2 = second.getOrThrow()
+                        val hasAction2 = reply2.actionJson != null ||
+                            LlmClient.extractKuaixiuRaw(reply2.text) != null
+                        finalize(if (hasAction2) reply2 else reply1)
+                    } else {
+                        finalize(reply1)
+                    }
+                } else {
+                    finalize(reply1)
                 }
             }
         }
@@ -345,8 +390,23 @@ fun ChatScreen(modifier: Modifier = Modifier) {
 private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: String) -> Unit) {
     val ctx = LocalContext.current
     var applied by remember { mutableStateOf(false) }
-    val action = runCatching { JSONObject(actionJson) }.getOrNull() ?: return
-    val kind = action.optString("action")
+    val parsedAction = runCatching { JSONObject(actionJson) }.getOrNull()
+    val action = parsedAction
+    val kind = action?.optString("action") ?: ""
+    // 动作块 JSON 解析失败时也要看得见，否则模型给了块、App 却直接消失，无法排查
+    if (action == null) {
+        Card(Modifier.fillMaxWidth(),
+             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.12f))) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("⚠️ 动作块解析失败", style = MaterialTheme.typography.titleSmall,
+                     color = MaterialTheme.colorScheme.error)
+                Text("App 没认出这块 JSON，可长按复制给开发者排查：", style = MaterialTheme.typography.bodySmall)
+                Text(actionJson, style = MaterialTheme.typography.bodySmall,
+                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        return
+    }
     val habit = if (kind == "habit") parseHabit(action) else null
     // 第 3 个并行习惯不硬拦，但要用户看过代价再点第二次
     var ackCost by remember { mutableStateOf(false) }
@@ -450,6 +510,10 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
             ) {
             Button(onClick = {
                 if (applied) return@Button
+                validateAction(action)?.let {
+                    Toast.makeText(ctx, "参数有误：$it", Toast.LENGTH_LONG).show()
+                    return@Button
+                }
                 when (kind) {
                     "adjust" -> {
                         val cfg = KxStore.config
@@ -478,7 +542,7 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
                         }
                         if (action.has("status") && action.optString("status").isNotBlank()) {
                             val c = local.kuaixiu.data.Checkin(
-                                date = LocalDate.now().minusDays(1).toString(),
+                                date = Time.today().minusDays(1).toString(),
                                 status = action.optString("status", "late"),
                                 bedtime = action.optString("bedtime", ""),
                                 note = action.optString("note", ""),
@@ -501,7 +565,7 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
                                 Toast.makeText(ctx, "删除失败：${it.message}", Toast.LENGTH_SHORT).show()
                             }
                         } else {
-                            val today = LocalDate.now()
+                            val today = Time.today()
                             val d = action.optString("date").ifBlank { today.toString() }
                             val t = action.optString("time", "09:00")
                             ActionRunner.applyReminder(
@@ -647,5 +711,82 @@ private fun parseHabit(a: JSONObject) = HabitArgs(
     name = a.optString("name", ""),
     cue = a.optString("cueTime", ""),
     days = if (a.has("days")) a.optInt("days", 21) else 21,
-    start = a.optString("startDate").ifBlank { LocalDate.now().toString() },
+    start = a.optString("startDate").ifBlank { Time.today().toString() },
 )
+
+/** 带 tools / 不带 tools 的统一流式调用。 */
+private suspend fun callCoachStreaming(
+    ctx: Context,
+    history: List<Pair<String, String>>,
+    withTools: Boolean,
+    onDelta: suspend (String) -> Unit,
+): LlmReply {
+    val sys = CoachPrompt.system(ctx)
+    val tools = if (withTools) LlmClient.toolsJson() else null
+    return LlmClient(KxStore.config.llmBaseUrl, KxStore.config.llmKey)
+        .chatStreaming(KxStore.config.llmModel, listOf("system" to sys) + history, tools, logCtx = ctx, onDelta)
+}
+
+/** 判断用户语句是否明确要求执行某个动作（用于模型漏执行时追呼）。 */
+private fun hasActionIntent(text: String): Boolean = listOf(
+    Regex("""(目标|改成|改到|调到|调整|推迟|提前|起床|入睡时间|计划天数|重新定)"""),
+    Regex("""(昨晚|睡了|入睡|几点睡|睡的|打卡|风屏|放下手机|不玩手机)"""),
+    Regex("""(提醒|叫我|记一下|别忘了|别忘|记着)"""),
+    Regex("""(习惯|养成|培养)"""),
+    Regex("""(画一?张|画个|画一下|助眠图|晚安图|助眠画面|插画|配图)"""),
+).any { it.containsMatchIn(text) }
+
+/** 校验动作 JSON 的基本格式，返回错误文案；通过返回 null。 */
+private fun validateAction(action: JSONObject): String? {
+    val kind = action.optString("action")
+    val timeRe = Regex("""^([01]\d|2[0-3]):([0-5]\d)$""")
+    val dateRe = Regex("""^\d{4}-\d{2}-\d{2}$""")
+    fun okTime(k: String) = !action.has(k) || action.optString(k).isBlank() || timeRe.matches(action.optString(k))
+    fun okDate(k: String) = !action.has(k) || action.optString(k).isBlank() || dateRe.matches(action.optString(k))
+    return when (kind) {
+        "adjust" -> {
+            listOf("currentBedtime", "targetBedtime", "wake").firstOrNull { !okTime(it) }
+                ?.let { "「$it」格式应为 HH:MM" }
+                ?: if (!okDate("startDate")) "「startDate」格式应为 YYYY-MM-DD" else null
+        }
+        "reminder" -> {
+            if (action.optString("op") == "cancel") {
+                if (action.optString("text").isBlank()) "取消提醒需要写明标题" else null
+            } else {
+                if (!okTime("time")) "「time」格式应为 HH:MM"
+                else if (!okDate("date")) "「date」格式应为 YYYY-MM-DD"
+                else if (action.optString("text").isBlank()) "提醒内容不能为空"
+                else null
+            }
+        }
+        "habit" -> {
+            when (action.optString("op", "add")) {
+                "done", "pause" -> if (action.optString("name").isBlank()) "习惯名不能为空" else null
+                else -> {
+                    if (action.optString("name").isBlank()) "习惯名不能为空"
+                    else if (!okTime("cueTime")) "「cueTime」格式应为 HH:MM"
+                    else if (!okDate("startDate")) "「startDate」格式应为 YYYY-MM-DD"
+                    else null
+                }
+            }
+        }
+        "checkin" -> {
+            listOf("bedtime", "winddown").firstOrNull { !okTime(it) }
+                ?.let { "「$it」格式应为 HH:MM" }
+        }
+        "image" -> if (action.optString("prompt").isBlank()) "画面描述不能为空" else null
+        else -> null
+    }
+}
+
+/** 判断错误是否像是因为 provider 不支持 tools/function calling。 */
+private fun looksLikeToolsError(e: Throwable): Boolean {
+    val msg = e.message ?: return false
+    val code = Regex("""HTTP\s+(\d+)""").find(msg)?.groupValues?.get(1)?.toIntOrNull()
+    return code in setOf(400, 422) ||
+        msg.contains("tool", ignoreCase = true) ||
+        msg.contains("function", ignoreCase = true) ||
+        msg.contains("工具") ||
+        msg.contains("函数") ||
+        msg.contains("不支持")
+}

@@ -1,5 +1,6 @@
 package local.kuaixiu.engine
 
+import local.kuaixiu.data.Time
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -95,7 +96,7 @@ object PlanEngine {
         (bedtimeMin - 480).coerceIn(11 * 60, 16 * 60 + 30)
 
     /** 宽容日期解析：ISO / 2026.10.11 / 2026/10/11 / 10/11（补当前年）等，失败回退今天。 */
-    fun parseDateLenient(s: String, today: LocalDate = LocalDate.now()): LocalDate {
+    fun parseDateLenient(s: String, today: LocalDate = Time.today()): LocalDate {
         val t = s.trim()
         if (t.isBlank()) return today
         return runCatching { LocalDate.parse(t) }
@@ -126,7 +127,7 @@ object PlanEngine {
         return bedtimeDate(date, b).atTime(b / 60, b % 60).minusMinutes(winddownMin.toLong())
     }
 
-    fun generate(cfg: PlanConfig, today: LocalDate = LocalDate.now()): Plan {
+    fun generate(cfg: PlanConfig, today: LocalDate = Time.today()): Plan {
         val start = parseDateLenient(cfg.startDate, today)
         val targetMin = hhmmToMin(cfg.targetBedtime)
         val bedtimes = ladder(cfg.currentBedtime, cfg.targetBedtime, cfg.planDays)
@@ -158,7 +159,7 @@ object PlanEngine {
             .filter { it in 1..cfg.planDays }
 
         return Plan(
-            created = LocalDateTime.now().toString(),
+            created = Time.now().toLocalDateTime().toString(),
             config = cfg,
             summary = PlanSummary(
                 totalShiftMinutes = shift,

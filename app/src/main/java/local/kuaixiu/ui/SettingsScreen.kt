@@ -394,6 +394,33 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 }
             }
         }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("时间与通知", style = MaterialTheme.typography.titleMedium)
+                    OutlinedTextField(
+                        value = cfg.timezone,
+                        onValueChange = { edit { c -> c.copy(timezone = it) } },
+                        label = { Text("时区 ID") },
+                        placeholder = { Text("Asia/Shanghai") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    )
+                    Text("如 Asia/Shanghai、America/New_York。改后计划/提醒/教练时间均按此时区计算。",
+                         style = MaterialTheme.typography.bodySmall,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(checked = cfg.notifyWinddown,
+                               onCheckedChange = { edit { c -> c.copy(notifyWinddown = it) } })
+                        Text("  风屏提醒")
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(checked = cfg.notifyMorning,
+                               onCheckedChange = { edit { c -> c.copy(notifyMorning = it) } })
+                        Text("  晨间提醒")
+                    }
+                }
+            }
+        }
     }
 
     // 模型列表对话框（文本可选 / 生图仅展示）

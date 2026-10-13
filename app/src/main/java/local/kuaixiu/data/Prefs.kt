@@ -3,6 +3,7 @@ package local.kuaixiu.data
 import android.content.Context
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import local.kuaixiu.data.ModelClassifier.isImageModel
 import local.kuaixiu.engine.Plan
 import local.kuaixiu.engine.PlanConfig
 
@@ -23,6 +24,7 @@ data class KxConfig(
     val pcUploadCheckin: Boolean = false,
     val coachStyle: String = "gentle",
     val providerName: String = "",   // 当前激活的供应商档案名
+    val timezone: String = "Asia/Shanghai",  // App 统一时区（与系统日历一致）
     val notifyWinddown: Boolean = true,
     val notifyMorning: Boolean = true,
 ) {
@@ -30,6 +32,18 @@ data class KxConfig(
         currentBedtime, targetBedtime, wake,
         startDate.ifBlank { "" }, planDays, winddownMin,
     )
+
+    /**
+     * 实际用于生图的模型：显式配置了 imageModel 就优先用它；
+     * 没配置但文本模型本身看起来像生图模型（如 cogview/dall-e/flux），就复用 llmModel。
+     */
+    fun effectiveImageModel(): String = imageModel.ifBlank {
+        if (isImageModel(llmModel)) llmModel else ""
+    }
+
+    /** 当前配置时区（非法时回退到 Asia/Shanghai）。 */
+    fun zone(): java.time.ZoneId = runCatching { java.time.ZoneId.of(timezone) }
+        .getOrDefault(java.time.ZoneId.of("Asia/Shanghai"))
 
     /** UI 展示用的掩码：前 4 位…后 4 位（sk-pq…dE58）。 */
     fun keyMasked(): String = when {
@@ -94,6 +108,7 @@ object Prefs {
             pcUploadCheckin = s.getBoolean("pcUploadCheckin", false),
             coachStyle = s.getString("coachStyle", null) ?: "gentle",
             providerName = s.getString("providerName", null) ?: "",
+            timezone = s.getString("timezone", null) ?: "Asia/Shanghai",
             notifyWinddown = s.getBoolean("notifyWinddown", true),
             notifyMorning = s.getBoolean("notifyMorning", true),
         )
@@ -117,6 +132,7 @@ object Prefs {
             putBoolean("pcUploadCheckin", c.pcUploadCheckin)
             putString("coachStyle", c.coachStyle)
             putString("providerName", c.providerName)
+            putString("timezone", c.timezone)
             putBoolean("notifyWinddown", c.notifyWinddown)
             putBoolean("notifyMorning", c.notifyMorning)
             apply()

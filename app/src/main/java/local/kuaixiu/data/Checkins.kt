@@ -11,6 +11,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import java.io.IOException
 import java.time.Duration
+import java.time.ZonedDateTime
 
 @Serializable
 data class Checkin(
@@ -43,7 +44,7 @@ object Checkins {
     }
 
     /** "今晚"归属的计划日：中午 12 点前算昨晚的延续，之后算今天晚上。 */
-    fun tonightDate(now: java.time.LocalDateTime = java.time.LocalDateTime.now()): java.time.LocalDate =
+    fun tonightDate(now: ZonedDateTime = Time.now()): java.time.LocalDate =
         if (now.hour >= 12) now.toLocalDate() else now.toLocalDate().minusDays(1)
 
     /** 记录今晚风屏开始时间（同日期已有记录则合并，保留其他字段）。 */

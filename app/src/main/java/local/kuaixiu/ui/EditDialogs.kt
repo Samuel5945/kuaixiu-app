@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import local.kuaixiu.data.HabitCheck
 import local.kuaixiu.data.Habits
 import local.kuaixiu.llm.ActionRunner
+import local.kuaixiu.data.Time
 import java.time.LocalDate
 
 /**
@@ -37,7 +38,7 @@ import java.time.LocalDate
 @Composable
 fun ReminderDialog(onDismiss: () -> Unit) {
     val ctx = LocalContext.current
-    var date by remember { mutableStateOf(LocalDate.now().toString()) }
+    var date by remember { mutableStateOf(Time.today().toString()) }
     var time by remember { mutableStateOf("08:00") }
     var text by remember { mutableStateOf("") }
     var lead by remember { mutableStateOf(0) }
@@ -94,7 +95,7 @@ fun HabitDialog(onDismiss: () -> Unit) {
     var name by remember { mutableStateOf("") }
     var cue by remember { mutableStateOf("20:30") }
     var days by remember { mutableStateOf(21) }
-    var start by remember { mutableStateOf(LocalDate.now().toString()) }
+    var start by remember { mutableStateOf(Time.today().toString()) }
     var ackCost by remember { mutableStateOf(false) }
 
     // 只查冲突、不写库：输入变化时实时提示，点确认才落盘

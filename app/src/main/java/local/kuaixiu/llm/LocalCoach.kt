@@ -1,6 +1,7 @@
 package local.kuaixiu.llm
 
 import local.kuaixiu.data.KxConfig
+import local.kuaixiu.data.Time
 import local.kuaixiu.engine.PlanEngine
 import java.time.LocalDate
 import java.time.LocalTime
@@ -42,8 +43,8 @@ object LocalCoach {
     fun reply(
         text: String,
         cfg: KxConfig,
-        today: LocalDate = LocalDate.now(),
-        now: LocalTime = LocalTime.now(),
+        today: LocalDate = Time.today(),
+        now: LocalTime = Time.now().toLocalTime(),
         knownReminders: List<String> = emptyList(),
         knownHabits: List<String> = emptyList(),
     ): LocalReply {
@@ -119,9 +120,9 @@ object LocalCoach {
 
         // 7) 生图
         if (RE_IMAGE.containsMatchIn(t)) {
-            return if (cfg.imageModel.isNotBlank())
+            return if (cfg.effectiveImageModel().isNotBlank())
                 LocalReply("画一张助眠画面 👇", obj("action" to "image", "prompt" to imagePrompt(t)))
-            else LocalReply("还没配生图模型：设置 → AI 教练 → 拉取模型列表 → 在生图列点选一个。")
+            else LocalReply("还没配生图模型：设置 → AI 教练 → 拉取模型列表 → 在生图列点选一个，或直接用生图模型当文本模型。")
         }
 
         // 8) 常见作息问题：给手册里的固定口径
@@ -289,7 +290,7 @@ object LocalCoach {
     }
 
     /** 从任意句子抠出日期 → ISO。识别不了返回 null（由调用侧默认今天）。 */
-    fun parseDate(raw: String, today: LocalDate = LocalDate.now()): String? {
+    fun parseDate(raw: String, today: LocalDate = Time.today()): String? {
         Regex("(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})").find(raw)?.let {
             return runCatching {
                 LocalDate.of(it.groupValues[1].toInt(), it.groupValues[2].toInt(), it.groupValues[3].toInt())

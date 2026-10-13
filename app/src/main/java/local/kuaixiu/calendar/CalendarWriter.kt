@@ -6,9 +6,9 @@ import android.provider.CalendarContract
 import android.provider.CalendarContract.Calendars
 import android.provider.CalendarContract.Events
 import android.provider.CalendarContract.Reminders
+import local.kuaixiu.data.Time
 import local.kuaixiu.engine.Plan
 import local.kuaixiu.engine.PlanEngine
-import java.time.ZoneId
 
 /**
  * 把计划写入系统日历（荣耀日历原生显示、原生提醒）。
@@ -25,7 +25,6 @@ object CalendarWriter {
     /** 习惯同理必须自带日历：作息计划重算时只动「快休早睡」，碰不到这里。 */
     const val HABIT_ACCOUNT = "kuaixiu.habit"
     const val HABIT_CALENDAR_NAME = "快休习惯"
-    private val TZ = ZoneId.of("Asia/Shanghai")
 
     private fun syncAdapterUri(base: android.net.Uri, account: String = ACCOUNT) = base.buildUpon()
         .appendQueryParameter(CalendarContract.CALLER_IS_SYNCADAPTER, "true")
@@ -55,7 +54,7 @@ object CalendarWriter {
             put(Calendars.VISIBLE, 1)
             put(Calendars.SYNC_EVENTS, 1)
             put(Calendars.OWNER_ACCOUNT, account)
-            put(Calendars.CALENDAR_TIME_ZONE, TZ.id)
+            put(Calendars.CALENDAR_TIME_ZONE, Time.zone().id)
         }
         val uri = cr.insert(syncAdapterUri(Calendars.CONTENT_URI, account), cv)
             ?: throw IllegalStateException("日历创建失败（缺少 WRITE_CALENDAR 权限？）")
@@ -68,13 +67,13 @@ object CalendarWriter {
         val cr = context.contentResolver
         val calId = ensureCalendar(context, REMIND_ACCOUNT, REMIND_CALENDAR_NAME)
         val start = java.time.LocalDateTime.parse("${dateIso}T$hhmm:00")
-        require(!start.isBefore(java.time.LocalDateTime.now())) { "提醒时间已经在过去了" }
+        require(!Time.zoned(start).isBefore(Time.now())) { "提醒时间已经在过去了" }
         val cv = ContentValues().apply {
             put(Events.CALENDAR_ID, calId)
             put(Events.TITLE, text)
-            put(Events.DTSTART, start.atZone(TZ).toInstant().toEpochMilli())
-            put(Events.DTEND, start.plusMinutes(10).atZone(TZ).toInstant().toEpochMilli())
-            put(Events.EVENT_TIMEZONE, TZ.id)
+            put(Events.DTSTART, start.atZone(Time.zone()).toInstant().toEpochMilli())
+            put(Events.DTEND, start.plusMinutes(10).atZone(Time.zone()).toInstant().toEpochMilli())
+            put(Events.EVENT_TIMEZONE, Time.zone().id)
             put(Events.AVAILABILITY, Events.AVAILABILITY_FREE)   // 不占忙闲
         }
         val uri = cr.insert(syncAdapterUri(Events.CONTENT_URI, REMIND_ACCOUNT), cv)
@@ -104,10 +103,10 @@ object CalendarWriter {
             put(Events.CALENDAR_ID, calId)
             put(Events.TITLE, name)
             put(Events.DESCRIPTION, "快休习惯 · 连续 $days 天，锚点 $cueTime")
-            put(Events.DTSTART, start.atZone(TZ).toInstant().toEpochMilli())
-            put(Events.DTEND, start.plusMinutes(10).atZone(TZ).toInstant().toEpochMilli())
+            put(Events.DTSTART, start.atZone(Time.zone()).toInstant().toEpochMilli())
+            put(Events.DTEND, start.plusMinutes(10).atZone(Time.zone()).toInstant().toEpochMilli())
             put(Events.RRULE, "FREQ=DAILY;COUNT=$days")
-            put(Events.EVENT_TIMEZONE, TZ.id)
+            put(Events.EVENT_TIMEZONE, Time.zone().id)
             put(Events.AVAILABILITY, Events.AVAILABILITY_FREE)
             put(Events.GUESTS_CAN_MODIFY, 0)
         }
@@ -140,15 +139,15 @@ object CalendarWriter {
         )
         var n = 0
         for (e in PlanEngine.eventsFor(plan)) {
-            val startMs = e.start.atZone(TZ).toInstant().toEpochMilli()
-            val endMs = e.start.plusMinutes(e.durationMin.toLong()).atZone(TZ).toInstant().toEpochMilli()
+            val startMs = e.start.atZone(Time.zone()).toInstant().toEpochMilli()
+            val endMs = e.start.plusMinutes(e.durationMin.toLong()).atZone(Time.zone()).toInstant().toEpochMilli()
             val cv = ContentValues().apply {
                 put(Events.CALENDAR_ID, calId)
                 put(Events.TITLE, e.title)
                 put(Events.DESCRIPTION, e.description)
                 put(Events.DTSTART, startMs)
                 put(Events.DTEND, endMs)
-                put(Events.EVENT_TIMEZONE, TZ.id)
+                put(Events.EVENT_TIMEZONE, Time.zone().id)
                 put(Events.AVAILABILITY, Events.AVAILABILITY_BUSY)
                 put(Events.GUESTS_CAN_MODIFY, 0)
             }

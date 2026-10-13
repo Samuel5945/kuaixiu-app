@@ -118,7 +118,7 @@ object Score {
     }
 
     /** 连续天数通用核心：睡眠用 on_time 日期集合，习惯用 habitId 的打卡日期集合。 */
-    fun streakOn(done: Set<String>, today: java.time.LocalDate = java.time.LocalDate.now()): Int {
+    fun streakOn(done: Set<String>, today: java.time.LocalDate = Time.today()): Int {
         var d = if (today.toString() in done) today else today.minusDays(1)
         var n = 0
         while (d.toString() in done) {
@@ -130,7 +130,7 @@ object Score {
 
     /** 达成率：已走过的天数里打卡占比（未开始/已超期分别夹到边界）。 */
     fun completion(done: Set<String>, startDate: java.time.LocalDate, planDays: Int,
-                   today: java.time.LocalDate = java.time.LocalDate.now()): Pair<Int, Int> {
+                   today: java.time.LocalDate = Time.today()): Pair<Int, Int> {
         val elapsed = if (today.isBefore(startDate)) 0
             else kotlin.math.min(planDays, java.time.temporal.ChronoUnit.DAYS
                 .between(startDate, today).toInt() + 1)
