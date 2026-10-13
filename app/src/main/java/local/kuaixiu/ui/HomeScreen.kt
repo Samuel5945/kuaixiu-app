@@ -766,16 +766,21 @@ private fun UpcomingCard(plan: Plan) {
  * 常显的手动添加入口。教练页要配 Key 才能用「加提醒/建习惯」的动作卡，
  * 这里给出不依赖任何 AI 的直连入口（写库逻辑与动作卡同一套，见 ActionRunner）。
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun QuickAddCard(onSaved: () -> Unit) {
     var addReminder by remember { mutableStateOf(false) }
     var addHabit by remember { mutableStateOf(false) }
+    var poster by remember { mutableStateOf(false) }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("手动添加", style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // 三个按钮一行放不下：Row 会把最后一个压成竖排单字，用 FlowRow 让它整颗换行
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { addReminder = true }) { Text("+ 加提醒") }
                 OutlinedButton(onClick = { addHabit = true }) { Text("+ 新习惯") }
+                OutlinedButton(onClick = { poster = true }) { Text("+ 做海报") }
             }
             Text(
                 "不经过教练也能直接加；提醒走系统日历一次，习惯连响 N 天。",
@@ -786,4 +791,5 @@ private fun QuickAddCard(onSaved: () -> Unit) {
     }
     if (addReminder) ReminderDialog(onDismiss = { addReminder = false; onSaved() })
     if (addHabit) HabitDialog(onDismiss = { addHabit = false })
+    if (poster) PosterDialog(onDismiss = { poster = false })
 }
