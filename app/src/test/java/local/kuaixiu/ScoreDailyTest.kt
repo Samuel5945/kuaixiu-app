@@ -5,11 +5,17 @@ import local.kuaixiu.data.Score
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * 每日评分的档位口径：风屏 30 + 入睡 30 + 起床 40。
  * 起床权重最高（手册口径：起床锚点比入睡更重要）；早睡有过渡档，只有早 1 小时以上才重罚。
+ * 扣分项文案走资源，所以挂 Robolectric 并钉死中文限定符，断言才不受宿主 JVM 语言影响。
  */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34], qualifiers = "zh-rCN")
 class ScoreDailyTest {
 
     private val winddown = "22:15"

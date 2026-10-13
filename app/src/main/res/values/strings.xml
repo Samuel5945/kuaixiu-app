@@ -145,4 +145,148 @@
     <string name="habit_days_label">连响天数</string>
     <string name="habit_days_n">%1$d天</string>
     <string name="habit_days_custom">自定</string>
+
+    <!-- 每日评分：扣分项与风格化评语 -->
+    <string name="score_notes_sep">；</string>
+    <string name="score_no_data">暂无数据</string>
+    <string name="score_winddown_missing">风屏未记录</string>
+    <string name="score_winddown_done">风屏已执行</string>
+    <string name="score_winddown_late">风屏晚 %1$d 分钟</string>
+    <string name="score_winddown_early">风屏早 %1$d 分钟</string>
+    <string name="score_sleep_missing">入睡未记录</string>
+    <string name="score_sleep_done">入睡已记录</string>
+    <string name="score_sleep_early_too_much">比计划早睡 %1$d 分钟（过早上床）</string>
+    <string name="score_sleep_early">比计划早睡 %1$d 分钟</string>
+    <string name="score_sleep_on_time">入睡准时</string>
+    <string name="score_sleep_late">晚睡 %1$d 分钟</string>
+    <string name="score_wake_missing">起床未记录</string>
+    <string name="score_wake_done">起床已记录</string>
+    <string name="score_wake_held">起床锚点守住（%1$d 分钟）</string>
+    <string name="score_wake_late">起床偏晚 %1$d 分钟</string>
+    <string name="score_wake_early">起床偏早 %1$d 分钟</string>
+    <string name="score_voice_strict_late">晚睡 %1$d 分钟。今晚目标不变，风屏提前 10 分钟开始。</string>
+    <string name="score_voice_strict_blind">记录不全就是执行不全。今晚目标不变，风屏提前 10 分钟开始。</string>
+    <string name="score_voice_humor_good">这分数可以拿去炫耀了，今晚保持。</string>
+    <string name="score_voice_humor_bad">分数已经在表达不满了——今晚早点让手机退休。</string>
+    <string name="score_voice_auto_good">保持。</string>
+    <string name="score_voice_auto_bad">今晚从准时风屏开始。</string>
+    <string name="score_voice_gentle_good">漂亮，保持这个节奏。</string>
+    <string name="score_voice_gentle_bad">没关系，今晚从准时风屏开始就好。</string>
+
+    <!-- 习惯校验失败原因（会显示在界面与 Toast） -->
+    <string name="habit_err_name_empty">习惯名字不能空着</string>
+    <string name="habit_err_cue_fmt">锚点时间格式不对（要 HH:MM）</string>
+    <string name="habit_err_date_fmt">开始日期要用 YYYY-MM-DD</string>
+    <string name="habit_err_days">天数得大于 0</string>
+    <string name="habit_err_not_found">没找到这个习惯</string>
+
+    <!-- 计划引擎：周主题 / 每日行动清单 / 小提示（生成计划时按当前语言烘进 plan） -->
+    <string name="theme_1">锚定起床与睡前仪式</string>
+    <string name="theme_2">光照与咖啡因</string>
+    <string name="theme_3">屏幕与卧室环境</string>
+    <string name="theme_4">巩固与破功预案</string>
+    <string name="task_1_1">固定起床时间到！昨晚几点睡的？给自己打个分（1-5分）</string>
+    <string name="task_1_2">起床后 30 分钟内拉开窗帘/到窗边待 10 分钟</string>
+    <string name="task_1_3">睡前把手机放到离床 2 米外</string>
+    <string name="task_1_4">睡前洗漱 + 5 分钟简单拉伸，固定仪式顺序</string>
+    <string name="task_1_5">列出明天最重要的 1 件事，写完就不再想</string>
+    <string name="task_2_1">白天光照 ≥ 30 分钟（散步/晒太阳都算）</string>
+    <string name="task_2_2">14:00 后不再碰咖啡/浓茶/可乐</string>
+    <string name="task_2_3">晚饭不吃太晚太饱，睡前 2 小时结束进食</string>
+    <string name="task_2_4">今晚不喝酒（酒精毁掉深睡眠）</string>
+    <string name="task_2_5">下午困了就起身走 5 分钟，别靠咖啡续命</string>
+    <string name="task_3_1">睡前 45 分钟进入暖光模式：大灯换小灯</string>
+    <string name="task_3_2">把明早要用的东西提前收拾好，减少早起决策</string>
+    <string name="task_3_3">卧室调凉一点（18–22°C 更易入睡）</string>
+    <string name="task_3_4">睡前把手机设为勿扰，通知清零</string>
+    <string name="task_3_5">躺下后不刷手机；睡不着就 4-7-8 呼吸法</string>
+    <string name="task_4_1">连续 3 天在目标时间前 15 分钟上床，巩固成果</string>
+    <string name="task_4_2">想出这周最容易破功的场景，写下一个应对动作</string>
+    <string name="task_4_3">周末作息浮动不超过 ±30 分钟</string>
+    <string name="task_4_4">把成功的一周告诉一个朋友（社会承诺）</string>
+    <string name="task_4_5">给自己定一个 28 天完成奖励</string>
+    <string name="tip_1">手机放离床 2 米外，刷手机欲望直接减半</string>
+    <string name="tip_2">早起一杯温水 + 10 分钟晨光照射，当晚入睡会更顺利</string>
+    <string name="tip_3">躺下睡不着？试试 4-7-8 呼吸法：吸气 4 秒-憋 7 秒-呼气 8 秒</string>
+    <string name="tip_4">睡前 30 分钟做拉伸或写日记，比刷手机助眠 10 倍</string>
+    <string name="tip_5">周末也保持 ±30 分钟作息浮动，别报复性熬夜</string>
+    <string name="tip_6">固定仪式的顺序比时长更重要，让身体学会\'这套动作=要睡了\'</string>
+
+    <!-- 阶段与日历事件 -->
+    <string name="phase_adapting">适应期</string>
+    <string name="phase_consolidating">巩固期</string>
+    <string name="ev_bed_title">第%1$d天 | 睡前准备 目标%2$s入睡</string>
+    <string name="ev_bed_desc">【%1$s·%2$s】\n目标入睡时间：%3$s\n\n行动清单：\n%4$s\n\n小提示：%5$s</string>
+    <string name="ev_wake_title">第%1$d天 | 起床啦</string>
+    <string name="ev_wake_desc">【%1$s·%2$s】固定起床时间到！昨晚几点睡的？给自己打个分（1-5分）</string>
+    <string name="ev_caff_title">第%1$d天 | 咖啡因截断</string>
+    <string name="ev_caff_desc">【%1$s·%2$s】从现在起不碰咖啡/浓茶/可乐——离入睡已不足 8 小时。</string>
+    <string name="ev_wrap_title">第%1$d天 | 今晚收尾规划</string>
+    <string name="ev_wrap_desc">【%1$s·%2$s】列出今晚最多 3 件收尾事项，做完就允许自己休息。</string>
+    <string name="ev_review_title">第%1$d天 | 周复盘</string>
+    <string name="ev_review_desc">这周早睡达成几天？最大障碍是什么？下周怎么调整？\n坚持住，习惯正在形成！</string>
+    <string name="plan_err_time">非法时间: %1$s</string>
+
+    <!-- 离线教练：回复与 FAQ（原文逐字保留，改动会牵动 LocalCoachTest） -->
+    <string name="coach_hint">说一句话就行，比如「目标改到23:00」「昨晚1点睡的记一下」「明天8:00提醒我喝水」。</string>
+    <string name="coach_fallback">离线教练只认下面这几类说法（想自由聊就去「设置」配 LLM Key）：\n· 改计划：目标改到23:00 / 起床改到7点 / 计划改成28天\n· 记打卡：昨晚1点睡的，记一下 / 开始风屏了\n· 加提醒：明天8:00 提醒我喝水 / 把喝水那条提醒删了\n· 习惯：建个习惯：饭后散步，20:30，21天 / 做到了 / 暂停这个习惯\n· 问作息：这个计划科学吗 / 破功了怎么办 / 半夜醒了睡不着</string>
+    <string name="coach_reminder_cancelled">好，删掉「%1$s」这条提醒 👇</string>
+    <string name="coach_no_reminders">现在没有待办提醒可删。</string>
+    <string name="coach_which_reminder">要删哪一条？把标题说全我就删：</string>
+    <string name="coach_bullet">· %1$s</string>
+    <string name="coach_winddown">记一笔今晚风屏开始 👇</string>
+    <string name="coach_need_time">记昨晚要带上时间，比如「昨晚1点睡的，记一下」。</string>
+    <string name="coach_checkin">记一下昨晚：%1$s（%2$s）👇 点卡片按钮才生效。</string>
+    <string name="coach_adjust_ask">想怎么调？比如「目标改到23:00」「起床改到7点」「计划改成28天」。</string>
+    <string name="coach_adj_wake">起床 %1$s</string>
+    <string name="coach_adj_current">当前入睡 %1$s</string>
+    <string name="coach_adj_target">目标入睡 %1$s</string>
+    <string name="coach_adj_days">计划 %1$d 天</string>
+    <string name="coach_join_sep">，</string>
+    <string name="coach_adjust">按你说的调：%1$s 👇 点卡片按钮才生效。</string>
+    <string name="coach_remind_time">要几点提醒？比如「明天8:00 提醒我喝水」。</string>
+    <string name="coach_remind_what">提醒你做什么？比如「明天8:00 提醒我喝水」。</string>
+    <string name="coach_reminder_added">好，%1$s %2$s 提醒你「%3$s」👇 点「加进日历」才写入。</string>
+    <string name="coach_draw">画一张助眠画面 👇</string>
+    <string name="coach_no_image_model">还没配生图模型：设置 → AI 教练 → 拉取模型列表 → 在生图列点选一个，或直接用生图模型当文本模型。</string>
+    <string name="coach_pause_which">暂停哪个习惯？</string>
+    <string name="coach_done_which">给哪个习惯打卡？</string>
+    <string name="coach_habit_paused">暂停「%1$s」，日历先不响（已打的天数留着）👇</string>
+    <string name="coach_habit_done">记「%1$s」今天做到了 👇</string>
+    <string name="coach_habit_name">习惯叫什么？比如「建个习惯：饭后散步，20:30，21天」。</string>
+    <string name="coach_habit_cue">「%1$s」每天几点做？给我一个固定锚点，比如「饭后散步，20:30，21天」。</string>
+    <string name="coach_habit_added">开这个习惯：%1$s，每天 %2$s（连响 %3$d 天）👇</string>
+    <string name="coach_no_habits">还没有进行中的习惯，先用「建个习惯：…，20:30，21天」开一个。</string>
+    <string name="coach_existing">现有：%1$s。</string>
+    <string name="img_prompt_default">深邃夜空与群山剪影</string>
+    <string name="img_prompt_suffix">，安静柔和的助眠插画风格，柔和低饱和色调，无文字</string>
+    <string name="faq_science">诚实打分：固定起床锚点、咖啡因截断、晨间光照、睡前仪式是 CBT-I 的硬证据，计划骨架就是这些；「15 分钟 × 每 3 天」渐进前移是时差调整的临床惯例、不是硬法则，价值在于每步小到不可能失败。微任务/打卡/复盘是行为设计，帮执行、不改生理。我不是医生——长期入睡困难、严重打鼾、白天不可控困倦请去睡眠门诊。</string>
+    <string name="faq_day1">这是刻意的。第 1 天真正的变化不是入睡时刻，而是起床锚点（雷打不动）和睡前风屏仪式。生物钟认定 1:30 才是「夜晚」，第一天就 23:00 上床 = 躺 2.5 小时清醒地熬。阶梯：前 2 天维持现状 → 第 3 天起每 3 天提前 15 分钟 → 最后一天达成目标。</string>
+    <string name="faq_early">bedtime 是上限不是任务——困了可以提前睡，不困可以推迟 15–30 分钟，唯一不许动的是起床时间。但注意「过早上床」：对惯于 1:30 睡的人，21–23 点正值生物钟觉醒高峰，9 点多睡着 → 前半夜耗完睡眠压力 → 3–4 点早醒。接住困意：先做低刺激活动（暖光/纸质书/拉伸）撑到 22:30 再上床；真早醒了别碰手机别开灯，黑暗躺到起床锚点。</string>
+    <string name="faq_measure">没有手环时入睡时刻本质测不准，这是生理测量问题、不是 App 缺陷。App 用系统用量统计查「昨晚最后一次亮屏/熄屏」作为上界估计（最后亮屏 00:58 → 估计 01:00）。放下手机后的记忆不可信，系统日志不会撒谎。复盘看趋势和上界，别抠分钟。</string>
+    <string name="faq_night_wake">黑暗中躺 20 分钟仍清醒 → 换个姿势继续躺，计划执行期别起来干活/刷手机。连续多晚 3–4 点醒且白天崩溃 → 这属于 CBT-I 刺激控制领域，建议就医，同时把目标放缓（每周 15 分钟）。</string>
+    <string name="faq_slip">不指责——计划是活的，破功了改参数重来，不叫失败。单晚破功：什么都不用改，今天照常（锚点是起床），当晚按计划档位继续。连续多晚或生活节奏变了：调整计划（放宽 2–3 天再收回来）。别「干脆重来」，改参数比重启心理成本低得多。</string>
+    <string name="faq_weekend">周末作息浮动 ≤ ±30 分钟。社交时差会一次清掉两周进度。实在困，允许午睡 ≤ 20 分钟且不晚于 15:00。</string>
+    <string name="faq_review">每 7 天的复盘点见计划里的「周复盘」事件。看首页的昨晚评分/连续天数就是最简版复盘；想更细就把这段打卡趋势念给我（或配 Key 让我读数据），然后一起决定怎么调。</string>
+    <string name="faq_pace">太慢：可加大步长（如 20 分钟/3 天），会出现 1:10 这类零头时间；太快（躺下超 30 分钟睡不着连续 2 晚）：退回上一档 3 天再继续。</string>
+
+    <!-- 系统日历：集合名按创建时的语言生成（查找按账户，改名不会产生第二个日历） -->
+    <string name="cal_name_sleep">快休早睡</string>
+    <string name="cal_name_remind">快休提醒</string>
+    <string name="cal_name_habit">快休习惯</string>
+    <string name="cal_habit_desc">快休习惯 · 连续 %1$d 天，锚点 %2$s</string>
+    <string name="cal_untitled">（无标题）</string>
+    <string name="cal_err_create">日历创建失败（缺少 WRITE_CALENDAR 权限？）</string>
+    <string name="cal_err_reminder">提醒写入失败</string>
+    <string name="cal_err_habit">习惯事件写入失败</string>
+    <string name="cal_err_past">提醒时间已经在过去了</string>
+
+    <!-- 生图失败（会显示在聊天里） -->
+    <string name="img_err_no_model">未配置生图模型：设置 → AI 教练 → 拉取模型列表 → 生图列点选一个</string>
+    <string name="img_err_http">生图失败 HTTP %1$d：%2$s</string>
+    <string name="img_err_no_data">响应缺少 data：%1$s</string>
+    <string name="img_err_no_image">响应既无 b64_json 也无 url</string>
+
+    <!-- 教练回复语言（提示词保持中文，只有这一行跟着界面语言换） -->
+    <string name="coach_lang_line">【回复语言】始终用简体中文回复，不要混英文句子。</string>
 </resources>

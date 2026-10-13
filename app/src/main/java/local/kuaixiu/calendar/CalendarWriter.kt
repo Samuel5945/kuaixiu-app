@@ -6,6 +6,8 @@ import android.provider.CalendarContract
 import android.provider.CalendarContract.Calendars
 import android.provider.CalendarContract.Events
 import android.provider.CalendarContract.Reminders
+import local.kuaixiu.R
+import local.kuaixiu.data.KxText
 import local.kuaixiu.data.Time
 import local.kuaixiu.engine.Plan
 import local.kuaixiu.engine.PlanEngine
@@ -18,13 +20,14 @@ import local.kuaixiu.engine.PlanEngine
 object CalendarWriter {
 
     const val ACCOUNT = "kuaixiu.local"
-    const val CALENDAR_NAME = "快休早睡"
+    /** 集合显示名按创建时的语言生成；查找按账户，所以换语言不会多出第二个日历。 */
+    fun sleepCalendarName(): String = KxText.s(R.string.cal_name_sleep)
     /** 一次性提醒单独一个账户+日历：syncPlan 是删旧插新，混在一起会被连带删掉。 */
     const val REMIND_ACCOUNT = "kuaixiu.remind"
-    const val REMIND_CALENDAR_NAME = "快休提醒"
+    fun remindCalendarName(): String = KxText.s(R.string.cal_name_remind)
     /** 习惯同理必须自带日历：作息计划重算时只动「快休早睡」，碰不到这里。 */
     const val HABIT_ACCOUNT = "kuaixiu.habit"
-    const val HABIT_CALENDAR_NAME = "快休习惯"
+    fun habitCalendarName(): String = KxText.s(R.string.cal_name_habit)
 
     private fun syncAdapterUri(base: android.net.Uri, account: String = ACCOUNT) = base.buildUpon()
         .appendQueryParameter(CalendarContract.CALLER_IS_SYNCADAPTER, "true")
@@ -34,7 +37,7 @@ object CalendarWriter {
 
     /** 建/复用本地日历，返回 calendar_id。每个账户下只有一个日历，所以按账户查即可。 */
     fun ensureCalendar(context: Context, account: String = ACCOUNT,
-                       displayName: String = CALENDAR_NAME): Long {
+                       displayName: String = sleepCalendarName()): Long {
         val cr = context.contentResolver
         cr.query(
             Calendars.CONTENT_URI,
@@ -57,7 +60,7 @@ object CalendarWriter {
             put(Calendars.CALENDAR_TIME_ZONE, Time.zone().id)
         }
         val uri = cr.insert(syncAdapterUri(Calendars.CONTENT_URI, account), cv)
-            ?: throw IllegalStateException("日历创建失败（缺少 WRITE_CALENDAR 权限？）")
+            ?: throw IllegalStateException(KxText.s(R.string.cal_err_create))
         return uri.lastPathSegment!!.toLong()
     }
 
@@ -65,9 +68,9 @@ object CalendarWriter {
     fun addReminder(context: Context, dateIso: String, hhmm: String, text: String,
                     leadMin: Int = 0): Long {
         val cr = context.contentResolver
-        val calId = ensureCalendar(context, REMIND_ACCOUNT, REMIND_CALENDAR_NAME)
+        val calId = ensureCalendar(context, REMIND_ACCOUNT, remindCalendarName())
         val start = java.time.LocalDateTime.parse("${dateIso}T$hhmm:00")
-        require(!Time.zoned(start).isBefore(Time.now())) { "提醒时间已经在过去了" }
+        require(!Time.zoned(start).isBefore(Time.now())) { KxText.s(R.string.cal_err_past) }
         val cv = ContentValues().apply {
             put(Events.CALENDAR_ID, calId)
             put(Events.TITLE, text)
@@ -77,7 +80,7 @@ object CalendarWriter {
             put(Events.AVAILABILITY, Events.AVAILABILITY_FREE)   // 不占忙闲
         }
         val uri = cr.insert(syncAdapterUri(Events.CONTENT_URI, REMIND_ACCOUNT), cv)
-            ?: throw IllegalStateException("提醒写入失败")
+            ?: throw IllegalStateException(KxText.s(R.string.cal_err_reminder))
         val id = uri.lastPathSegment!!.toLong()
         cr.insert(Reminders.CONTENT_URI, ContentValues().apply {
             put(Reminders.EVENT_ID, id)
@@ -94,7 +97,7 @@ object CalendarWriter {
     fun addHabitEvent(context: Context, name: String, cueTime: String,
                       startDate: String, days: Int, leadMin: Int = 0): Long {
         val cr = context.contentResolver
-        val calId = ensureCalendar(context, HABIT_ACCOUNT, HABIT_CALENDAR_NAME)
+        val calId = ensureCalendar(context, HABIT_ACCOUNT, habitCalendarName())
         val start = java.time.LocalDateTime.of(
             java.time.LocalDate.parse(startDate),
             java.time.LocalTime.parse(cueTime),
@@ -102,7 +105,7 @@ object CalendarWriter {
         val cv = ContentValues().apply {
             put(Events.CALENDAR_ID, calId)
             put(Events.TITLE, name)
-            put(Events.DESCRIPTION, "快休习惯 · 连续 $days 天，锚点 $cueTime")
+            put(Events.DESCRIPTION, KxText.s(R.string.cal_habit_desc, days, cueTime))
             put(Events.DTSTART, start.atZone(Time.zone()).toInstant().toEpochMilli())
             put(Events.DTEND, start.plusMinutes(10).atZone(Time.zone()).toInstant().toEpochMilli())
             put(Events.RRULE, "FREQ=DAILY;COUNT=$days")
@@ -111,7 +114,7 @@ object CalendarWriter {
             put(Events.GUESTS_CAN_MODIFY, 0)
         }
         val uri = cr.insert(syncAdapterUri(Events.CONTENT_URI, HABIT_ACCOUNT), cv)
-            ?: throw IllegalStateException("习惯事件写入失败")
+            ?: throw IllegalStateException(KxText.s(R.string.cal_err_habit))
         val id = uri.lastPathSegment!!.toLong()
         cr.insert(Reminders.CONTENT_URI, ContentValues().apply {
             put(Reminders.EVENT_ID, id)
@@ -178,7 +181,7 @@ object CalendarWriter {
             "${Events.DTSTART} ASC LIMIT $limit",
         )?.use { c ->
             while (c.moveToNext()) {
-                val t = c.getString(1) ?: "(无标题)"
+                val t = c.getString(1) ?: KxText.s(R.string.cal_untitled)
                 out += Triple(c.getLong(0), t, if (c.isNull(2)) 0L else c.getLong(2))
             }
         }
@@ -194,7 +197,7 @@ object CalendarWriter {
         )?.use { if (it.moveToFirst()) it.getLong(0) else null }
 
     fun upcomingReminders(context: Context, limit: Int = 12): List<Triple<Long, String, Long>> =
-        queryReminders(context, ensureCalendar(context, REMIND_ACCOUNT, REMIND_CALENDAR_NAME), limit)
+        queryReminders(context, ensureCalendar(context, REMIND_ACCOUNT, remindCalendarName()), limit)
 
     /** 只读版：还没建过「快休提醒」就返回空。给 system prompt 用，别在聊天路径上顺手写库。 */
     fun peekReminders(context: Context, limit: Int = 12): List<Triple<Long, String, Long>> =

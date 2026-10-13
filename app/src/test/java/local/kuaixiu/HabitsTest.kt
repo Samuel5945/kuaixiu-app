@@ -9,8 +9,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
-/** 习惯模块的纯逻辑：并行上限、锚点间隔、进度与连续天数。 */
+/** Invalid 分支现在会取资源文案，所以挂 Robolectric 并钉住中文限定符。 */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34], qualifiers = "zh-rCN")
 class HabitsTest {
 
     private val t = LocalDate.of(2026, 10, 12)

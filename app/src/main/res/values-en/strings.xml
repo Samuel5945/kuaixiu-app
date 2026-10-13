@@ -145,4 +145,148 @@
     <string name="habit_days_label">Days to ring</string>
     <string name="habit_days_n">%1$d days</string>
     <string name="habit_days_custom">Custom</string>
+
+    <!-- Daily score: deductions and styled verdicts -->
+    <string name="score_notes_sep">"; "</string>
+    <string name="score_no_data">No data yet</string>
+    <string name="score_winddown_missing">Wind-down not logged</string>
+    <string name="score_winddown_done">Wind-down logged</string>
+    <string name="score_winddown_late">Wind-down %1$d min late</string>
+    <string name="score_winddown_early">Wind-down %1$d min early</string>
+    <string name="score_sleep_missing">Bedtime not logged</string>
+    <string name="score_sleep_done">Bedtime logged</string>
+    <string name="score_sleep_early_too_much">%1$d min earlier than planned (too early to bed)</string>
+    <string name="score_sleep_early">%1$d min earlier than planned</string>
+    <string name="score_sleep_on_time">Asleep on time</string>
+    <string name="score_sleep_late">Slept %1$d min late</string>
+    <string name="score_wake_missing">Wake-up not logged</string>
+    <string name="score_wake_done">Wake-up logged</string>
+    <string name="score_wake_held">Wake anchor held (%1$d min)</string>
+    <string name="score_wake_late">Woke %1$d min late</string>
+    <string name="score_wake_early">Woke %1$d min early</string>
+    <string name="score_voice_strict_late">Slept %1$d min late. Same target tonight — start wind-down 10 minutes earlier.</string>
+    <string name="score_voice_strict_blind">An incomplete log is an incomplete plan. Same target tonight — start wind-down 10 minutes earlier.</string>
+    <string name="score_voice_humor_good">That score is worth bragging about — hold it tonight.</string>
+    <string name="score_voice_humor_bad">The score is already complaining — retire the phone earlier tonight.</string>
+    <string name="score_voice_auto_good">Keep it up.</string>
+    <string name="score_voice_auto_bad">Tonight, start with an on-time wind-down.</string>
+    <string name="score_voice_gentle_good">Nice — hold this rhythm.</string>
+    <string name="score_voice_gentle_bad">It\'s fine — just start tonight with an on-time wind-down.</string>
+
+    <!-- Habit validation failures (shown in the UI) -->
+    <string name="habit_err_name_empty">The habit needs a name</string>
+    <string name="habit_err_cue_fmt">Anchor time must be HH:MM</string>
+    <string name="habit_err_date_fmt">Start date must be YYYY-MM-DD</string>
+    <string name="habit_err_days">Days must be greater than 0</string>
+    <string name="habit_err_not_found">That habit wasn\'t found</string>
+
+    <!-- Plan engine: weekly themes, daily actions, tips (baked into the plan in the current language) -->
+    <string name="theme_1">Lock in the wake anchor and a bedtime ritual</string>
+    <string name="theme_2">Light and caffeine</string>
+    <string name="theme_3">Screens and the bedroom</string>
+    <string name="theme_4">Consolidate, and plan for slip-ups</string>
+    <string name="task_1_1">Wake anchor time! What time did you fall asleep? Rate last night 1-5</string>
+    <string name="task_1_2">Within 30 min of waking, open the curtains or stand by a window for 10 min</string>
+    <string name="task_1_3">Before bed, put the phone at least 2 m away from the bed</string>
+    <string name="task_1_4">Wash up + 5 min of easy stretching, always in the same order</string>
+    <string name="task_1_5">Write down tomorrow\'s single most important task, then let it go</string>
+    <string name="task_2_1">At least 30 min of daylight today (a walk or some sun both count)</string>
+    <string name="task_2_2">No coffee, strong tea or cola after 14:00</string>
+    <string name="task_2_3">Don\'t eat late or heavy — finish eating 2 h before bed</string>
+    <string name="task_2_4">No alcohol tonight — it wrecks deep sleep</string>
+    <string name="task_2_5">Sleepy in the afternoon? Walk 5 min instead of another coffee</string>
+    <string name="task_3_1">45 min before bed, switch to warm dim light: small lamps only</string>
+    <string name="task_3_2">Set out what you need for the morning — fewer decisions when you\'re tired</string>
+    <string name="task_3_3">Cool the bedroom (18-22 °C makes it easier to fall asleep)</string>
+    <string name="task_3_4">Turn on Do Not Disturb before bed and silence every notification</string>
+    <string name="task_3_5">No scrolling once you\'re lying down; if you\'re stuck, try 4-7-8 breathing</string>
+    <string name="task_4_1">Get into bed 15 min before your target, three days running</string>
+    <string name="task_4_2">Name the situation most likely to break you this week, and write one counter-move</string>
+    <string name="task_4_3">Keep weekends within ±30 min of your schedule</string>
+    <string name="task_4_4">Tell a friend about the week you kept — social commitment works</string>
+    <string name="task_4_5">Pick a reward for finishing the 28 days</string>
+    <string name="tip_1">A phone 2 m from the bed halves the urge to scroll</string>
+    <string name="tip_2">Warm water plus 10 min of morning light makes tonight\'s sleep easier</string>
+    <string name="tip_3">Can\'t fall asleep? Try 4-7-8 breathing: inhale 4 s, hold 7 s, exhale 8 s</string>
+    <string name="tip_4">30 min of stretching or journaling before bed beats scrolling by a mile</string>
+    <string name="tip_5">Hold weekends to ±30 min — revenge staying up late costs you Monday</string>
+    <string name="tip_6">The order of your ritual matters more than its length — teach the body that this sequence means sleep</string>
+
+    <!-- Phases and calendar events -->
+    <string name="phase_adapting">Adapting</string>
+    <string name="phase_consolidating">Consolidating</string>
+    <string name="ev_bed_title">Day %1$d | Wind-down — target bedtime %2$s</string>
+    <string name="ev_bed_desc">[%1$s · %2$s]\nTarget bedtime: %3$s\n\nAction list:\n%4$s\n\nTip: %5$s</string>
+    <string name="ev_wake_title">Day %1$d | Wake up</string>
+    <string name="ev_wake_desc">[%1$s · %2$s] Wake anchor — what time did you fall asleep? Rate last night 1-5</string>
+    <string name="ev_caff_title">Day %1$d | Caffeine cutoff</string>
+    <string name="ev_caff_desc">[%1$s · %2$s] No coffee, strong tea or cola from now on — under 8 hours to bedtime.</string>
+    <string name="ev_wrap_title">Day %1$d | Tonight\'s wrap-up</string>
+    <string name="ev_wrap_desc">[%1$s · %2$s] List at most 3 things to close out tonight, then let yourself rest.</string>
+    <string name="ev_review_title">Day %1$d | Weekly review</string>
+    <string name="ev_review_desc">How many nights did you hit this week? What was the biggest obstacle? What changes next week?\nKeep going — the habit is forming!</string>
+    <string name="plan_err_time">Invalid time: %1$s</string>
+
+    <!-- Offline coach: replies and FAQ -->
+    <string name="coach_hint">One sentence is enough — try \"move my target to 23:00\", \"I fell asleep at 1 last night\", \"remind me at 8:00 tomorrow\".</string>
+    <string name="coach_fallback">The offline coach only understands these (add an LLM key in Settings to chat freely):\n· Change the plan: move target to 23:00 / wake at 7 / make it 28 days\n· Log a night: I fell asleep at 1 last night / I started wind-down\n· Add a reminder: remind me to drink water at 8:00 tomorrow / delete the water reminder\n· Habits: new habit, walk after dinner, 20:30, 21 days / done / pause this habit\n· Ask about sleep: is this plan scientific / I broke my streak / I woke at 3am and couldn\'t get back to sleep</string>
+    <string name="coach_reminder_cancelled">OK, deleting the \"%1$s\" reminder 👇</string>
+    <string name="coach_no_reminders">There are no pending reminders to delete.</string>
+    <string name="coach_which_reminder">Which one should I delete? Give me the full title:</string>
+    <string name="coach_bullet">· %1$s</string>
+    <string name="coach_winddown">Logging tonight\'s wind-down start 👇</string>
+    <string name="coach_need_time">For last night, include a time — e.g. \"I fell asleep at 1 last night\".</string>
+    <string name="coach_checkin">Logging last night: %1$s (%2$s) 👇 the card button makes it official.</string>
+    <string name="coach_adjust_ask">How should I adjust it? e.g. \"target 23:00\", \"wake at 7\", \"28 days\".</string>
+    <string name="coach_adj_wake">Wake %1$s</string>
+    <string name="coach_adj_current">Current bedtime %1$s</string>
+    <string name="coach_adj_target">Target bedtime %1$s</string>
+    <string name="coach_adj_days">%1$d-day plan</string>
+    <string name="coach_join_sep">", "</string>
+    <string name="coach_adjust">Adjusting as you said: %1$s 👇 the card button applies it.</string>
+    <string name="coach_remind_time">What time should I remind you? e.g. \"remind me to drink water at 8:00 tomorrow\".</string>
+    <string name="coach_remind_what">Remind you to do what? e.g. \"remind me to drink water at 8:00 tomorrow\".</string>
+    <string name="coach_reminder_added">Got it — %1$s %2$s: \"%3$s\" 👇 tap \"Add to calendar\" to write it in.</string>
+    <string name="coach_draw">Drawing a wind-down scene 👇</string>
+    <string name="coach_no_image_model">No image model configured yet: Settings → AI coach → Fetch model list → pick one in the image column, or use an image model as the text model.</string>
+    <string name="coach_pause_which">Which habit should I pause?</string>
+    <string name="coach_done_which">Which habit did you finish?</string>
+    <string name="coach_habit_paused">Pausing \"%1$s\" — the calendar goes quiet, days already logged stay 👇</string>
+    <string name="coach_habit_done">Logging \"%1$s\" as done today 👇</string>
+    <string name="coach_habit_name">What is the habit called? e.g. \"new habit: walk after dinner, 20:30, 21 days\".</string>
+    <string name="coach_habit_cue">What time each day for \"%1$s\"? Give me a fixed anchor, e.g. \"walk after dinner, 20:30, 21 days\".</string>
+    <string name="coach_habit_added">Starting this habit: %1$s, daily at %2$s (rings for %3$d days) 👇</string>
+    <string name="coach_no_habits">No habit is running yet. Start one with \"new habit: …, 20:30, 21 days\".</string>
+    <string name="coach_existing">Running now: %1$s.</string>
+    <string name="img_prompt_default">A deep night sky above a mountain silhouette</string>
+    <string name="img_prompt_suffix">", quiet wind-down illustration style, soft low-saturation palette, no text"</string>
+    <string name="faq_science">An honest grade: a fixed wake anchor, caffeine cutoff, morning light and a bedtime ritual are hard CBT-I evidence, and that is the skeleton of this plan. The \"15 minutes every 3 days\" ladder is clinical jet-lag practice, not a law — its value is that every step is too small to fail. Micro-tasks, check-ins and reviews are behaviour design: they help you execute, they don\'t change your physiology. I\'m not a doctor — for persistent sleep-onset insomnia, heavy snoring or uncontrollable daytime sleepiness, see a sleep clinic.</string>
+    <string name="faq_day1">That is deliberate. What really changes on day 1 is not your sleep time but the wake anchor (immovable) and the wind-down ritual. Your body clock still calls 1:30 \"night\", so going to bed at 23:00 on day one means lying awake for 2.5 hours. The ladder: hold the status quo for 2 days → then 15 minutes earlier every 3 days → target reached on the last day.</string>
+    <string name="faq_early">Bedtime is a ceiling, not a task — if you\'re sleepy, sleep earlier; if you\'re not, slide 15-30 minutes later. The one thing that never moves is the wake time. Just beware of getting into bed too early: for someone used to 1:30, 21-23:00 is the body clock\'s wakefulness peak, so falling asleep at 9 burns your sleep pressure in the first half of the night → you surface at 3 or 4. Catch the sleepiness instead: do something low-stimulation (warm light, paper book, stretching) until 22:30, then get into bed. If you do wake early, no phone, no lights — lie in the dark until the wake anchor.</string>
+    <string name="faq_measure">Without a wristband, sleep onset is genuinely unmeasurable — that is a physiology problem, not an app bug. The app reads your usage stats for \"last screen-on/screen-off of the night\" as an upper bound (last screen 00:58 → estimate 01:00). Memory after you put the phone down is unreliable; the system log is not. In reviews look at the trend and the bound, not the minutes.</string>
+    <string name="faq_night_wake">Still awake after 20 minutes in the dark → shift position and keep lying there; during the plan, don\'t get up to work or scroll. Several nights in a row waking at 3-4 with a wrecked day → that is CBT-I stimulus-control territory, see a doctor, and slow the target down (15 minutes a week).</string>
+    <string name="faq_slip">No blame — the plan is a living thing, and when a streak breaks you change the parameters and continue; that isn\'t failure. One bad night: change nothing, today stays as planned (the anchor is waking), and tonight follows the scheduled step. Several nights, or your life rhythm shifted: adjust the plan (loosen for 2-3 days, then pull back). Don\'t \"start over from scratch\" — editing parameters costs far less than restarting.</string>
+    <string name="faq_weekend">Keep weekends within ±30 minutes. Social jet lag can wipe out two weeks of progress in one go. If you\'re really exhausted, a nap of ≤20 minutes, not later than 15:00.</string>
+    <string name="faq_review">The every-7-days checkpoint is the \"Weekly review\" event in your calendar. Last night\'s score and your streak on the Home tab are already the minimal review; for more detail, read me this stretch of check-in trend (or set a key so I can read the data), and we decide the adjustment together.</string>
+    <string name="faq_pace">Too slow: widen the step (e.g. 20 minutes every 3 days) — you\'ll get odd times like 1:10. Too fast (more than 30 minutes lying awake two nights running): drop back one step for 3 days, then continue.</string>
+
+    <!-- System calendar: names are generated in the language active at creation (lookup is by account, so renaming never forks a calendar) -->
+    <string name="cal_name_sleep">Kuaixiu Sleep</string>
+    <string name="cal_name_remind">Kuaixiu Reminders</string>
+    <string name="cal_name_habit">Kuaixiu Habits</string>
+    <string name="cal_habit_desc">Kuaixiu habit · %1$d days, anchor %2$s</string>
+    <string name="cal_untitled">(untitled)</string>
+    <string name="cal_err_create">Couldn\'t create the calendar (WRITE_CALENDAR permission missing?)</string>
+    <string name="cal_err_reminder">Couldn\'t write the reminder</string>
+    <string name="cal_err_habit">Couldn\'t write the habit event</string>
+    <string name="cal_err_past">That reminder time is already in the past</string>
+
+    <!-- Image generation failures (shown in chat) -->
+    <string name="img_err_no_model">No image model configured: Settings → AI coach → Fetch model list → pick one in the image column</string>
+    <string name="img_err_http">Image generation failed, HTTP %1$d: %2$s</string>
+    <string name="img_err_no_data">Response is missing data: %1$s</string>
+    <string name="img_err_no_image">Response has neither b64_json nor url</string>
+
+    <!-- Coach reply language (the prompt itself stays Chinese; only this line follows the UI language) -->
+    <string name="coach_lang_line">【Reply language】Always answer in English — short, natural English, no Chinese sentences.</string>
 </resources>

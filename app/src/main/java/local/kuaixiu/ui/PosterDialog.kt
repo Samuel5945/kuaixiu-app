@@ -19,11 +19,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import local.kuaixiu.KxScope
+import local.kuaixiu.R
 import local.kuaixiu.data.PosterFlow
 import local.kuaixiu.data.PosterMode
 import local.kuaixiu.data.PosterTemplate
@@ -45,8 +47,8 @@ fun PosterDialog(onDismiss: () -> Unit) {
         busy = true
         // 本地出图不调模型，别说"要调生图"——提示得跟实际走的那条路一致
         val local = mode == PosterMode.LOCAL_ONLY || (mode == PosterMode.LOCAL_POSTER && tpl == PosterTemplate.D)
-        Toast.makeText(ctx, if (local) "本地出图中…" else "生成中…（要调生图，约半分钟）",
-            Toast.LENGTH_SHORT).show()
+        Toast.makeText(ctx, if (local) ctx.getString(R.string.poster_toast_local)
+            else ctx.getString(R.string.poster_toast_ai), Toast.LENGTH_SHORT).show()
         // KxScope.app 跑在 Dispatchers.Default：Toast 和 Compose 状态必须切回主线程，
         // 否则 "Can't create handler inside thread that has not called Looper.prepare()" 直接把 App 崩掉
         KxScope.app.launch {
@@ -54,7 +56,8 @@ fun PosterDialog(onDismiss: () -> Unit) {
             withContext(Dispatchers.Main) {
                 busy = false
                 r.onSuccess { f -> done = f }
-                    .onFailure { e -> Toast.makeText(ctx, "生成失败：${e.message}", Toast.LENGTH_LONG).show() }
+                    .onFailure { e -> Toast.makeText(ctx, ctx.getString(R.string.poster_failed, e.message ?: ""),
+                        Toast.LENGTH_LONG).show() }
             }
         }
     }
@@ -62,17 +65,17 @@ fun PosterDialog(onDismiss: () -> Unit) {
     done?.let { f -> PosterResultDialog(file = f, onDismiss = { done = null; onDismiss() }) }
 
     val items = listOf(
-        Triple("打卡纪念（本地叠字）", "底图 + 巨大连续天数，打卡后自动弹的那版", PosterTemplate.A),
-        Triple("杂志（本地叠字）", "「昨晚我在 00:38 放下了手机」，发朋友圈那版", PosterTemplate.C),
-        Triple("周报（本地画）", "7 根横条，条长 = 每晚评分；不出生图、秒出", PosterTemplate.D),
-        Triple("奖章（本地叠字）", "圆环进度 + 距下一枚徽章还差几天", PosterTemplate.B),
+        Triple(stringResource(R.string.poster_tpl_a), stringResource(R.string.poster_tpl_a_desc), PosterTemplate.A),
+        Triple(stringResource(R.string.poster_tpl_c), stringResource(R.string.poster_tpl_c_desc), PosterTemplate.C),
+        Triple(stringResource(R.string.poster_tpl_d), stringResource(R.string.poster_tpl_d_desc), PosterTemplate.D),
+        Triple(stringResource(R.string.poster_tpl_b), stringResource(R.string.poster_tpl_b_desc), PosterTemplate.B),
     )
 
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
-        title = { Text(if (busy) "正在出图…" else "做分享海报") },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } },
+        title = { Text(stringResource(if (busy) R.string.poster_busy else R.string.poster_title)) },
         text = {
             Column(Modifier.fillMaxWidth()) {
                 // 调试/没额度时用：不出生图，只看字和数据摆得对不对（整行可点，别只让那个小开关能点）
@@ -84,8 +87,8 @@ fun PosterDialog(onDismiss: () -> Unit) {
                 ) {
                     Switch(checked = localOnly, onCheckedChange = { localOnly = it }, enabled = !busy)
                     Column(Modifier.padding(start = 10.dp)) {
-                        Text("本地出图（不调生图模型）", style = MaterialTheme.typography.titleSmall)
-                        Text("内置底图排版秒出、不耗额度",
+                        Text(stringResource(R.string.poster_local_only_title), style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.poster_local_only_desc),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -104,12 +107,13 @@ fun PosterDialog(onDismiss: () -> Unit) {
                     }
                 }
                 Text(
-                    "只要画面不要字",
+                    stringResource(R.string.poster_bare_title),
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.padding(top = 14.dp),
                 )
                 Text(
-                    if (hasImageModel) "存一张不带任何文字、构图留好放字位置的底图" else "要先在设置里配生图模型",
+                    if (hasImageModel) stringResource(R.string.poster_bare_desc)
+                    else stringResource(R.string.poster_need_image_model),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth()
@@ -117,12 +121,13 @@ fun PosterDialog(onDismiss: () -> Unit) {
                         .padding(vertical = 6.dp),
                 )
                 Text(
-                    "让 AI 连字一起画",
+                    stringResource(R.string.poster_ai_title),
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.padding(top = 10.dp),
                 )
                 Text(
-                    if (hasImageModel) "数字由 App 塞进提示词交给模型写——方便，但字可能写错，不保证" else "要先在设置里配生图模型",
+                    if (hasImageModel) stringResource(R.string.poster_ai_desc)
+                    else stringResource(R.string.poster_need_image_model),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth()

@@ -5,8 +5,14 @@ import local.kuaixiu.engine.PlanEngine
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.time.LocalDate
 
+/** 生成计划要取资源文案（主题/清单/提示），所以挂 Robolectric 并钉住中文限定符。 */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34], qualifiers = "zh-rCN")
 class PlanEngineTest {
 
     private val base = PlanConfig(

@@ -42,9 +42,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import local.kuaixiu.R
 import local.kuaixiu.data.Checkin
 import local.kuaixiu.data.Checkins
 import local.kuaixiu.data.Habit
@@ -161,7 +163,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
             item {
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "使用前请先授权日历权限，否则计划、提醒、习惯都写不进系统日历。",
+                        stringResource(R.string.home_cal_permission_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -182,7 +184,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                                 )
                             }
                         }
-                    }) { Text("授权日历权限") }
+                    }) { Text(stringResource(R.string.home_cal_permission_btn)) }
                 }
             }
         }
@@ -194,16 +196,16 @@ private fun EmptyCard() {
     val ctx = LocalContext.current
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("还没有计划", style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.home_empty_title), style = MaterialTheme.typography.titleLarge)
             Text(
-                "到「设置」确认作息参数（当前入睡/目标/起床），保存后自动生成 28 天计划并写入日历（默认今晚开始）。",
+                stringResource(R.string.home_empty_body),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Button(onClick = {
                 runCatching { KxStore.syncCalendar(ctx) }
-                    .onSuccess { Toast.makeText(ctx, "已生成并写入 $it 个事件", Toast.LENGTH_LONG).show() }
-                    .onFailure { android.util.Log.e("Kuaixiu", "sync failed", it); Toast.makeText(ctx, "失败: ${it::class.simpleName}: ${it.message}", Toast.LENGTH_LONG).show() }
-            }) { Text("立即生成计划") }
+                    .onSuccess { Toast.makeText(ctx, ctx.getString(R.string.home_plan_written, it), Toast.LENGTH_LONG).show() }
+                    .onFailure { android.util.Log.e("Kuaixiu", "sync failed", it); Toast.makeText(ctx, ctx.getString(R.string.home_sync_failed, it::class.simpleName ?: "null", it.message ?: "null"), Toast.LENGTH_LONG).show() }
+            }) { Text(stringResource(R.string.home_generate_now)) }
         }
     }
 }
@@ -215,28 +217,29 @@ private fun TodayCard(plan: Plan) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                "第 ${d.day} 天 · ${d.stage} · ${d.date.drop(5)} ${d.weekday}",
+                stringResource(R.string.home_day_header, d.day, PlanEngine.phaseLabel(d.stage),
+                    d.date.drop(5), d.weekday),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                "🌙 目标入睡 ${d.bedtime}",
+                stringResource(R.string.home_target_bedtime, d.bedtime),
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
-            Text("💤 ${d.winddown} 起风屏  ☀️ ${plan.config.wake} 起床")
-            Text("主题：${d.theme}")
-            d.tasks.forEach { Text("· $it") }
+            Text(stringResource(R.string.home_winddown_wake, d.winddown, plan.config.wake))
+            Text(stringResource(R.string.home_theme, d.theme))
+            d.tasks.forEach { Text(stringResource(R.string.home_task_line, it)) }
             Text(
-                "小提示：${d.tip}",
+                stringResource(R.string.home_tip, d.tip),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             val shiftDone = plan.summary.totalShiftMinutes - shiftRemaining(plan, d.bedtime)
             val toTarget = plan.summary.daysToTarget
-                ?.let { " · 目标 ${plan.config.targetBedtime} 第 $it 天达成" } ?: ""
+                ?.let { stringResource(R.string.home_target_reach, plan.config.targetBedtime, it) } ?: ""
             Text(
-                "进度：第 ${d.day}/${plan.days.size} 天 · 已提前 $shiftDone 分钟$toTarget",
+                stringResource(R.string.home_progress, d.day, plan.days.size, shiftDone, toTarget),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.secondary,
             )
@@ -275,14 +278,15 @@ private fun ReminderCard(refreshKey: Int = 0) {
     if (items.isEmpty()) return
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("待办提醒", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.home_reminders_title), style = MaterialTheme.typography.titleMedium)
             items.forEach { (id, title, startMs) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(title)
                         val at = java.time.Instant.ofEpochMilli(startMs)
                             .atZone(java.time.ZoneId.systemDefault())
-                            .format(java.time.format.DateTimeFormatter.ofPattern("M月d日 HH:mm"))
+                            .format(java.time.format.DateTimeFormatter.ofPattern(
+                                stringResource(R.string.home_reminder_date_format)))
                         Text(at, style = MaterialTheme.typography.bodySmall,
                              color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -293,15 +297,16 @@ private fun ReminderCard(refreshKey: Int = 0) {
                             }.onFailure { android.util.Log.w("Kuaixiu", "提醒删除失败: ${it.message}") }
                                 .getOrDefault(false)
                             kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                Toast.makeText(ctx, if (ok) "已删除" else "删除失败",
+                                Toast.makeText(ctx, ctx.getString(
+                                    if (ok) R.string.home_reminder_deleted else R.string.home_reminder_delete_failed),
                                     Toast.LENGTH_SHORT).show()
                                 if (ok) reload()
                             }
                         }
-                    }) { Text("删除") }
+                    }) { Text(stringResource(R.string.home_delete)) }
                 }
             }
-            Text("到点由系统日历弹通知，不依赖本 App 后台。",
+            Text(stringResource(R.string.home_reminders_footnote),
                  style = MaterialTheme.typography.bodySmall,
                  color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -320,10 +325,10 @@ private fun HabitCard() {
     val today = Time.today()
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("习惯", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.home_habits_title), style = MaterialTheme.typography.titleMedium)
             items.forEach { HabitRow(it, today) }
             Text(
-                "到点由系统日历在「快休习惯」里提醒，一次写入连响 N 天；重算作息计划不会动它。",
+                stringResource(R.string.home_habits_footnote),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -340,6 +345,8 @@ private fun HabitRow(h: Habit, today: LocalDate) {
     val expired = Habits.expired(h, today)
     val doneToday = Habits.isDoneToday(h.id, today.toString())
     val hits = Habits.completionOf(h, today)
+    // 「还在跑」那几个习惯名之间的分隔符：跟着语言走（中文顿号、英文逗号）
+    val sep = stringResource(R.string.common_or)
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -349,35 +356,40 @@ private fun HabitRow(h: Habit, today: LocalDate) {
                 TextButton(onClick = {
                     runCatching { Habits.setEnabled(ctx, h.id, on = true) }.onSuccess { r ->
                         when (r) {
-                            is HabitCheck.Ok -> Toast.makeText(ctx, "已恢复，从今天起再走 ${r.habit.days} 天",
+                            is HabitCheck.Ok -> Toast.makeText(ctx,
+                                ctx.getString(R.string.home_habit_resumed, r.habit.days),
                                 Toast.LENGTH_LONG).show()
                             is HabitCheck.QuotaFull -> Toast.makeText(ctx,
-                                "「${r.activeNames.joinToString("、")}」还在跑，先暂停一个再恢复", Toast.LENGTH_LONG).show()
+                                ctx.getString(R.string.home_habit_quota_resume,
+                                    r.activeNames.joinToString(sep)), Toast.LENGTH_LONG).show()
                             is HabitCheck.AnchorConflict -> Toast.makeText(ctx,
-                                "锚点和「${r.otherName}」只差 ${r.gapMin} 分钟，恢复会被拦下", Toast.LENGTH_LONG).show()
+                                ctx.getString(R.string.home_habit_conflict_resume, r.otherName, r.gapMin),
+                                Toast.LENGTH_LONG).show()
                             is HabitCheck.Invalid -> Toast.makeText(ctx, r.reason, Toast.LENGTH_SHORT).show()
                         }
                     }
-                }) { Text("恢复") }
+                }) { Text(stringResource(R.string.home_habit_resume)) }
             } else {
                 TextButton(onClick = {
                     runCatching { Habits.setEnabled(ctx, h.id, on = false) }.onSuccess {
-                        Toast.makeText(ctx, "已暂停，日历不再提醒（已打卡的天数留着）", Toast.LENGTH_LONG).show()
+                        Toast.makeText(ctx, ctx.getString(R.string.home_habit_paused_toast), Toast.LENGTH_LONG).show()
                     }
-                }) { Text("暂停") }
+                }) { Text(stringResource(R.string.home_habit_pause)) }
             }
             TextButton(onClick = {
                 runCatching { Habits.remove(ctx, h.id) }
-                    .onSuccess { Toast.makeText(ctx, "已删除「${h.name}」，日历事件一并清掉", Toast.LENGTH_LONG).show() }
-            }) { Text("删除") }
+                    .onSuccess { Toast.makeText(ctx, ctx.getString(R.string.home_habit_removed_toast, h.name), Toast.LENGTH_LONG).show() }
+            }) { Text(stringResource(R.string.home_delete)) }
         }
         Text(
             when {
-                !h.enabled -> "暂停中 · 锚点 ${h.cueTime}"
-                day == 0 -> "还没开始 · ${h.startDate} 起每天 ${h.cueTime}"
-                expired -> "已满 ${h.days} 天 · 锚点 ${h.cueTime} · 达成 ${hits.first}/${hits.second}"
-                else -> "第 $day/${h.days} 天 · 锚点 ${h.cueTime} · 连续 ${Habits.streakOf(h, today)} 天" +
-                    " · 达成 ${hits.first}/${hits.second}"
+                !h.enabled -> stringResource(R.string.home_habit_status_paused, h.cueTime)
+                day == 0 -> stringResource(R.string.home_habit_status_upcoming, h.startDate, h.cueTime)
+                expired -> stringResource(R.string.home_habit_status_expired, h.days, h.cueTime, hits.first, hits.second)
+                else -> stringResource(
+                    R.string.home_habit_status_running,
+                    day, h.days, h.cueTime, Habits.streakOf(h, today), hits.first, hits.second,
+                )
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -407,13 +419,13 @@ private fun HabitRow(h: Habit, today: LocalDate) {
         }
         if (h.enabled && !expired && day > 0) {
             if (doneToday) {
-                Text("今日已打卡 ✓", color = MaterialTheme.colorScheme.secondary,
+                Text(stringResource(R.string.home_habit_done_today), color = MaterialTheme.colorScheme.secondary,
                      style = MaterialTheme.typography.titleSmall)
             } else {
                 Button(onClick = {
                     Habits.markDone(ctx, h.id)
-                    Toast.makeText(ctx, "记上了，第 $day 天 🔥", Toast.LENGTH_SHORT).show()
-                }) { Text("今天做到了，打卡") }
+                    Toast.makeText(ctx, ctx.getString(R.string.home_habit_check_toast, day), Toast.LENGTH_SHORT).show()
+                }) { Text(stringResource(R.string.home_habit_check_btn)) }
             }
         }
     }
@@ -448,23 +460,31 @@ private fun ScoreCard() {
             val streak = Score.streak(Checkins.all(ctx))
             val nextTier = listOf(3, 7, 14, 28).firstOrNull { it > streak }
             Text(
-                "☀️ 昨晚评分 ${r.total}/100" +
-                    (if (streak > 0) "  🔥 连续准时 $streak 天" else "") +
-                    (nextTier?.let { "（$it 天徽章还差 ${it - streak} 天）" } ?: "（满级徽章 🏆）"),
+                stringResource(R.string.home_score_title, r.total) +
+                    (if (streak > 0) stringResource(R.string.home_score_streak, streak) else "") +
+                    (nextTier?.let { stringResource(R.string.home_score_badge_next, it, it - streak) }
+                        ?: stringResource(R.string.home_score_badge_max)),
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(Score.voice(KxStore.config.coachStyle, r), style = MaterialTheme.typography.bodyMedium)
             // 扣分项一眼可见：三项细分 + 各自满分（权重跟手册口径一致：起床最重）
             Text(
-                "风屏 ${r.winddown}/${Score.MAX_WINDDOWN} · 入睡 ${r.sleep}/${Score.MAX_SLEEP} · " +
-                    "起床 ${r.wake}/${Score.MAX_WAKE}",
+                stringResource(
+                    R.string.home_score_parts,
+                    r.winddown, Score.MAX_WINDDOWN, r.sleep, Score.MAX_SLEEP, r.wake, Score.MAX_WAKE,
+                ),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            val notes = if (autoWinddown != null && c0?.winddownAt.isNullOrBlank())
-                r.notes.filterNot { it.contains("风屏") }.joinToString("；")
-                    .ifBlank { "暂无明细" } + "；风屏已自动记录（最后亮屏 $autoWinddown）"
-            else r.notes.joinToString("；").ifBlank { "暂无明细" }
+            val wdAuto = autoWinddown
+            val noDetails = stringResource(R.string.home_no_details)
+            val sep = stringResource(R.string.score_notes_sep)
+            // 风屏是自动记录的时候，用它替掉第一条扣分项（Score 保证 notes[0] 恒为风屏项，
+            // 不能拿中文子串匹配——文案本地化后就对不上了）
+            val notes = if (wdAuto != null && c0?.winddownAt.isNullOrBlank())
+                r.notes.drop(1).joinToString(sep).ifBlank { noDetails } +
+                    stringResource(R.string.home_winddown_auto_note, wdAuto)
+            else r.notes.joinToString(sep).ifBlank { noDetails }
             Text(
                 notes,
                 style = MaterialTheme.typography.bodySmall,
@@ -510,7 +530,7 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
             var winddownLogged by remember { mutableStateOf(
                 Checkins.all(ctx).firstOrNull { it.date == tonightIso }?.winddownAt) }
             if (winddownDay != null) {
-                Text("🌙 今晚风屏 · 计划 ${winddownDay.winddown} 开始",
+                Text(stringResource(R.string.home_tonight_winddown, winddownDay.winddown),
                     style = MaterialTheme.typography.titleMedium)
                 val logged = winddownLogged
                 if (logged.isNullOrBlank()) {
@@ -526,10 +546,10 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
                             }
                         }
                         winddownLogged = t
-                        Toast.makeText(ctx, "已记录风屏 $t ✅", Toast.LENGTH_SHORT).show()
-                    }) { Text("开始风屏了，记录一下") }
+                        Toast.makeText(ctx, ctx.getString(R.string.home_winddown_logged_toast, t), Toast.LENGTH_SHORT).show()
+                    }) { Text(stringResource(R.string.home_winddown_start_btn)) }
                 } else {
-                    Text("已记录 $logged ✅", color = MaterialTheme.colorScheme.secondary,
+                    Text(stringResource(R.string.home_winddown_logged, logged), color = MaterialTheme.colorScheme.secondary,
                          style = MaterialTheme.typography.titleSmall)
                 }
                 // 助眠图：已配生图模型或文本模型支持生图时提供，竖屏壁纸比例
@@ -557,15 +577,15 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
                                 }
                             }
                         }, enabled = !genBusy) {
-                            Text(if (genBusy) "绘制中…" else "🎨 生成今晚助眠图")
+                            Text(stringResource(if (genBusy) R.string.home_image_generating else R.string.home_image_gen_btn))
                         }
                         if (genFile != null && savedUri == null) {
                             OutlinedButton(onClick = {
                                 genFile?.let {
                                     savedUri = local.kuaixiu.data.ImageGen.saveToGallery(ctx, it)
-                                    if (savedUri != null) Toast.makeText(ctx, "已保存到相册", Toast.LENGTH_SHORT).show()
+                                    if (savedUri != null) Toast.makeText(ctx, ctx.getString(R.string.home_image_saved_toast), Toast.LENGTH_SHORT).show()
                                 }
-                            }) { Text("存相册") }
+                            }) { Text(stringResource(R.string.home_image_save_btn)) }
                         }
                     }
                     genErr?.let { Text(it, color = MaterialTheme.colorScheme.error,
@@ -577,7 +597,7 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
                         if (bmp != null) {
                             androidx.compose.foundation.Image(
                                 bitmap = bmp.asImageBitmap(),
-                                contentDescription = "今晚助眠图",
+                                contentDescription = stringResource(R.string.home_image_desc),
                                 modifier = Modifier.fillMaxWidth(),
                                 contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
                             )
@@ -592,19 +612,23 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
             if (nightRec?.status?.isNotBlank() == true && !editing) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "😴 昨晚已打卡 · ${
-                            when (nightRec.status) {
-                                "on_time" -> "准时"
-                                "late" -> "迟睡"
-                                else -> "没做到"
-                            }
-                        }${if (nightRec.bedtime.isBlank()) "" else " ${nightRec.bedtime}"}",
+                        stringResource(
+                            R.string.home_last_night_checked,
+                            stringResource(
+                                when (nightRec.status) {
+                                    "on_time" -> R.string.home_status_on_time
+                                    "late" -> R.string.home_status_late
+                                    else -> R.string.home_status_missed
+                                }
+                            ),
+                            if (nightRec.bedtime.isBlank()) "" else " ${nightRec.bedtime}",
+                        ),
                         style = MaterialTheme.typography.titleSmall,
                     )
                     TextButton(onClick = {
                         nightRec.bedtime.takeIf { it.isNotBlank() }?.let { bedtime = it }
                         editing = true
-                    }) { Text("改一下") }
+                    }) { Text(stringResource(R.string.home_edit_btn)) }
                 }
                 return@Column   // 已打卡就一行收尾，不再往下画整张表单
             }
@@ -626,32 +650,36 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
             // —— 早上起床（放在「昨晚入睡」上面）：默认自动探测，可手选覆盖 ——
             val autoWake = facts?.firstMorningPickup
             val wakeShown = wakeOverride.ifBlank { autoWake?.format(fmt).orEmpty() }
-            Text("☀️ 早上起床", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.home_wake_title), style = MaterialTheme.typography.titleMedium)
+            val unsetText = stringResource(R.string.home_unset)
+            val wakeDesc = stringResource(R.string.home_wake_desc, wakeShown.ifBlank { unsetText })
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) {
                     OutlinedTextField(
                         value = wakeShown, onValueChange = {},
                         readOnly = true, singleLine = true,
-                        label = { Text("起床时间", maxLines = 1) },
+                        label = { Text(stringResource(R.string.home_wake_label), maxLines = 1) },
                         trailingIcon = { Icon(Icons.Filled.Schedule, contentDescription = null) },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Box(
                         Modifier.matchParentSize()
-                            .clickable(onClickLabel = "选择起床时间") { showWakePick = true }
-                            .semantics { contentDescription = "起床时间 ${wakeShown.ifBlank { "未记录" }}，点按选择时间" },
+                            .clickable(onClickLabel = stringResource(R.string.home_pick_wake)) { showWakePick = true }
+                            .semantics { contentDescription = wakeDesc },
                     )
                 }
                 if (wakeOverride.isNotBlank()) {
-                    TextButton(onClick = { wakeOverride = "" }) { Text("用自动") }
+                    TextButton(onClick = { wakeOverride = "" }) { Text(stringResource(R.string.home_use_auto)) }
                 }
             }
             // 跟「昨晚最后亮屏」对应的那行：系统探测的原始事实，不随手选改变
             autoWake?.let { w ->
                 val devTxt = Score.diffMinutes(KxStore.config.wake, w.format(fmt))?.let { d ->
-                    if (d >= 0) "目标差 +$d 分钟" else "目标差 $d 分钟"
+                    if (d >= 0) stringResource(R.string.home_target_diff_over, d)
+                    else stringResource(R.string.home_target_diff_under, d)
                 }
-                Text("📱 今早首次亮屏 ${w.format(fmt)}" + (devTxt?.let { "（$it）" } ?: ""),
+                Text(stringResource(R.string.home_first_pickup, w.format(fmt)) +
+                    (devTxt?.let { stringResource(R.string.home_parenthetical, it) } ?: ""),
                     style = MaterialTheme.typography.bodySmall)
             }
             if (showWakePick) {
@@ -661,20 +689,21 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
                     onConfirm = { wakeOverride = it; showWakePick = false },
                 )
             }
-            Text("😴 昨晚入睡", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.home_sleep_title), style = MaterialTheme.typography.titleMedium)
+            val bedDesc = stringResource(R.string.home_actual_bedtime_desc, bedtime)
             // 跟「起床时间」同一款排版：整宽字段，点整块开时间盘
             Box(Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = bedtime, onValueChange = {},
                     readOnly = true, singleLine = true,
-                    label = { Text("实际入睡", maxLines = 1) },
+                    label = { Text(stringResource(R.string.home_actual_bedtime_label), maxLines = 1) },
                     trailingIcon = { Icon(Icons.Filled.Schedule, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Box(
                     Modifier.matchParentSize()
-                        .clickable(onClickLabel = "选择入睡时间") { showPick = true }
-                        .semantics { contentDescription = "实际入睡 $bedtime，点按选择时间" },
+                        .clickable(onClickLabel = stringResource(R.string.home_pick_bedtime)) { showPick = true }
+                        .semantics { contentDescription = bedDesc },
                 )
             }
             facts?.let { f2 ->
@@ -686,12 +715,17 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
                         Score.diffMinutes(
                             PlanEngine.winddownStartOf(e, KxStore.config.winddownMin).toLocalTime().format(fmt),
                             lastOn.format(fmt),
-                        )?.let { d -> if (d >= 0) "目标差 +$d 分钟" else "目标差 $d 分钟" }
+                        )?.let { d ->
+                            if (d >= 0) stringResource(R.string.home_target_diff_over, d)
+                            else stringResource(R.string.home_target_diff_under, d)
+                        }
                     }
-                    Text("📱 昨晚最后亮屏 ${lastOn.format(fmt)}" + (devTxt?.let { "（$it）" } ?: "（放下手机）"),
+                    Text(stringResource(R.string.home_last_screen_on, lastOn.format(fmt)) +
+                        (devTxt?.let { stringResource(R.string.home_parenthetical, it) }
+                            ?: stringResource(R.string.home_phone_down)),
                         style = MaterialTheme.typography.bodySmall)
                 } else if (pickup != null) {
-                    Text("📱 昨晚风屏后未再亮屏 ✅（直到今早拿起）",
+                    Text(stringResource(R.string.home_no_more_screen),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.secondary)
                 }
@@ -701,7 +735,7 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
                 androidx.compose.material3.TextButton(onClick = {
                     ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS)
                         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
-                }) { Text("授予「使用情况访问」权限，自动记录入睡/起床事实 →") }
+                }) { Text(stringResource(R.string.home_usage_access_btn)) }
             }
             // 状态不手选，保存时按「实际入睡 vs 目标」自检；时间就靠上面那个字段
             val target = nightEntry?.bedtime ?: KxStore.config.currentBedtime
@@ -714,7 +748,8 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
             }
             OutlinedTextField(
                 value = note, onValueChange = { note = it },
-                label = { Text("备注", maxLines = 1) }, placeholder = { Text("可选") },
+                label = { Text(stringResource(R.string.home_note_label), maxLines = 1) },
+                placeholder = { Text(stringResource(R.string.home_note_optional)) },
                 modifier = Modifier.fillMaxWidth(), singleLine = true,
             )
             Row(
@@ -739,7 +774,7 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
                     }
                     note = ""
                     editing = false   // 记完收成一行；bedtime 留着，点「改一下」时还是这条记录
-                    Toast.makeText(ctx, "已打卡 ✅", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(ctx, ctx.getString(R.string.home_checkin_saved_toast), Toast.LENGTH_SHORT).show()
                     // 打卡后自动出一张 A 版海报（内置底图秒出）：看一眼，再决定存/分享
                     local.kuaixiu.KxScope.app.launch {
                         runCatching {
@@ -750,24 +785,29 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
                             kotlinx.coroutines.withContext(Dispatchers.Main) { posterFile = f }
                         }.onFailure { e ->
                             kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                Toast.makeText(ctx, "海报没生成：${e.message}", Toast.LENGTH_LONG).show()
+                                Toast.makeText(ctx, ctx.getString(R.string.home_poster_failed, e.message ?: ""), Toast.LENGTH_LONG).show()
                             }
                         }
                     }
-                }) { Text("保存打卡") }
+                }) { Text(stringResource(R.string.home_checkin_save_btn)) }
                 // 展开后能收回去（有记录可回时才给，否则收起来就没内容了）
                 if (nightRec != null) {
-                    TextButton(onClick = { editing = false }) { Text("收起") }
+                    TextButton(onClick = { editing = false }) { Text(stringResource(R.string.home_collapse)) }
                 }
             }
 
             val recent = Checkins.all(ctx).takeLast(5)
             if (recent.isNotEmpty()) {
                 Text(
-                    "最近：" + recent.joinToString("；") {
-                        (if (it.winddownAt.isNotBlank()) "风屏${it.winddownAt} " else "") +
-                            "${it.date.drop(5)} ${it.status}"
-                    },
+                    stringResource(
+                        R.string.home_recent,
+                        recent.joinToString("；") {
+                            // joinToString 的转换 lambda 里不能调 composable，走 ctx.getString
+                            (if (it.winddownAt.isNotBlank())
+                                 ctx.getString(R.string.home_recent_winddown, it.winddownAt) else "") +
+                                "${it.date.drop(5)} ${it.status}"
+                        },
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -785,9 +825,10 @@ private fun UpcomingCard(plan: Plan) {
     if (upcoming.isEmpty()) return
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("接下来几天", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.home_upcoming_title), style = MaterialTheme.typography.titleMedium)
             upcoming.forEach {
-                Text("${it.date.drop(5)} ${it.weekday}  ${it.stage}  目标 ${it.bedtime}")
+                Text(stringResource(R.string.home_upcoming_row, it.date.drop(5), it.weekday,
+                    PlanEngine.phaseLabel(it.stage), it.bedtime))
             }
         }
     }
@@ -805,16 +846,16 @@ private fun QuickAddCard(onSaved: () -> Unit) {
     var poster by remember { mutableStateOf(false) }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("手动添加", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.home_manual_title), style = MaterialTheme.typography.titleMedium)
             // 三个按钮一行放不下：Row 会把最后一个压成竖排单字，用 FlowRow 让它整颗换行
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { addReminder = true }) { Text("+ 加提醒") }
-                OutlinedButton(onClick = { addHabit = true }) { Text("+ 新习惯") }
-                OutlinedButton(onClick = { poster = true }) { Text("+ 做海报") }
+                OutlinedButton(onClick = { addReminder = true }) { Text(stringResource(R.string.home_manual_reminder)) }
+                OutlinedButton(onClick = { addHabit = true }) { Text(stringResource(R.string.home_manual_habit)) }
+                OutlinedButton(onClick = { poster = true }) { Text(stringResource(R.string.home_manual_poster)) }
             }
             Text(
-                "不经过教练也能直接加；提醒走系统日历一次，习惯连响 N 天。",
+                stringResource(R.string.home_manual_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

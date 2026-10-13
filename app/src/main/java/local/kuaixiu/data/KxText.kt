@@ -17,4 +17,12 @@ object KxText {
         val c = app ?: throw IllegalStateException("KxText 未初始化（KxApp.onCreate 没跑到？）")
         return if (args.isEmpty()) c.getString(id) else c.getString(id, *args)
     }
+
+    /**
+     * 当前界面语言是否走英文。**取文案不要用它的**（资源自己按语言选），
+     * 只有日期/数字格式这类要挑 Locale 的地方才需要（如海报的「10 月 13 日 · 星期一」）。
+     */
+    val english: Boolean
+        get() = app?.resources?.configuration?.locales
+            ?.takeIf { it.size() > 0 }?.get(0)?.language == "en"
 }

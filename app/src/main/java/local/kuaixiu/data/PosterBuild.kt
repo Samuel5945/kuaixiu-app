@@ -1,10 +1,13 @@
 package local.kuaixiu.data
 
 import android.content.Context
+import local.kuaixiu.R
 import local.kuaixiu.engine.PlanEngine
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
 
 /**
  * 从本地记录拼出海报数据。**不经过任何模型**——连续天数、评分、放下手机时刻
@@ -13,8 +16,18 @@ import java.time.format.DateTimeFormatter
 object PosterBuild {
 
     private val fmtHM = DateTimeFormatter.ofPattern("HH:mm")
-    private val fmtDateCn = DateTimeFormatter.ofPattern("M 月 d 日 · EEEE")
     private val fmtDot = DateTimeFormatter.ofPattern("yyyy.MM.dd")
+
+    /** 海报上要按系统语言出：中文「10 月 13 日 · 星期一」，英文「Mon, Oct 13」。 */
+    private fun textLocale(): Locale = if (KxText.english) Locale.ENGLISH else Locale.getDefault()
+
+    private fun dateLine(night: LocalDate): String =
+        night.format(DateTimeFormatter.ofPattern(KxText.s(R.string.poster_date_fmt), textLocale()))
+
+    /** 周报每根条左边的星期：横条是按「一个字」的宽度摆的，中英都取最窄形式（一 / M）。 */
+    private fun weekdayMark(iso: String, fallback: String): String =
+        runCatching { LocalDate.parse(iso).dayOfWeek.getDisplayName(TextStyle.NARROW, textLocale()) }
+            .getOrElse { fallback }
 
     /**
      * 单夜版（A/B/C）：**最近一次打卡的那一夜**，不是"今晚"。
@@ -45,8 +58,8 @@ object PosterBuild {
             targetBedtime = entry.bedtime,
             dayIndex = entry.day,
             planDays = plan.config.planDays,
-            stage = entry.stage,
-            dateCn = night.format(fmtDateCn),
+            stage = PlanEngine.phaseLabel(entry.stage),
+            dateCn = dateLine(night),
             dateDot = night.format(fmtDot),
             weekLabel = "", weekDays = emptyList(), onTimeCount = 0, weekTotal = 0,
             avgPhoneDown = "", avgScore = 0, rateHit = 0, rateElapsed = 0, quote = "",
@@ -68,7 +81,7 @@ object PosterBuild {
             val c = byDate[d.date]
             val r = Score.daily(c, d.winddown, d.bedtime, cfg.wake)
             PosterLine(
-                weekday = d.weekday.takeLast(1),
+                weekday = weekdayMark(d.date, d.weekday),
                 date = d.date.removePrefix("20").replace('-', '-'),
                 phoneDown = c?.phoneDownAt.orEmpty(),
                 bedtime = c?.bedtime.orEmpty(),
@@ -88,9 +101,10 @@ object PosterBuild {
                 scoreTotal = 0, scoreWinddown = 0, scoreSleep = 0, scoreWake = 0,
                 phoneDown = "", bedtime = "", wakeup = "", wakeAnchor = cfg.wake,
                 targetBedtime = todayEntry.bedtime,
-                dayIndex = todayEntry.day, planDays = plan.config.planDays, stage = todayEntry.stage,
+                dayIndex = todayEntry.day, planDays = plan.config.planDays,
+                stage = PlanEngine.phaseLabel(todayEntry.stage),
                 dateCn = "", dateDot = "",
-                weekLabel = "${mmdd(first)} – ${mmdd(last)} · 第 ${days.first().week} 周",
+                weekLabel = KxText.s(R.string.poster_week_label, mmdd(first), mmdd(last), days.first().week),
                 weekDays = lines,
                 onTimeCount = onTime, weekTotal = days.size,
                 avgPhoneDown = avgClock(phones),
@@ -98,10 +112,10 @@ object PosterBuild {
                 // 达成率只看这周已过的夜（今晚要明早才打卡，不能算进去）——不然 2/3 会让标题的 2/2 自相矛盾
                 rateHit = onTime, rateElapsed = days.size,
                 quote = when {
-                    onTime == days.size -> "$onTime 晚一晚没落下，节奏已经稳了，保持。"
-                    lateDays == 1 -> "只有一晚晚了一回——单晚破功什么都不用改，接着来就行。"
-                    lateDays >= 2 -> "这周有 $lateDays 晚偏晚：连续多晚就要调计划档位，别硬扛。"
-                    else -> "记录不全就是执行不全，先把打卡补齐。"
+                    onTime == days.size -> KxText.s(R.string.poster_quote_all, onTime)
+                    lateDays == 1 -> KxText.s(R.string.poster_quote_one_late)
+                    lateDays >= 2 -> KxText.s(R.string.poster_quote_late, lateDays)
+                    else -> KxText.s(R.string.poster_quote_missing)
                 },
         )
     }

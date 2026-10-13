@@ -14,6 +14,7 @@ import android.graphics.Typeface
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
+import local.kuaixiu.R
 import java.io.File
 
 /**
@@ -68,22 +69,30 @@ object PosterComposer {
             shader = LinearGradient(0f, 0f, 0f, H.toFloat(), intArrayOf(
                 0x0D060912, 0x4D060912, 0xDB060912.toInt(), 0xF2060912.toInt()), floatArrayOf(0f, .42f, .74f, 1f), Shader.TileMode.CLAMP)
         })
-        text(c, "连 续 准 时", PAD, 234f, 38f, 0xFFC3D0EA.toInt(), bold, letterSpacing = .42f)
+        text(c, KxText.s(R.string.poster_a_streak_label), PAD, 234f, 38f, 0xFFC3D0EA.toInt(), bold, letterSpacing = .42f)
         text(c, d.streak.toString(), PAD, 700f, 520f, Color.WHITE, bold)
-        text(c, "天", PAD + digitWidth(d.streak.toString(), 520f) + 32f, 648f, 96f, 0xFFDBE5F8.toInt(), bold)
-        text(c, "第 ${d.dayIndex} 夜 · ${d.stage} · 目标入睡 ${d.targetBedtime}", PAD, 800f, 52f, MUTED_LIGHT, normal)
+        // 单位字的位置按巨字的实际宽度量：换语言后"天 / days"长短差很多，写死会压到画布外
+        val unitX = PAD + textWidth(d.streak.toString(), 520f, bold) + 32f
+        val dayUnit = KxText.s(R.string.poster_unit_days)
+        text(c, dayUnit, unitX, 648f, fittedSize(dayUnit, 96f, W - PAD - unitX), 0xFFDBE5F8.toInt(), bold)
+        val nightLine = KxText.s(R.string.poster_a_night_line, d.dayIndex, d.stage, d.targetBedtime)
+        text(c, nightLine, PAD, 800f, fittedSize(nightLine, 52f, W - 2 * PAD, normal), MUTED_LIGHT, normal)
         // 底部三格
         val y = 2210f
         c.drawRect(PAD, y, W - PAD, y + 2f, paint().apply { color = 0x42C8D6F0 })
-        val cols = listOf("昨晚评分" to "${d.scoreTotal}/100", "放下手机" to d.phoneDown.ifBlank { "—" }, "起床锚点" to d.wakeup.ifBlank { d.wakeAnchor })
+        val cols = listOf(
+            KxText.s(R.string.poster_lab_score) to "${d.scoreTotal}/100",
+            KxText.s(R.string.poster_lab_phone_down) to d.phoneDown.ifBlank { "—" },
+            KxText.s(R.string.poster_lab_wake_anchor) to d.wakeup.ifBlank { d.wakeAnchor },
+        )
         cols.forEachIndexed { i, (label, value) ->
             val colW = (W - 2 * PAD) / 3f
             val x = PAD + i * colW
-            text(c, label, x, 2268f, 32f, 0xFF93A5C8.toInt(), normal, letterSpacing = .14f)
+            text(c, label, x, 2268f, fittedSize(label, 32f, colW - 40f, normal, .14f),
+                0xFF93A5C8.toInt(), normal, letterSpacing = .14f)
             text(c, value, x, 2360f, fittedSize(value, 84f, colW - 48f), 0xFFF2F6FF.toInt(), bold)
         }
-        text(c, "快休 · 早睡执行系统", PAD, 2620f, 36f, 0xFF8494B4.toInt(), normal)
-        textRight(c, d.dateDot, W - PAD, 2620f, 36f, 0xFF8494B4.toInt(), normal)
+        footerRow(c, KxText.s(R.string.poster_brand), d.dateDot, 2620f, 36f, 0xFF8494B4.toInt())
     }
 
     // ---------- B 圆环奖章（里程碑） ----------
@@ -95,7 +104,7 @@ object PosterComposer {
                 intArrayOf(0x9E0A0814.toInt(), 0xCC0A0814.toInt(), 0xF00A0814.toInt()),
                 floatArrayOf(0f, .46f, 1f), Shader.TileMode.CLAMP)
         })
-        textCentered(c, "坚 持 中", W / 2f, 252f, 40f, 0xFFC8BCD8.toInt(), normal, letterSpacing = .34f)
+        textCentered(c, KxText.s(R.string.poster_b_still_going), W / 2f, 252f, 40f, 0xFFC8BCD8.toInt(), normal, letterSpacing = .34f)
         val cx = W / 2f; val cy = 702f; val r = 356f; val stroke = 48f
         c.drawCircle(cx, cy, r, paint().apply { style = Paint.Style.STROKE; strokeWidth = stroke; color = 0x24FFFFFF })
         val sweep = 360f * (milestoneProgress(d.streak))
@@ -103,28 +112,31 @@ object PosterComposer {
             paint().apply { style = Paint.Style.STROKE; strokeWidth = stroke; strokeCap = Paint.Cap.ROUND; color = AMBER })
         c.drawCircle(cx, cy, r - stroke / 2f - 4f, paint().apply { color = 0xFF150F22.toInt() })
         textCentered(c, d.streak.toString(), cx, cy + 92f, 272f, Color.WHITE, bold)
-        textCentered(c, "连续准时 · 天", cx, cy + 168f, 46f, 0xFFC3B6D8.toInt(), normal)
+        textCentered(c, KxText.s(R.string.poster_b_days_on_time), cx, cy + 168f, 46f, 0xFFC3B6D8.toInt(), normal)
         val badge = nextMilestone(d.streak)
         val bw = 560f; val bh = 104f; val by = 1180f
         c.drawRoundRect(RectF(cx - bw / 2, by, cx + bw / 2, by + bh), bh / 2, bh / 2,
             paint().apply { style = Paint.Style.STROKE; strokeWidth = 2f; color = 0x73FFD79A })
-        textCentered(c, "再 ${badge - d.streak} 天解锁「$badge 天徽章」", cx, by + 68f, 46f, AMBER_LIGHT, normal)
+        // 胶囊是定宽的：按真正那句话量宽，换语言后顶出边框就缩号
+        val unlock = KxText.s(R.string.poster_b_unlock, badge - d.streak, badge)
+        textCentered(c, unlock, cx, by + 68f, fittedSize(unlock, 46f, bw - 48f, normal), AMBER_LIGHT, normal)
         val rows = listOf(
-            "昨晚评分" to "${d.scoreTotal} / 100",
-            "放下手机" to d.phoneDown.ifBlank { "—" },
+            KxText.s(R.string.poster_lab_score) to "${d.scoreTotal} / 100",
+            KxText.s(R.string.poster_lab_phone_down) to d.phoneDown.ifBlank { "—" },
             // 起床锚点他没填、早上也没手选时间：用 UsageProbe 抓的"首次亮屏"当起床时刻，跟放下手机成对
-            "早上拿起" to d.wakeup.ifBlank { "—" },
+            KxText.s(R.string.poster_lab_morning) to d.wakeup.ifBlank { "—" },
         )
         var y = 1900f
         rows.forEach { (label, value) ->
-            text(c, label, PAD, y + 50f, 48f, 0xFFB3A6C6.toInt(), normal)
+            // 一行里标签和数字抢同一段宽度：按实际数值串量，别挤到右边压着数字
+            val maxLabelW = (W - 2 * PAD) - textWidth(value, 64f, bold) - 40f
+            text(c, label, PAD, y + 50f, fittedSize(label, 48f, maxLabelW, normal), 0xFFB3A6C6.toInt(), normal)
             textRight(c, value, W - PAD, y + 50f, 64f, 0xFFF5F0FB.toInt(), bold)
             y += 92f
             c.drawRect(PAD, y, W - PAD, y + 2f, paint().apply { color = 0x2EC8BCD8 })
             y += 68f
         }
-        text(c, "快休 · 早睡执行系统", PAD, 2620f, 36f, 0xFF887BA0.toInt(), normal)
-        textRight(c, d.dateDot, W - PAD, 2620f, 36f, 0xFF887BA0.toInt(), normal)
+        footerRow(c, KxText.s(R.string.poster_brand), d.dateDot, 2620f, 36f, 0xFF887BA0.toInt())
     }
 
     // ---------- C 米色杂志（主动分享） ----------
@@ -135,14 +147,18 @@ object PosterComposer {
         })
         // 三行大标题的行盒：275 / 472 / 652 / 832，行距 180；日期那行要留在标题升部之上
         text(c, d.dateCn.uppercase(), PAD, 275f, 38f, MUTED_DARK, normal, letterSpacing = .3f)
-        text(c, "昨晚我在", PAD, 472f, 142f, INK, bold)
+        // 没抓到"放下手机"就只能说入睡，标签跟着换——标签写放下手机却显示别的时间就是假数据
+        val openLine = KxText.s(R.string.poster_c_last_night)
+        val tailLine = if (d.phoneDown.isBlank()) KxText.s(R.string.poster_c_asleep) else KxText.s(R.string.poster_c_phone_down)
+        // 三行大字共用一个字号：换语言后哪一行都别冲出画布，也不出现一行大一行小
+        val bigSize = minOf(fittedSize(openLine, 142f, W - 2 * PAD), fittedSize(tailLine, 142f, W - 2 * PAD))
+        text(c, openLine, PAD, 472f, bigSize, INK, bold)
         val hero = d.phoneDown.ifBlank { d.bedtime.ifBlank { "--:--" } }
         val heroW = digitWidth(hero, 142f)
         // 高亮先画、文字压在上面：只糊住字的下半截（像荧光笔），别沉到基线下面去
         c.drawRect(PAD, 652f - 43f, PAD + heroW, 652f + 9f, paint().apply { color = 0xFFFFD08A.toInt() })
         text(c, hero, PAD, 652f, 142f, INK, bold)
-        // 没抓到"放下手机"就只能说入睡，标签跟着换——标签写放下手机却显示别的时间就是假数据
-        text(c, if (d.phoneDown.isBlank()) "睡着了" else "放下了手机", PAD, 832f, 142f, INK, bold)
+        text(c, tailLine, PAD, 832f, bigSize, INK, bold)
         // 圆角图卡按 1024×1152 摆（都是 32 的倍数）：跟要来的图 1:1，一点不裁，主体不会掉
         val cardW = 1024f; val cardH = 1152f
         val cardTop = 862f
@@ -157,24 +173,32 @@ object PosterComposer {
             shader = LinearGradient(0f, card.top + cardH * .58f, 0f, card.bottom,
                 intArrayOf(Color.TRANSPARENT, 0x80000000.toInt()), null, Shader.TileMode.CLAMP)
         })
-        text(c, "第 ${d.dayIndex} 夜 · ${d.stage}", card.left + 52f, card.bottom - 52f, 36f, 0xFFEFEAE0.toInt(), normal, letterSpacing = .1f)
+        val onCard = KxText.s(R.string.poster_c_night_stage, d.dayIndex, d.stage)
+        text(c, onCard, card.left + 52f, card.bottom - 52f,
+            fittedSize(onCard, 36f, card.width() - 104f, normal, .1f), 0xFFEFEAE0.toInt(), normal, letterSpacing = .1f)
         c.restore()
         // 数据条：三格竖分隔
         val gy = 2200f
         val cells = listOf(
-            "连续准时" to "${d.streak}天",
-            "放下手机" to d.phoneDown.ifBlank { "—" },
-            "早上拿起" to d.wakeup.ifBlank { "—" },
+            KxText.s(R.string.poster_lab_streak) to KxText.s(R.string.poster_days_count, d.streak),
+            KxText.s(R.string.poster_lab_phone_down) to d.phoneDown.ifBlank { "—" },
+            KxText.s(R.string.poster_lab_morning) to d.wakeup.ifBlank { "—" },
         )
         val cw = (W - 2 * PAD) / 3f
         cells.forEachIndexed { i, (label, value) ->
             val x = PAD + i * cw
             if (i > 0) c.drawRect(x - 20f, gy - 10f, x - 18f, gy + 150f, paint().apply { color = 0x291D1A16 })
-            text(c, label, x, gy + 30f, 32f, MUTED_DARK, normal, letterSpacing = .1f)
+            text(c, label, x, gy + 30f, fittedSize(label, 32f, cw - 40f, normal, .1f),
+                MUTED_DARK, normal, letterSpacing = .1f)
             text(c, value, x, gy + 136f, fittedSize(value, 92f, cw - 66f), INK, bold)
         }
-        text(c, "快休", PAD, 2620f, 44f, INK, bold)
-        textRight(c, "早睡不是意志力，是流程", W - PAD, 2620f, 38f, 0xFF6B6154.toInt(), normal)
+        // 页脚：品牌短名 + 那句话，共享一行宽度
+        val brandShort = KxText.s(R.string.app_name)
+        val tagline = KxText.s(R.string.poster_c_tagline)
+        text(c, brandShort, PAD, 2620f, 44f, INK, bold)
+        textRight(c, tagline, W - PAD, 2620f,
+            fittedSize(tagline, 38f, (W - 2 * PAD) - textWidth(brandShort, 44f, bold) - 40f, normal),
+            0xFF6B6154.toInt(), normal)
     }
 
     // ---------- D 周报横条（每周一次；条长 = 当晚评分） ----------
@@ -184,13 +208,19 @@ object PosterComposer {
                 intArrayOf(0xFFF3EDE3.toInt(), 0xFFE9E0D2.toInt(), CREAM_DEEP), floatArrayOf(0f, .54f, 1f), Shader.TileMode.CLAMP)
         })
         text(c, d.weekLabel, PAD, 300f, 38f, MUTED_DARK, normal, letterSpacing = .3f)
-        text(c, "这一周 ", PAD, 470f, 118f, INK, bold)
-        val p1 = digitWidth("这一周 ", 118f, bold)
-        val ratioW = digitWidth(d.weekRatio, 118f)
+        // 标题是"前缀 + 6/7 + 后缀"三段拼出来的：高亮块要正好压在比率底下，
+        // 所以宽度一律按真正要画的那几段字量（英文前缀是空串，位置自然贴到左边）
+        val lead = KxText.s(R.string.poster_d_this_week)
+        val trail = KxText.s(R.string.poster_d_on_time)
+        val titleSize = fitRowSize(listOf(lead, d.weekRatio, trail), 118f, W - 2 * PAD)
+        text(c, lead, PAD, 470f, titleSize, INK, bold)
+        val p1 = textWidth(lead, titleSize, bold)
+        val ratioW = textWidth(d.weekRatio, titleSize, bold)
         c.drawRect(PAD + p1, 470f - 35f, PAD + p1 + ratioW, 470f + 7f, paint().apply { color = 0xFFFFD08A.toInt() })
-        text(c, d.weekRatio, PAD + p1, 470f, 118f, INK, bold)
-        text(c, " 晚准时", PAD + p1 + ratioW, 470f, 118f, INK, bold)
-        text(c, "左边是每晚「放下手机」的时刻（自动探测）· 条长 = 当晚评分", PAD, 540f, 32f, MUTED_DARK, normal)
+        text(c, d.weekRatio, PAD + p1, 470f, titleSize, INK, bold)
+        text(c, trail, PAD + p1 + ratioW, 470f, titleSize, INK, bold)
+        val barHint = KxText.s(R.string.poster_d_hint)
+        text(c, barHint, PAD, 540f, fittedSize(barHint, 32f, W - 2 * PAD, normal), MUTED_DARK, normal)
         // 7 根横条：不满 7 天时底对齐（最后一根落在满格布局同一位置），上面留白比中间空一块好看
         val trackL = 404f; val trackR = 1004f; val barH = 124f
         val shown = d.weekDays.takeLast(7)
@@ -211,21 +241,26 @@ object PosterComposer {
         val gy = 1955f
         val cw = (W - 2 * PAD) / 4f
         listOf(
-            "达成率" to "${d.ratePercent()}%",
-            "平均放下手机" to d.avgPhoneDown,
-            "连续准时" to "${d.onTimeCount}天",
-            "平均评分" to d.avgScore.toString(),
+            KxText.s(R.string.poster_d_hit_rate) to "${d.ratePercent()}%",
+            KxText.s(R.string.poster_d_avg_phone) to d.avgPhoneDown,
+            KxText.s(R.string.poster_lab_streak) to KxText.s(R.string.poster_days_count, d.onTimeCount),
+            KxText.s(R.string.poster_d_avg_score) to d.avgScore.toString(),
         ).forEachIndexed { i, (label, value) ->
             val x = PAD + i * cw
             if (i > 0) c.drawRect(x - 18f, gy - 40f, x - 16f, gy + 120f, paint().apply { color = 0x291D1A16 })
-            text(c, label, x, gy, 31f, MUTED_DARK, normal, letterSpacing = .1f)
+            text(c, label, x, gy, fittedSize(label, 31f, cw - 30f, normal, .1f),
+                MUTED_DARK, normal, letterSpacing = .1f)
             text(c, value, x, gy + 132f, fittedSize(value, 88f, cw - 46f), INK, bold)
         }
         // 结语
         wrapText(c, d.quote, PAD + 34f, 2380f, W - PAD - PAD - 34f, 40f, 0xFF4C463C.toInt())
         c.drawRect(PAD, 2320f, PAD + 6f, 2470f, paint().apply { color = AMBER })
-        text(c, "快休", PAD, 2660f, 44f, INK, bold)
-        textRight(c, "计划第 ${d.dayIndex} / ${d.planDays} 天 · 目标入睡 ${d.targetBedtime}", W - PAD, 2660f, 38f, 0xFF6B6154.toInt(), normal)
+        val brandShort = KxText.s(R.string.app_name)
+        val planLine = KxText.s(R.string.poster_d_plan_line, d.dayIndex, d.planDays, d.targetBedtime)
+        text(c, brandShort, PAD, 2660f, 44f, INK, bold)
+        textRight(c, planLine, W - PAD, 2660f,
+            fittedSize(planLine, 38f, (W - 2 * PAD) - textWidth(brandShort, 44f, bold) - 40f, normal),
+            0xFF6B6154.toInt(), normal)
     }
 
     // ---------- helpers ----------
@@ -254,13 +289,34 @@ object PosterComposer {
         c.drawText(s, x, baseline, p)
     }
 
-    private fun digitWidth(s: String, size: Float, tf: Typeface = bold): Float =
-        TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = size; typeface = tf }.measureText(s)
+    /**
+     * 量一段字要占多宽（含字距）。凡是"用上一个元素的宽度定下一个元素的坐标"，
+     * 一律用它量真正要画出来的字符串——换语言后字串长短不同，写死字面量就会溢出。
+     */
+    private fun textWidth(s: String, size: Float, tf: Typeface = bold, spacing: Float = 0f): Float =
+        TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = size; typeface = tf; letterSpacing = spacing
+        }.measureText(s)
 
-    /** 数字超过格宽就缩字号，别让相邻两格贴到一起（100/100 这种长的尤其明显）。 */
-    private fun fittedSize(s: String, size: Float, maxW: Float, tf: Typeface = bold): Float {
-        val w = digitWidth(s, size, tf)
+    private fun digitWidth(s: String, size: Float, tf: Typeface = bold): Float = textWidth(s, size, tf)
+
+    /** 超过格宽就缩字号，别让相邻两格贴到一起（100/100、长英文标签这种尤其明显）。 */
+    private fun fittedSize(s: String, size: Float, maxW: Float, tf: Typeface = bold, spacing: Float = 0f): Float {
+        val w = textWidth(s, size, tf, spacing)
         return if (w <= maxW) size else (size * maxW / w).coerceAtLeast(size * 0.6f)
+    }
+
+    /** 几段字拼成一行（前缀 + 数字 + 后缀）：整行放不下就一起缩号，别让最后一截冲出画布。 */
+    private fun fitRowSize(parts: List<String>, size: Float, maxW: Float, tf: Typeface = bold): Float {
+        val w = parts.fold(0f) { acc, s -> acc + textWidth(s, size, tf) }
+        return if (w <= maxW) size else (size * maxW / w).coerceAtLeast(size * 0.6f)
+    }
+
+    /** 页脚一行：左边品牌行、右边日期，两边共享同一段宽度，谁长都不许压到对方。 */
+    private fun footerRow(c: Canvas, left: String, right: String, baseline: Float, size: Float, color: Int) {
+        textRight(c, right, W - PAD, baseline, size, color, normal)
+        val maxLeftW = (W - 2 * PAD) - textWidth(right, size, normal) - 40f
+        text(c, left, PAD, baseline, fittedSize(left, size, maxLeftW, normal), color, normal)
     }
 
     /** 自动换行的多行文本，返回占用高度。 */

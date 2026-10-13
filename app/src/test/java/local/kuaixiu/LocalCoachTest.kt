@@ -7,11 +7,19 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 
-/** 离线教练的时间/日期/意图解析都是纯逻辑，直接 JVM 测。 */
+/**
+ * 离线教练的解析与意图识别。回复文案现在走资源，所以挂 Robolectric 钉住中文限定符，
+ * 既有的中文断言照旧成立；英文用例只断言解析出来的动作参数（与语言无关）。
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34], qualifiers = "zh-rCN")
 class LocalCoachTest {
 
     private val today = LocalDate.of(2026, 10, 12)
@@ -185,5 +193,51 @@ class LocalCoachTest {
         val r = LocalCoach.reply("帮我写一首关于月亮的诗", cfg, today)
         assertNull(r.actionJson)
         assertTrue(r.text, r.text.contains("只认"))
+    }
+
+    // ---------------- 英文说法（只断言解析出来的动作，回复语言不参与） ----------------
+
+    @Test
+    fun `英文加提醒解析出日期时间与正文`() {
+        val a = action(LocalCoach.reply("remind me to drink water at 8:00 tomorrow", cfg, today))
+        assertTrue(a, a.contains("\"action\":\"reminder\""))
+        assertTrue(a, a.contains("\"date\":\"2026-10-13\""))
+        assertTrue(a, a.contains("\"time\":\"08:00\""))
+        assertTrue(a, a.contains("\"text\":\"drink water\""))
+    }
+
+    @Test
+    fun `英文记打卡_1点算准时`() {
+        val a = action(LocalCoach.reply("I fell asleep at 1 last night", cfg, today))
+        assertTrue(a, a.contains("\"action\":\"checkin\""))
+        assertTrue(a, a.contains("\"bedtime\":\"01:00\""))
+        assertTrue(a, a.contains("\"status\":\"on_time\""))
+    }
+
+    @Test
+    fun `英文改计划落到目标入睡`() {
+        val a = action(LocalCoach.reply("move my target bedtime to 23:30", cfg, today))
+        assertTrue(a, a.contains("\"action\":\"adjust\""))
+        assertTrue(a, a.contains("\"targetBedtime\":\"23:30\""))
+    }
+
+    @Test
+    fun `英文建习惯抠出名字锚点与天数`() {
+        val a = action(LocalCoach.reply("new habit: walk after dinner, 20:30, 21 days", cfg, today))
+        assertTrue(a, a.contains("\"op\":\"add\""))
+        assertTrue(a, a.contains("\"name\":\"walk after dinner\""))
+        assertTrue(a, a.contains("\"cueTime\":\"20:30\""))
+        assertTrue(a, a.contains("\"days\":21"))
+    }
+
+    @Test
+    fun `英文风屏用当前时刻`() {
+        val a = action(LocalCoach.reply("I started wind-down", cfg, today, LocalTime.of(22, 40)))
+        assertTrue(a, a.contains("\"winddown\":\"22:40\""))
+    }
+
+    @Test
+    fun `英文下next_monday落到下周一`() {
+        assertEquals("2026-10-19", LocalCoach.parseDate("remind me on next monday", today))
     }
 }

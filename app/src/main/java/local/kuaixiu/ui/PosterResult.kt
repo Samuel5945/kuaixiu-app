@@ -24,7 +24,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import local.kuaixiu.R
 import local.kuaixiu.data.ImageGen
 import java.io.File
 
@@ -42,28 +44,28 @@ fun PosterResultDialog(file: File, onDismiss: () -> Unit) {
             Button(onClick = {
                 sharePoster(ctx, file)
                 onDismiss()
-            }) { Text("分享") }
+            }) { Text(stringResource(R.string.poster_share)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("完成") } },
-        title = { Text("海报好了") },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.poster_done)) } },
+        title = { Text(stringResource(R.string.poster_result_title)) },
         text = {
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (bmp != null) {
                     Image(
                         bitmap = bmp.asImageBitmap(),
-                        contentDescription = "刚生成的海报",
+                        contentDescription = stringResource(R.string.poster_preview_desc),
                         contentScale = ContentScale.Fit,
                         modifier = Modifier.fillMaxWidth().height(360.dp),
                     )
                 }
-                Text("已存进系统相册（相册里搜 kuaixiu_）", style = MaterialTheme.typography.bodySmall,
+                Text(stringResource(R.string.poster_saved_note), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = {
                         ImageGen.saveToGallery(ctx, file)
-                        Toast.makeText(ctx, "已再存一次到相册", Toast.LENGTH_SHORT).show()
-                    }) { Text("保存到相册") }
+                        Toast.makeText(ctx, R.string.poster_saved_again, Toast.LENGTH_SHORT).show()
+                    }) { Text(stringResource(R.string.poster_save_btn)) }
                     Text(file.name, style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -81,6 +83,7 @@ fun sharePoster(ctx: Context, file: File) {
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        ctx.startActivity(Intent.createChooser(i, "分享海报"))
-    }.onFailure { Toast.makeText(ctx, "分享失败：${it.message}", Toast.LENGTH_LONG).show() }
+        ctx.startActivity(Intent.createChooser(i, ctx.getString(R.string.poster_chooser)))
+    }.onFailure { Toast.makeText(ctx, ctx.getString(R.string.poster_share_failed, it.message ?: ""),
+        Toast.LENGTH_LONG).show() }
 }

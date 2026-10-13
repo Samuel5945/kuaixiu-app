@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 分享海报 · 选版式的对话框 -->
+    <string name="poster_title">做分享海报</string>
+    <string name="poster_busy">正在出图…</string>
+    <string name="poster_toast_local">本地出图中…</string>
+    <string name="poster_toast_ai">生成中…（要调生图，约半分钟）</string>
+    <string name="poster_failed">生成失败：%1$s</string>
+    <string name="poster_tpl_a">打卡纪念（本地叠字）</string>
+    <string name="poster_tpl_a_desc">底图 + 巨大连续天数，打卡后自动弹的那版</string>
+    <string name="poster_tpl_b">奖章（本地叠字）</string>
+    <string name="poster_tpl_b_desc">圆环进度 + 距下一枚徽章还差几天</string>
+    <string name="poster_tpl_c">杂志（本地叠字）</string>
+    <string name="poster_tpl_c_desc">「昨晚我在 00:38 放下了手机」，发朋友圈那版</string>
+    <string name="poster_tpl_d">周报（本地画）</string>
+    <string name="poster_tpl_d_desc">7 根横条，条长 = 每晚评分；不出生图、秒出</string>
+    <string name="poster_local_only_title">本地出图（不调生图模型）</string>
+    <string name="poster_local_only_desc">内置底图排版秒出、不耗额度</string>
+    <string name="poster_bare_title">只要画面不要字</string>
+    <string name="poster_bare_desc">存一张不带任何文字、构图留好放字位置的底图</string>
+    <string name="poster_ai_title">让 AI 连字一起画</string>
+    <string name="poster_ai_desc">数字由 App 塞进提示词交给模型写——方便，但字可能写错，不保证</string>
+    <string name="poster_need_image_model">要先在设置里配生图模型</string>
+
+    <!-- 分享海报 · 出图后的分享/保存 -->
+    <string name="poster_result_title">海报好了</string>
+    <string name="poster_share">分享</string>
+    <string name="poster_done">完成</string>
+    <string name="poster_preview_desc">刚生成的海报</string>
+    <string name="poster_saved_note">已存进系统相册（相册里搜 kuaixiu_）</string>
+    <string name="poster_save_btn">保存到相册</string>
+    <string name="poster_saved_again">已再存一次到相册</string>
+    <string name="poster_chooser">分享海报</string>
+    <string name="poster_share_failed">分享失败：%1$s</string>
+
+    <!-- 分享海报 · 输出方式与出错 -->
+    <string name="poster_mode_local_only">本地出图</string>
+    <string name="poster_mode_local_poster">本地叠字海报</string>
+    <string name="poster_mode_bare_bg">只存无字底图</string>
+    <string name="poster_mode_ai_text">让 AI 直接出图</string>
+    <string name="poster_err_no_plan">还没有计划，先在设置里生成计划</string>
+    <string name="poster_err_gen_failed">生图失败（额度或网络），可先用「本地出图」</string>
+
+    <!-- 分享海报 · 版式名 -->
+    <string name="poster_name_a">打卡纪念</string>
+    <string name="poster_name_b">奖章</string>
+    <string name="poster_name_c">杂志</string>
+    <string name="poster_name_d">周报</string>
+
+    <!-- 分享海报 · 海报上的数据文案（PosterBuild 拼好，PosterComposer 画出来） -->
+    <string name="poster_date_fmt">M 月 d 日 · EEEE</string>
+    <string name="poster_week_label">%1$s – %2$s · 第 %3$d 周</string>
+    <string name="poster_quote_all">%1$d 晚一晚没落下，节奏已经稳了，保持。</string>
+    <string name="poster_quote_one_late">只有一晚晚了一回——单晚破功什么都不用改，接着来就行。</string>
+    <string name="poster_quote_late">这周有 %1$d 晚偏晚：连续多晚就要调计划档位，别硬扛。</string>
+    <string name="poster_quote_missing">记录不全就是执行不全，先把打卡补齐。</string>
+
+    <!-- 分享海报 · 画进图里的文字 -->
+    <string name="poster_a_streak_label">连 续 准 时</string>
+    <string name="poster_unit_days">天</string>
+    <string name="poster_a_night_line">第 %1$d 夜 · %2$s · 目标入睡 %3$s</string>
+    <string name="poster_lab_score">昨晚评分</string>
+    <string name="poster_lab_phone_down">放下手机</string>
+    <string name="poster_lab_wake_anchor">起床锚点</string>
+    <string name="poster_lab_morning">早上拿起</string>
+    <string name="poster_lab_streak">连续准时</string>
+    <string name="poster_days_count">%1$d天</string>
+    <string name="poster_brand">快休 · 早睡执行系统</string>
+    <string name="poster_b_still_going">坚 持 中</string>
+    <string name="poster_b_days_on_time">连续准时 · 天</string>
+    <string name="poster_b_unlock">再 %1$d 天解锁「%2$d 天徽章」</string>
+    <string name="poster_c_last_night">昨晚我在</string>
+    <string name="poster_c_phone_down">放下了手机</string>
+    <string name="poster_c_asleep">睡着了</string>
+    <string name="poster_c_night_stage">第 %1$d 夜 · %2$s</string>
+    <string name="poster_c_tagline">早睡不是意志力，是流程</string>
+    <string name="poster_d_this_week">"这一周 "</string>
+    <string name="poster_d_on_time">" 晚准时"</string>
+    <string name="poster_d_hint">左边是每晚「放下手机」的时刻（自动探测）· 条长 = 当晚评分</string>
+    <string name="poster_d_hit_rate">达成率</string>
+    <string name="poster_d_avg_phone">平均放下手机</string>
+    <string name="poster_d_avg_score">平均评分</string>
+    <string name="poster_d_plan_line">计划第 %1$d / %2$d 天 · 目标入睡 %3$s</string>
+
+    <!-- 让模型连字一起画：写哪几行字按界面语言给（给模型的指令本身留中文） -->
+    <string name="poster_ai_text">在画面中部用中等粗细的无衬线字写这几行，位置居中偏上，颜色用暖白：第一行「%1$s」小字；第二行「%2$s」要大而醒目；第三行「%3$s」；底部一行小字「%4$s」。只写这些字，不要多写，不要写错数字。</string>
+    <string name="poster_ai_line3">%1$s 放下手机</string>
+    <string name="poster_ai_line4">快休 · 第 %1$d/%2$d 天</string>
+</resources>

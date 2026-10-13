@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 首页：日历授权 -->
+    <string name="home_cal_permission_hint">使用前请先授权日历权限，否则计划、提醒、习惯都写不进系统日历。</string>
+    <string name="home_cal_permission_btn">授权日历权限</string>
+
+    <!-- 首页：还没计划 -->
+    <string name="home_empty_title">还没有计划</string>
+    <string name="home_empty_body">到「设置」确认作息参数（当前入睡/目标/起床），保存后自动生成 28 天计划并写入日历（默认今晚开始）。</string>
+    <string name="home_generate_now">立即生成计划</string>
+    <string name="home_plan_written">已生成并写入 %1$d 个事件</string>
+    <string name="home_sync_failed">失败: %1$s: %2$s</string>
+
+    <!-- 首页：今日计划卡 -->
+    <string name="home_day_header">第 %1$d 天 · %2$s · %3$s %4$s</string>
+    <string name="home_target_bedtime">🌙 目标入睡 %1$s</string>
+    <string name="home_winddown_wake">💤 %1$s 起风屏  ☀️ %2$s 起床</string>
+    <string name="home_theme">主题：%1$s</string>
+    <string name="home_task_line">· %1$s</string>
+    <string name="home_tip">小提示：%1$s</string>
+    <string name="home_target_reach">" · 目标 %1$s 第 %2$d 天达成"</string>
+    <string name="home_progress">进度：第 %1$d/%2$d 天 · 已提前 %3$d 分钟%4$s</string>
+
+    <!-- 首页：待办提醒卡 -->
+    <string name="home_reminders_title">待办提醒</string>
+    <string name="home_reminder_date_format">M月d日 HH:mm</string>
+    <string name="home_reminders_footnote">到点由系统日历弹通知，不依赖本 App 后台。</string>
+    <string name="home_delete">删除</string>
+    <string name="home_reminder_deleted">已删除</string>
+    <string name="home_reminder_delete_failed">删除失败</string>
+
+    <!-- 首页：习惯卡 -->
+    <string name="home_habits_title">习惯</string>
+    <string name="home_habits_footnote">到点由系统日历在「快休习惯」里提醒，一次写入连响 N 天；重算作息计划不会动它。</string>
+    <string name="home_habit_resumed">已恢复，从今天起再走 %1$d 天</string>
+    <string name="home_habit_quota_resume">「%1$s」还在跑，先暂停一个再恢复</string>
+    <string name="home_habit_conflict_resume">锚点和「%1$s」只差 %2$d 分钟，恢复会被拦下</string>
+    <string name="home_habit_resume">恢复</string>
+    <string name="home_habit_pause">暂停</string>
+    <string name="home_habit_paused_toast">已暂停，日历不再提醒（已打卡的天数留着）</string>
+    <string name="home_habit_removed_toast">已删除「%1$s」，日历事件一并清掉</string>
+    <string name="home_habit_status_paused">暂停中 · 锚点 %1$s</string>
+    <string name="home_habit_status_upcoming">还没开始 · %1$s 起每天 %2$s</string>
+    <string name="home_habit_status_expired">已满 %1$d 天 · 锚点 %2$s · 达成 %3$d/%4$d</string>
+    <string name="home_habit_status_running">第 %1$d/%2$d 天 · 锚点 %3$s · 连续 %4$d 天 · 达成 %5$d/%6$d</string>
+    <string name="home_habit_done_today">今日已打卡 ✓</string>
+    <string name="home_habit_check_btn">今天做到了，打卡</string>
+    <string name="home_habit_check_toast">记上了，第 %1$d 天 🔥</string>
+
+    <!-- 首页：昨晚评分卡 -->
+    <string name="home_score_title">☀️ 昨晚评分 %1$d/100</string>
+    <string name="home_score_streak">"  🔥 连续准时 %1$d 天"</string>
+    <string name="home_score_badge_next">（%1$d 天徽章还差 %2$d 天）</string>
+    <string name="home_score_badge_max">（满级徽章 🏆）</string>
+    <string name="home_score_parts">风屏 %1$d/%2$d · 入睡 %3$d/%4$d · 起床 %5$d/%6$d</string>
+    <string name="home_no_details">暂无明细</string>
+    <string name="home_winddown_auto_note">；风屏已自动记录（最后亮屏 %1$s）</string>
+
+    <!-- 首页：今晚风屏 + 打卡卡 -->
+    <string name="home_tonight_winddown">🌙 今晚风屏 · 计划 %1$s 开始</string>
+    <string name="home_winddown_start_btn">开始风屏了，记录一下</string>
+    <string name="home_winddown_logged">已记录 %1$s ✅</string>
+    <string name="home_winddown_logged_toast">已记录风屏 %1$s ✅</string>
+    <string name="home_image_generating">绘制中…</string>
+    <string name="home_image_gen_btn">🎨 生成今晚助眠图</string>
+    <string name="home_image_save_btn">存相册</string>
+    <string name="home_image_saved_toast">已保存到相册</string>
+    <string name="home_image_desc">今晚助眠图</string>
+    <string name="home_status_on_time">准时</string>
+    <string name="home_status_late">迟睡</string>
+    <string name="home_status_missed">没做到</string>
+    <string name="home_last_night_checked">😴 昨晚已打卡 · %1$s%2$s</string>
+    <string name="home_edit_btn">改一下</string>
+    <string name="home_wake_title">☀️ 早上起床</string>
+    <string name="home_wake_label">起床时间</string>
+    <string name="home_pick_wake">选择起床时间</string>
+    <string name="home_wake_desc">起床时间 %1$s，点按选择时间</string>
+    <string name="home_unset">未记录</string>
+    <string name="home_use_auto">用自动</string>
+    <string name="home_target_diff_over">目标差 +%1$d 分钟</string>
+    <string name="home_target_diff_under">目标差 %1$d 分钟</string>
+    <string name="home_first_pickup">📱 今早首次亮屏 %1$s</string>
+    <string name="home_parenthetical">（%1$s）</string>
+    <string name="home_sleep_title">😴 昨晚入睡</string>
+    <string name="home_actual_bedtime_label">实际入睡</string>
+    <string name="home_pick_bedtime">选择入睡时间</string>
+    <string name="home_actual_bedtime_desc">实际入睡 %1$s，点按选择时间</string>
+    <string name="home_last_screen_on">📱 昨晚最后亮屏 %1$s</string>
+    <string name="home_phone_down">（放下手机）</string>
+    <string name="home_no_more_screen">📱 昨晚风屏后未再亮屏 ✅（直到今早拿起）</string>
+    <string name="home_usage_access_btn">授予「使用情况访问」权限，自动记录入睡/起床事实 →</string>
+    <string name="home_note_label">备注</string>
+    <string name="home_note_optional">可选</string>
+    <string name="home_checkin_save_btn">保存打卡</string>
+    <string name="home_checkin_saved_toast">已打卡 ✅</string>
+    <string name="home_poster_failed">海报没生成：%1$s</string>
+    <string name="home_collapse">收起</string>
+    <string name="home_recent">最近：%1$s</string>
+    <string name="home_recent_winddown">"风屏%1$s "</string>
+
+    <!-- 首页：接下来几天 -->
+    <string name="home_upcoming_title">接下来几天</string>
+    <string name="home_upcoming_row">%1$s %2$s  %3$s  目标 %4$s</string>
+
+    <!-- 首页：手动添加 -->
+    <string name="home_manual_title">手动添加</string>
+    <string name="home_manual_reminder">+ 加提醒</string>
+    <string name="home_manual_habit">+ 新习惯</string>
+    <string name="home_manual_poster">+ 做海报</string>
+    <string name="home_manual_hint">不经过教练也能直接加；提醒走系统日历一次，习惯连响 N 天。</string>
+</resources>

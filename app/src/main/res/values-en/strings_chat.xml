@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Coach screen: selection bar -->
+    <string name="chat_selected_count">%1$d selected</string>
+    <string name="chat_select_all">Select all</string>
+    <string name="chat_not_selected">Not selected</string>
+
+    <!-- Coach screen: image / poster -->
+    <string name="chat_poster_making">Making the poster…</string>
+    <string name="chat_poster_failed">Poster failed: %1$s</string>
+    <string name="chat_image_generating">🎨 Drawing… about half a minute</string>
+    <string name="chat_image_failed">Couldn\'t generate the image: %1$s</string>
+    <string name="chat_image_desc">Generated image</string>
+
+    <!-- Coach screen: input and sending -->
+    <string name="chat_fallback_suggestion">(suggestions below)</string>
+    <string name="chat_llm_error">Something went wrong: %1$s\nCheck base_url / key / model in Settings.</string>
+    <string name="chat_offline_hint">Offline coach: it only gets the phrases below (add an LLM key in Settings to chat freely).</string>
+    <string name="chat_chip_target_23">Move my target to 23:00</string>
+    <string name="chat_chip_wake_7">Move wake-up to 7:00</string>
+    <string name="chat_chip_winddown">Starting my wind-down</string>
+    <string name="chat_chip_water_rem">Remind me to drink water tomorrow at 08:00</string>
+    <string name="chat_chip_del_water">Delete the water reminder</string>
+    <string name="chat_chip_new_habit">New habit: walk after dinner, 20:30, 21 days</string>
+    <string name="chat_chip_done">Done today</string>
+    <string name="chat_chip_scientific">Is this plan evidence-based?</string>
+    <string name="chat_input_placeholder">Talk with your coach…</string>
+    <string name="chat_send">Send</string>
+
+    <!-- Coach screen: long-press bubble menu -->
+    <string name="chat_menu_mine">You said</string>
+    <string name="chat_menu_coach">Coach said</string>
+    <string name="chat_copied">Copied to clipboard</string>
+    <string name="chat_copy">Copy</string>
+    <string name="chat_multi_select">Select</string>
+    <string name="chat_msg_deleted">Message deleted</string>
+
+    <!-- Coach screen: action card, shared -->
+    <string name="chat_days">Days</string>
+    <string name="chat_parse_fail_title">⚠️ Couldn\'t read the action block</string>
+    <string name="chat_parse_fail_body">The app didn\'t parse this JSON. Long-press to copy it for debugging:</string>
+    <string name="chat_unknown_action">⚠️ The app doesn\'t know this action yet: %1$s</string>
+    <string name="chat_unknown_action_blank">(no action field in the block)</string>
+    <string name="chat_invalid_params">Bad parameters: %1$s</string>
+
+    <!-- Coach screen: action card titles -->
+    <string name="chat_adjust_title">📐 Coach suggests changing the plan:</string>
+    <string name="chat_checkin_title">✅ Coach logged this check-in: %1$s</string>
+    <string name="chat_image_title">🎨 Coach wants to draw a wind-down scene:</string>
+    <string name="chat_image_sent">🎨 Sent to the artist — it shows up below ↓</string>
+    <string name="chat_poster_title">🖼 Coach wants to make a share poster:</string>
+    <string name="chat_poster_tpl_a">Check-in keepsake (giant streak number)</string>
+    <string name="chat_poster_tpl_b">Medal ring</string>
+    <string name="chat_poster_tpl_c">Magazine: \"Last night I put my phone down at 00:38\"</string>
+    <string name="chat_poster_tpl_d">Weekly report (7 bars = one score per night)</string>
+    <string name="chat_poster_note">The numbers come from your own records, laid out by the app — not the model.</string>
+    <string name="chat_calendar_write_failed">Couldn\'t write to the calendar: %1$s</string>
+
+    <!-- Coach screen: reminder action card -->
+    <string name="chat_reminder_default">Reminder</string>
+    <string name="chat_reminder_lead">", %1$d min early"</string>
+    <string name="chat_reminder_cancel_title">🗑 Coach will delete this reminder: %1$s</string>
+    <string name="chat_reminder_add_title">⏰ Coach will add this reminder: %1$s</string>
+    <string name="chat_reminder_deleted_one">Reminder deleted</string>
+    <string name="chat_reminders_deleted_n">Deleted %1$d \"%2$s\" reminder(s)</string>
+    <string name="chat_reminder_not_found">Couldn\'t find the reminder \"%1$s\"</string>
+    <string name="chat_delete_failed">Couldn\'t delete: %1$s</string>
+
+    <!-- Coach screen: habit action card -->
+    <string name="chat_habit_done_title">✅ Coach logged today\'s habit check-in: %1$s</string>
+    <string name="chat_habit_pause_title">⏸ Coach will pause this habit: %1$s (calendar goes quiet, logged days stay)</string>
+    <string name="chat_habit_update_title">🌱 Coach wants to change this habit: %1$s</string>
+    <string name="chat_habit_add_title">🌱 Coach wants to start a habit for you: %1$s</string>
+    <string name="chat_habit_change_prefix">"Change to: "</string>
+    <string name="chat_habit_schedule_line">From %1$s: a calendar reminder at %2$s every day for %3$d days</string>
+    <string name="chat_habit_ack_again">You\'ve seen the cost — tap again and it goes into the calendar.</string>
+    <string name="chat_habit_updated_toast">Updated — the calendar entry was rewritten, ringing for %1$d days ✅</string>
+    <string name="chat_habit_not_found">Couldn\'t find the habit \"%1$s\"</string>
+    <string name="chat_habit_not_started">\"%1$s\" hasn\'t started yet (from %2$s) — nothing to log today</string>
+    <string name="chat_habit_checked_n">\"%1$s\" checked in for day %2$d ✅</string>
+    <string name="chat_habit_paused">Paused \"%1$s\" — the calendar stays quiet</string>
+    <string name="chat_pause_failed">Couldn\'t pause: %1$s</string>
+
+    <!-- Coach screen: action card buttons -->
+    <string name="chat_btn_image">🎨 Draw this wind-down image</string>
+    <string name="chat_btn_image_done">Sent to the artist ✓</string>
+    <string name="chat_btn_poster">🖼 Make this poster</string>
+    <string name="chat_btn_poster_busy">Poster in progress…</string>
+    <string name="chat_btn_poster_done">Poster ready ✓</string>
+    <string name="chat_btn_checkin">Log this</string>
+    <string name="chat_btn_checkin_done">Logged ✓</string>
+    <string name="chat_btn_reminder_done">Added to calendar ✓</string>
+    <string name="chat_btn_del_reminder">Delete this reminder</string>
+    <string name="chat_btn_del_habit">Delete this habit</string>
+    <string name="chat_btn_cancel_done">Deleted ✓</string>
+    <string name="chat_btn_habit_checkin_done">Checked in ✓</string>
+    <string name="chat_btn_habit_pause_done">Paused ✓</string>
+    <string name="chat_btn_habit_update_done">Updated ✓</string>
+    <string name="chat_btn_habit_written_done">Written to calendar ✓</string>
+    <string name="chat_btn_pause_habit">Pause this habit</string>
+    <string name="chat_btn_fix_conflict">Fix the conflict first</string>
+    <string name="chat_btn_apply_update">Apply this change</string>
+    <string name="chat_btn_apply">Apply changes</string>
+    <string name="chat_btn_applied">Applied ✓</string>
+
+    <!-- Coach screen: action JSON validation errors (shown in a toast) -->
+    <string name="chat_err_time_fmt">\"%1$s\" must be HH:MM</string>
+    <string name="chat_err_date_fmt">\"%1$s\" must be YYYY-MM-DD</string>
+    <string name="chat_err_cancel_needs_title">Cancelling a reminder needs its title</string>
+    <string name="chat_err_reminder_empty">The reminder can\'t be empty</string>
+    <string name="chat_err_prompt_empty">The image description can\'t be empty</string>
+</resources>

@@ -2,16 +2,27 @@ package local.kuaixiu.data
 
 import android.content.Context
 import android.graphics.BitmapFactory
+import local.kuaixiu.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
 /** 海报的四种输出方式。 */
-enum class PosterMode(val label: String) {
-    LOCAL_ONLY("本地出图"),          // 不调生图模型：用内置底图排版 —— 秒出、不耗额度
-    LOCAL_POSTER("本地叠字海报"),   // 底图交给模型，字全部本地画 —— 默认，数字不会错
-    BARE_BG("只存无字底图"),        // 只要那张画，拿去别处用 / 当壁纸
-    AI_WITH_TEXT("让 AI 直接出图"),  // 连字一起交给模型画（装饰性文案可以，数字可能被画错）
+enum class PosterMode {
+    LOCAL_ONLY,        // 不调生图模型：用内置底图排版 —— 秒出、不耗额度
+    LOCAL_POSTER,      // 底图交给模型，字全部本地画 —— 默认，数字不会错
+    BARE_BG,           // 只要那张画，拿去别处用 / 当壁纸
+    AI_WITH_TEXT;      // 连字一起交给模型画（装饰性文案可以，数字可能被画错）
+
+    /** 模式名走资源：没有 Context 也能按系统语言取。 */
+    val label: String
+        get() = KxText.s(
+            when (this) {
+                PosterMode.LOCAL_ONLY -> R.string.poster_mode_local_only
+                PosterMode.LOCAL_POSTER -> R.string.poster_mode_local_poster
+                PosterMode.BARE_BG -> R.string.poster_mode_bare_bg
+                PosterMode.AI_WITH_TEXT -> R.string.poster_mode_ai_text
+            })
 }
 
 /**
@@ -54,14 +65,13 @@ object PosterFlow {
         }
     }
 
-    /** AI 直接出图那条路：把真数字交给模型，让它连字一起画。 */
+    /** AI 直接出图那条路：把真数字交给模型，让它连字一起画。写哪几行字跟着界面语言，否则英文界面画出中文海报。 */
     fun aiTextPrompt(d: PosterData, dayIndex: Int): String =
-        bgPrompt(PosterTemplate.A, dayIndex) +
-            "在画面中部用中等粗细的无衬线中文写这几行字，位置居中偏上，颜色用暖白：" +
-            "第一行「连续准时」小字；第二行「${d.streak} 天」要大而醒目；" +
-            "第三行「${d.phoneDown.ifBlank { d.targetBedtime }} 放下手机」；" +
-            "底部一行小字「快休 · 第 ${d.dayIndex}/${d.planDays} 天」。" +
-            "只写这些字，不要多写，不要写错数字，不要英文。"
+        bgPrompt(PosterTemplate.A, dayIndex) + KxText.s(R.string.poster_ai_text,
+            KxText.s(R.string.poster_a_streak_label),
+            "${d.streak} ${KxText.s(R.string.poster_unit_days)}",
+            KxText.s(R.string.poster_ai_line3, d.phoneDown.ifBlank { d.targetBedtime }),
+            KxText.s(R.string.poster_ai_line4, d.dayIndex, d.planDays))
 
     /** 内置底图：不联网也能出海报（也是生图失败时的兜底）。 */
     fun builtinBg(ctx: Context, tpl: PosterTemplate, dayIndex: Int) = runCatching {
@@ -79,7 +89,7 @@ object PosterFlow {
      */
     suspend fun make(ctx: Context, tpl: PosterTemplate, mode: PosterMode): File = withContext(Dispatchers.IO) {
         val data = (if (tpl == PosterTemplate.D) PosterBuild.week(ctx) else PosterBuild.tonight(ctx))
-            ?: error("还没有计划，先在设置里生成计划")
+            ?: error(ctx.getString(R.string.poster_err_no_plan))
         // 周报是纯排版，任何模式都不需要底图
         val needBg = mode == PosterMode.BARE_BG ||
             (mode == PosterMode.LOCAL_POSTER && tpl != PosterTemplate.D)
@@ -88,7 +98,7 @@ object PosterFlow {
         }.getOrNull() else null
         when (mode) {
             PosterMode.BARE_BG -> {
-                val f = aiBg ?: error("生图失败（额度或网络），可先用「本地出图」")
+                val f = aiBg ?: error(ctx.getString(R.string.poster_err_gen_failed))
                 ImageGen.saveToGallery(ctx, f)
                 f
             }

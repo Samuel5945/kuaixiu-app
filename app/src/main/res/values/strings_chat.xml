@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 教练页：多选条 -->
+    <string name="chat_selected_count">已选 %1$d 条</string>
+    <string name="chat_select_all">全选</string>
+    <string name="chat_not_selected">未选</string>
+
+    <!-- 教练页：生图 / 海报 -->
+    <string name="chat_poster_making">做海报中…</string>
+    <string name="chat_poster_failed">做海报失败：%1$s</string>
+    <string name="chat_image_generating">🎨 生图中…（约半分钟）</string>
+    <string name="chat_image_failed">生图失败：%1$s</string>
+    <string name="chat_image_desc">生成的图片</string>
+
+    <!-- 教练页：输入与发送 -->
+    <string name="chat_fallback_suggestion">（建议如下）</string>
+    <string name="chat_llm_error">出错了：%1$s\n检查设置页的 base_url / key / model。</string>
+    <string name="chat_offline_hint">离线教练：只认下面这些说法（想自由聊就去「设置」配 LLM Key）</string>
+    <string name="chat_chip_target_23">目标改到23:00</string>
+    <string name="chat_chip_wake_7">起床改到7点</string>
+    <string name="chat_chip_winddown">开始风屏了</string>
+    <string name="chat_chip_water_rem">明天08:00 提醒我 喝水</string>
+    <string name="chat_chip_del_water">把喝水那条提醒删了</string>
+    <string name="chat_chip_new_habit">建个习惯：饭后散步，20:30，21天</string>
+    <string name="chat_chip_done">做到了</string>
+    <string name="chat_chip_scientific">这个计划科学吗</string>
+    <string name="chat_input_placeholder">和教练聊聊…</string>
+    <string name="chat_send">发送</string>
+
+    <!-- 教练页：长按气泡菜单 -->
+    <string name="chat_menu_mine">我说的</string>
+    <string name="chat_menu_coach">教练说的</string>
+    <string name="chat_copied">已复制到剪贴板</string>
+    <string name="chat_copy">复制</string>
+    <string name="chat_multi_select">多选</string>
+    <string name="chat_msg_deleted">已删除这条</string>
+
+    <!-- 教练页：动作卡通用 -->
+    <string name="chat_days">天数</string>
+    <string name="chat_parse_fail_title">⚠️ 动作块解析失败</string>
+    <string name="chat_parse_fail_body">App 没认出这块 JSON，可长按复制给开发者排查：</string>
+    <string name="chat_unknown_action">⚠️ App 还不认识这个动作：%1$s</string>
+    <string name="chat_unknown_action_blank">（块里没有 action 字段）</string>
+    <string name="chat_invalid_params">参数有误：%1$s</string>
+
+    <!-- 教练页：动作卡标题 -->
+    <string name="chat_adjust_title">📐 教练建议调整计划：</string>
+    <string name="chat_checkin_title">✅ 教练帮你记一笔打卡：%1$s</string>
+    <string name="chat_image_title">🎨 教练想画一张助眠画面：</string>
+    <string name="chat_image_sent">🎨 已交给画师，成品马上贴在下面 ↓</string>
+    <string name="chat_poster_title">🖼 教练想做一张分享海报：</string>
+    <string name="chat_poster_tpl_a">打卡纪念版（巨大连续天数）</string>
+    <string name="chat_poster_tpl_b">奖章圆环版</string>
+    <string name="chat_poster_tpl_c">杂志版「昨晚我在 00:38 放下了手机」</string>
+    <string name="chat_poster_tpl_d">周报版（7 根横条 = 每晚评分）</string>
+    <string name="chat_poster_note">数字由 App 从本地记录排版，不经过模型</string>
+    <string name="chat_calendar_write_failed">日历写入失败: %1$s</string>
+
+    <!-- 教练页：提醒动作卡 -->
+    <string name="chat_reminder_default">提醒</string>
+    <string name="chat_reminder_lead">，提前 %1$d 分钟</string>
+    <string name="chat_reminder_cancel_title">🗑 教练帮你删掉提醒：%1$s</string>
+    <string name="chat_reminder_add_title">⏰ 教练帮你加一个提醒：%1$s</string>
+    <string name="chat_reminder_deleted_one">已删掉这条提醒</string>
+    <string name="chat_reminders_deleted_n">已删掉 %1$d 条「%2$s」</string>
+    <string name="chat_reminder_not_found">没找到「%1$s」这条提醒</string>
+    <string name="chat_delete_failed">删除失败：%1$s</string>
+
+    <!-- 教练页：习惯动作卡 -->
+    <string name="chat_habit_done_title">✅ 教练帮你记一笔习惯打卡：%1$s（今天）</string>
+    <string name="chat_habit_pause_title">⏸ 教练帮你暂停习惯：%1$s（日历先不响，已打的天数留着）</string>
+    <string name="chat_habit_update_title">🌱 教练要改这个习惯的参数：%1$s</string>
+    <string name="chat_habit_add_title">🌱 教练想帮你开一个习惯：%1$s</string>
+    <string name="chat_habit_change_prefix">"改成："</string>
+    <string name="chat_habit_schedule_line">%1$s 起，每天 %2$s 系统日历提醒，连响 %3$d 天</string>
+    <string name="chat_habit_ack_again">你已经看过代价，再点一次就写进日历。</string>
+    <string name="chat_habit_updated_toast">已改好，日历里那条重写了，连响 %1$d 天 ✅</string>
+    <string name="chat_habit_not_found">没找到「%1$s」这个习惯</string>
+    <string name="chat_habit_not_started">「%1$s」还没开始（%2$s 起），今天先不记</string>
+    <string name="chat_habit_checked_n">「%1$s」第 %2$d 天已打卡 ✅</string>
+    <string name="chat_habit_paused">已暂停「%1$s」，日历不再响</string>
+    <string name="chat_pause_failed">暂停失败：%1$s</string>
+
+    <!-- 教练页：动作卡按钮 -->
+    <string name="chat_btn_image">🎨 生成这张助眠图</string>
+    <string name="chat_btn_image_done">已交给画师 ✓</string>
+    <string name="chat_btn_poster">🖼 做这张海报</string>
+    <string name="chat_btn_poster_busy">已在做海报…</string>
+    <string name="chat_btn_poster_done">海报已生成 ✓</string>
+    <string name="chat_btn_checkin">记上这笔</string>
+    <string name="chat_btn_checkin_done">已记上 ✓</string>
+    <string name="chat_btn_reminder_done">已加进日历 ✓</string>
+    <string name="chat_btn_del_reminder">删掉这条提醒</string>
+    <string name="chat_btn_del_habit">删掉这个习惯</string>
+    <string name="chat_btn_cancel_done">已删掉 ✓</string>
+    <string name="chat_btn_habit_checkin_done">已打卡 ✓</string>
+    <string name="chat_btn_habit_pause_done">已暂停 ✓</string>
+    <string name="chat_btn_habit_update_done">已改好 ✓</string>
+    <string name="chat_btn_habit_written_done">已写进日历 ✓</string>
+    <string name="chat_btn_pause_habit">暂停这个习惯</string>
+    <string name="chat_btn_fix_conflict">先解决冲突再来</string>
+    <string name="chat_btn_apply_update">就按这个改</string>
+    <string name="chat_btn_apply">应用更改</string>
+    <string name="chat_btn_applied">已应用 ✓</string>
+
+    <!-- 教练页：动作 JSON 校验错误（显示在 Toast） -->
+    <string name="chat_err_time_fmt">「%1$s」格式应为 HH:MM</string>
+    <string name="chat_err_date_fmt">「%1$s」格式应为 YYYY-MM-DD</string>
+    <string name="chat_err_cancel_needs_title">取消提醒需要写明标题</string>
+    <string name="chat_err_reminder_empty">提醒内容不能为空</string>
+    <string name="chat_err_prompt_empty">画面描述不能为空</string>
+</resources>

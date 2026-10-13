@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Share poster · template picker -->
+    <string name="poster_title">Make a share poster</string>
+    <string name="poster_busy">Drawing it…</string>
+    <string name="poster_toast_local">Laying it out locally…</string>
+    <string name="poster_toast_ai">Generating… the image model takes about 30s</string>
+    <string name="poster_failed">Couldn\'t make it: %1$s</string>
+    <string name="poster_tpl_a">Check-in keepsake (typed locally)</string>
+    <string name="poster_tpl_a_desc">Artwork plus one huge streak number — the one that pops after a check-in</string>
+    <string name="poster_tpl_b">Medal (typed locally)</string>
+    <string name="poster_tpl_b_desc">Ring progress and how many days to the next badge</string>
+    <string name="poster_tpl_c">Magazine (typed locally)</string>
+    <string name="poster_tpl_c_desc">\"Last night I put it down at 00:38\" — the one you post</string>
+    <string name="poster_tpl_d">Weekly report (drawn locally)</string>
+    <string name="poster_tpl_d_desc">Seven bars, each as long as that night\'s score. No image model — instant</string>
+    <string name="poster_local_only_title">Render locally (no image model)</string>
+    <string name="poster_local_only_desc">Built-in artwork, comes out instantly, spends no quota</string>
+    <string name="poster_bare_title">Artwork only, no words</string>
+    <string name="poster_bare_desc">Save a text-free image with the space left open for your own type</string>
+    <string name="poster_ai_title">Let the AI write the words too</string>
+    <string name="poster_ai_desc">The App feeds the real numbers into the prompt — easy, but the model can get a letter wrong</string>
+    <string name="poster_need_image_model">Set up an image model in Settings first</string>
+
+    <!-- Share poster · after the image is ready -->
+    <string name="poster_result_title">Poster\'s ready</string>
+    <string name="poster_share">Share</string>
+    <string name="poster_done">Done</string>
+    <string name="poster_preview_desc">The poster you just made</string>
+    <string name="poster_saved_note">Already in your gallery — search \"kuaixiu_\"</string>
+    <string name="poster_save_btn">Save to gallery</string>
+    <string name="poster_saved_again">Saved to the gallery again</string>
+    <string name="poster_chooser">Share poster</string>
+    <string name="poster_share_failed">Couldn\'t share: %1$s</string>
+
+    <!-- Share poster · output modes and errors -->
+    <string name="poster_mode_local_only">Local render</string>
+    <string name="poster_mode_local_poster">Local type on model artwork</string>
+    <string name="poster_mode_bare_bg">Text-free artwork only</string>
+    <string name="poster_mode_ai_text">AI draws everything</string>
+    <string name="poster_err_no_plan">No plan yet — generate one in Settings first</string>
+    <string name="poster_err_gen_failed">The image model didn\'t come back (quota or network) — try Local render</string>
+
+    <!-- Share poster · template names -->
+    <string name="poster_name_a">Keepsake</string>
+    <string name="poster_name_b">Medal</string>
+    <string name="poster_name_c">Magazine</string>
+    <string name="poster_name_d">Weekly</string>
+
+    <!-- Share poster · data lines built by PosterBuild, drawn by PosterComposer -->
+    <string name="poster_date_fmt">EEE, MMM d</string>
+    <string name="poster_week_label">%1$s – %2$s · WEEK %3$d</string>
+    <string name="poster_quote_all">%1$d nights, not one missed. The rhythm is holding — keep it.</string>
+    <string name="poster_quote_one_late">One night slipped. One is nothing — just pick it back up.</string>
+    <string name="poster_quote_late">%1$d nights ran late. Two in a row means the plan needs a step down, not more grit.</string>
+    <string name="poster_quote_missing">An incomplete log is an incomplete week — fill it in first.</string>
+
+    <!-- Share poster · text painted into the bitmap -->
+    <string name="poster_a_streak_label">STREAK</string>
+    <string name="poster_unit_days">days</string>
+    <string name="poster_a_night_line">NIGHT %1$d · %2$s · TARGET %3$s</string>
+    <string name="poster_lab_score">LAST NIGHT</string>
+    <string name="poster_lab_phone_down">PHONE DOWN</string>
+    <string name="poster_lab_wake_anchor">WAKE UP</string>
+    <string name="poster_lab_morning">PICKED UP</string>
+    <string name="poster_lab_streak">STREAK</string>
+    <string name="poster_days_count">%1$d DAYS</string>
+    <string name="poster_brand">Kuaixiu · AI Early-Sleep System</string>
+    <string name="poster_b_still_going">STILL GOING</string>
+    <string name="poster_b_days_on_time">DAYS ON TIME</string>
+    <string name="poster_b_unlock">%1$d DAYS TO BADGE %2$d</string>
+    <string name="poster_c_last_night">LAST NIGHT I</string>
+    <string name="poster_c_phone_down">PUT IT DOWN</string>
+    <string name="poster_c_asleep">FELL ASLEEP</string>
+    <string name="poster_c_night_stage">NIGHT %1$d · %2$s</string>
+    <string name="poster_c_tagline">Sleep is a process, not willpower</string>
+    <string name="poster_d_this_week">""</string>
+    <string name="poster_d_on_time">" ON TIME"</string>
+    <string name="poster_d_hint">Left: phone-down time · bar length = that night\'s score</string>
+    <string name="poster_d_hit_rate">HIT RATE</string>
+    <string name="poster_d_avg_phone">AVG DOWN</string>
+    <string name="poster_d_avg_score">AVG SCORE</string>
+    <string name="poster_d_plan_line">PLAN DAY %1$d / %2$d · TARGET %3$s</string>
+
+    <!-- Ask-the-model-to-write-the-text mode: which lines, in the UI language (the instruction itself stays Chinese) -->
+    <string name="poster_ai_text">In the middle of the image, slightly above centre, in a medium-weight sans-serif face and warm white, write exactly these four lines: line 1 small — \\"%1$s\\"; line 2 large and bold — \\"%2$s\\"; line 3 — \\"%3$s\\"; a small line near the bottom — \\"%4$s\\". Write nothing else, and get the numbers exactly right.</string>
+    <string name="poster_ai_line3">Phone down at %1$s</string>
+    <string name="poster_ai_line4">Kuaixiu · Day %1$d/%2$d</string>
+</resources>

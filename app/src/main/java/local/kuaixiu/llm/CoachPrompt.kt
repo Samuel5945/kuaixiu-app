@@ -1,6 +1,7 @@
 package local.kuaixiu.llm
 
 import android.content.Context
+import local.kuaixiu.R
 import local.kuaixiu.calendar.CalendarWriter
 import local.kuaixiu.data.Checkins
 import local.kuaixiu.data.Habits
@@ -72,6 +73,8 @@ object CoachPrompt {
         val recent = Checkins.all(ctx).takeLast(7)
             .joinToString("；") { "${it.date}:${it.status}" + if (it.bedtime.isNotBlank()) "(${it.bedtime})" else "" }
         val habitLine = Habits.statusLine()
+        // 提示词本身保持中文（模型看得懂），但回复语言跟着界面语言走：英文界面回英文。
+        val langLine = ctx.getString(R.string.coach_lang_line)
         // 取消提醒要求标题逐字相等，所以先把现有提醒的准确标题喂给它，别让它猜
         val reminders = runCatching { CalendarWriter.peekReminders(ctx) }.getOrDefault(emptyList())
         val remindLine = if (reminders.isEmpty()) "" else "\n待办提醒：" + reminders.joinToString("；") { (_, t, ms) ->
@@ -84,6 +87,7 @@ object CoachPrompt {
 $clockLine
 
 你是「快休」早睡教练，回答简短具体。总原则：计划是活的，破功了改参数重来，不叫失败。
+$langLine
 ${styleLine(KxStore.config.coachStyle)}
 
 【核心口径】

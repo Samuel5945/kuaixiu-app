@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import local.kuaixiu.R
 import local.kuaixiu.calendar.CalendarWriter
 import local.kuaixiu.engine.PlanEngine
 import java.io.File
@@ -120,11 +121,11 @@ object Habits {
     fun check(existing: List<Habit>, name: String, cueTime: String, days: Int,
               startDate: String, activeLimit: Int = MAX_ACTIVE, ackCost: Boolean = false,
               today: LocalDate = Time.today()): HabitCheck {
-        if (name.isBlank()) return HabitCheck.Invalid("习惯名字不能空着")
-        val cue = normalizeCue(cueTime) ?: return HabitCheck.Invalid("锚点时间格式不对（要 HH:MM）")
+        if (name.isBlank()) return HabitCheck.Invalid(KxText.s(R.string.habit_err_name_empty))
+        val cue = normalizeCue(cueTime) ?: return HabitCheck.Invalid(KxText.s(R.string.habit_err_cue_fmt))
         val start = runCatching { LocalDate.parse(startDate.trim()) }.getOrNull()
-            ?: return HabitCheck.Invalid("开始日期要用 YYYY-MM-DD")
-        if (days <= 0) return HabitCheck.Invalid("天数得大于 0")
+            ?: return HabitCheck.Invalid(KxText.s(R.string.habit_err_date_fmt))
+        if (days <= 0) return HabitCheck.Invalid(KxText.s(R.string.habit_err_days))
         // 同名 = 改这个习惯的参数（教练没有 edit 动作，"改成从明天开始"只会再发一次 add）
         val twin = existing.firstOrNull { it.name.trim() == name.trim() }
         val others = existing.filter { it.enabled && it.id != twin?.id && !expired(it, today) }
@@ -178,7 +179,8 @@ object Habits {
      * 中断本身不影响养成，所以不惩罚：已打过的卡全部保留。
      */
     fun setEnabled(ctx: Context, id: String, on: Boolean): HabitCheck {
-        val h = items.firstOrNull { it.id == id } ?: return HabitCheck.Invalid("没找到这个习惯")
+        val h = items.firstOrNull { it.id == id }
+            ?: return HabitCheck.Invalid(KxText.s(R.string.habit_err_not_found))
         if (on) {
             val onAir = items.filter { it.enabled && it.id != id && !expired(it) }
             onAir.forEach { o ->

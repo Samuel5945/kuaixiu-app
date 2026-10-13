@@ -1,6 +1,8 @@
 package local.kuaixiu.llm
 
+import local.kuaixiu.R
 import local.kuaixiu.data.KxConfig
+import local.kuaixiu.data.KxText
 import local.kuaixiu.data.Time
 import local.kuaixiu.engine.PlanEngine
 import java.time.LocalDate
@@ -10,35 +12,30 @@ import java.time.LocalTime
 data class LocalReply(val text: String, val actionJson: String? = null)
 
 /**
- * 没有 LLM Key 时的本地教练：中文关键词/正则识别意图，产出与 [CoachPrompt] 动作协议
+ * 没有 LLM Key 时的本地教练：中英关键词/正则识别意图，产出与 [CoachPrompt] 动作协议
  * **逐字一致**的 JSON，因此 ActionCard 的执行链零改动复用。
  *
  * 纯粹是「规则匹配」：识别不了的必须诚实说不知道，绝不假装"已做了"——那正是 AI 想糊弄时的病。
+ * 识别中英一起认（中文界面里说英文也接得住）；回复文案走资源，按系统语言出中英。
  */
 object LocalCoach {
 
     // ---- 意图关键词（顺序即优先级） ----
-    private val RE_CANCEL = Regex("(删|取消|不用|去掉|别提醒|不要了)")
-    private val RE_REMIND = Regex("(提醒|叫我|记一下|别忘了|别忘|记着)")
-    private val RE_CHECKIN = Regex("(昨晚|睡了|入睡|几点睡|睡的)")
-    private val RE_ADJUST = Regex("(目标|改成|改到|调到|调整|推迟|提前|起床|入睡时间|计划天数|重新定)")
-    private val RE_IMAGE = Regex("(画一?张|画个|画一下|助眠图|晚安图|助眠画面|插画|配图)")
-    private val RE_DONE = Regex("(做到了|完成了|打卡了|打过卡|做了|完成打卡)")
-    private val RE_PAUSE = Regex("(暂停|先不提醒|停一下|停下)")
-    private val RE_HABIT = Regex("(习惯|养成|培养)")
+    private val I = RegexOption.IGNORE_CASE
+    private val RE_CANCEL = Regex("(删|取消|不用|去掉|别提醒|不要了|delete|remove|cancel|no longer|forget about)", I)
+    private val RE_REMIND = Regex("(提醒|叫我|记一下|别忘了|别忘|记着|remind|note that|don'?t forget|remember to)", I)
+    private val RE_CHECKIN = Regex("(昨晚|睡了|入睡|几点睡|睡的|last night|fell asleep|went to bed|slept)", I)
+    private val RE_ADJUST = Regex(
+        "(目标|改成|改到|调到|调整|推迟|提前|起床|入睡时间|计划天数|重新定" +
+            "|target|change|adjust|move|push|postpone|bedtime|wake|plan length)", I)
+    private val RE_IMAGE = Regex("(画一?张|画个|画一下|助眠图|晚安图|助眠画面|插画|配图|draw|generate|picture|illustration|image)", I)
+    private val RE_DONE = Regex("(做到了|完成了|打卡了|打过卡|做了|完成打卡|\\bdone\\b|did it|checked in|finished)", I)
+    private val RE_PAUSE = Regex("(暂停|先不提醒|停一下|停下|pause|stop|suspend)", I)
+    private val RE_HABIT = Regex("(习惯|养成|培养|\\bhabit)", I)
+    private val RE_HABIT_ADD = Regex("(建|开|加|新|养|培养|弄|搞|来个|来一个|设一个|\\bnew\\b|\\bstart\\b|\\badd\\b|\\bcreate\\b|\\bbuild\\b|\\bmake\\b)", I)
 
     /** 放不下手机/开始风屏：一句话就能记，不需要时间。 */
-    private val RE_WINDDOWN = Regex("(风屏|放下手机|不玩手机|关屏幕)")
-
-    private val HINT = "说一句话就行，比如「目标改到23:00」「昨晚1点睡的记一下」「明天8:00提醒我喝水」。"
-    private val FALLBACK = """
-        离线教练只认下面这几类说法（想自由聊就去「设置」配 LLM Key）：
-        · 改计划：目标改到23:00 / 起床改到7点 / 计划改成28天
-        · 记打卡：昨晚1点睡的，记一下 / 开始风屏了
-        · 加提醒：明天8:00 提醒我喝水 / 把喝水那条提醒删了
-        · 习惯：建个习惯：饭后散步，20:30，21天 / 做到了 / 暂停这个习惯
-        · 问作息：这个计划科学吗 / 破功了怎么办 / 半夜醒了睡不着
-    """.trimIndent()
+    private val RE_WINDDOWN = Regex("(风屏|放下手机|不玩手机|关屏幕|wind[ -]?down|phone down|put my phone away)", I)
 
     fun reply(
         text: String,
@@ -49,23 +46,23 @@ object LocalCoach {
         knownHabits: List<String> = emptyList(),
     ): LocalReply {
         val t = text.trim()
-        if (t.isEmpty()) return LocalReply(HINT)
+        if (t.isEmpty()) return LocalReply(KxText.s(R.string.coach_hint))
 
         // 1) 取消提醒：标题必须命中已有提醒，对不上就列清单让用户挑，不猜
         if (RE_REMIND.containsMatchIn(t) && RE_CANCEL.containsMatchIn(t)) {
             val hit = knownReminders.firstOrNull { t.contains(it) }
             return when {
-                hit != null -> LocalReply("好，删掉「$hit」这条提醒 👇",
+                hit != null -> LocalReply(KxText.s(R.string.coach_reminder_cancelled, hit),
                     obj("action" to "reminder", "op" to "cancel", "text" to hit))
-                knownReminders.isEmpty() -> LocalReply("现在没有待办提醒可删。")
-                else -> LocalReply("要删哪一条？把标题说全我就删：\n" +
-                    knownReminders.joinToString("\n") { "· $it" })
+                knownReminders.isEmpty() -> LocalReply(KxText.s(R.string.coach_no_reminders))
+                else -> LocalReply(KxText.s(R.string.coach_which_reminder) + "\n" +
+                    knownReminders.joinToString("\n") { KxText.s(R.string.coach_bullet, it) })
             }
         }
 
         // 2) 风屏：用当前时刻，无需用户报时间
         if (RE_WINDDOWN.containsMatchIn(t)) {
-            return LocalReply("记一笔今晚风屏开始 👇",
+            return LocalReply(KxText.s(R.string.coach_winddown),
                 obj("action" to "checkin", "winddown" to "%02d:%02d".format(now.hour, now.minute)))
         }
 
@@ -77,58 +74,64 @@ object LocalCoach {
             (t.contains("打卡") && parseTime(t, defaultPm = false) != null)
         if (explicitCheckin) {
             val time = parseTime(t, defaultPm = false)
-                ?: return LocalReply("记昨晚要带上时间，比如「昨晚1点睡的，记一下」。")
+                ?: return LocalReply(KxText.s(R.string.coach_need_time))
             val status = when {
-                Regex("(准时|按时|达标|不错|可以)").containsMatchIn(t) -> "on_time"
-                Regex("(没做到|没睡|没睡着|通宵|失眠)").containsMatchIn(t) -> "skip"
+                Regex("(准时|按时|达标|不错|可以|on time|\\bokay\\b|good|fine)", I).containsMatchIn(t) -> "on_time"
+                Regex("(没做到|没睡|没睡着|通宵|失眠|couldn'?t sleep|no sleep|all night)", I).containsMatchIn(t) -> "skip"
                 else -> if (toMin(time) <= toMin(cfg.currentBedtime)) "on_time" else "late"
             }
-            return LocalReply("记一下昨晚：$time（$status）👇 点卡片按钮才生效。",
+            return LocalReply(KxText.s(R.string.coach_checkin, time, status),
                 obj("action" to "checkin", "status" to status, "bedtime" to time))
         }
 
         // 5) 改计划
         if (RE_ADJUST.containsMatchIn(t)) {
-            val isWake = t.contains("起床") || t.contains("晨起")
-            val isCurrent = t.contains("当前") || t.contains("现在") || t.contains("目前") || t.contains("基线")
+            val isWake = t.contains("起床") || t.contains("晨起") || Regex("\\bwake", I).containsMatchIn(t)
+            val isCurrent = t.contains("当前") || t.contains("现在") || t.contains("目前") ||
+                t.contains("基线") || Regex("\\bcurrent", I).containsMatchIn(t)
             val time = parseTime(t, defaultPm = !isWake)
-            val days = Regex("(\\d{1,3})\\s*天").find(t)?.groupValues?.get(1)?.toIntOrNull()
+            val days = findDays(t)
             if (time == null && days == null) {
-                return LocalReply("想怎么调？比如「目标改到23:00」「起床改到7点」「计划改成28天」。")
+                return LocalReply(KxText.s(R.string.coach_adjust_ask))
             }
             val pairs = mutableListOf<Pair<String, Any?>>("action" to "adjust")
             if (time != null) pairs += (if (isWake) "wake" else if (isCurrent) "currentBedtime" else "targetBedtime") to time
             if (days != null) pairs += "days" to days
-            val desc = buildString {
-                time?.let { append("${if (isWake) "起床" else if (isCurrent) "当前入睡" else "目标入睡"} $it") }
-                days?.let { if (isNotEmpty()) append("，"); append("计划 $it 天") }
+            val parts = mutableListOf<String>()
+            time?.let {
+                parts += KxText.s(
+                    if (isWake) R.string.coach_adj_wake
+                    else if (isCurrent) R.string.coach_adj_current else R.string.coach_adj_target, it)
             }
-            return LocalReply("按你说的调：$desc 👇 点卡片按钮才生效。", obj(*pairs.toTypedArray()))
+            days?.let { parts += KxText.s(R.string.coach_adj_days, it) }
+            return LocalReply(
+                KxText.s(R.string.coach_adjust, parts.joinToString(KxText.s(R.string.coach_join_sep))),
+                obj(*pairs.toTypedArray()))
         }
 
         // 6) 加提醒
         if (RE_REMIND.containsMatchIn(t)) {
             val time = parseTime(t, defaultPm = false)
-                ?: return LocalReply("要几点提醒？比如「明天8:00 提醒我喝水」。")
+                ?: return LocalReply(KxText.s(R.string.coach_remind_time))
             val body = reminderBody(t)
-            if (body.isBlank()) return LocalReply("提醒你做什么？比如「明天8:00 提醒我喝水」。")
+            if (body.isBlank()) return LocalReply(KxText.s(R.string.coach_remind_what))
             val date = parseDate(t, today) ?: today.toString()
             val lead = Regex("提前\\s*(\\d{1,3})\\s*分钟").find(t)?.groupValues?.get(1)?.toIntOrNull() ?: 0
-            return LocalReply("好，$date $time 提醒你「$body」👇 点「加进日历」才写入。",
+            return LocalReply(KxText.s(R.string.coach_reminder_added, date, time, body),
                 obj("action" to "reminder", "date" to date, "time" to time, "text" to body, "leadMin" to lead))
         }
 
         // 7) 生图
         if (RE_IMAGE.containsMatchIn(t)) {
             return if (cfg.effectiveImageModel().isNotBlank())
-                LocalReply("画一张助眠画面 👇", obj("action" to "image", "prompt" to imagePrompt(t)))
-            else LocalReply("还没配生图模型：设置 → AI 教练 → 拉取模型列表 → 在生图列点选一个，或直接用生图模型当文本模型。")
+                LocalReply(KxText.s(R.string.coach_draw), obj("action" to "image", "prompt" to imagePrompt(t)))
+            else LocalReply(KxText.s(R.string.coach_no_image_model))
         }
 
         // 8) 常见作息问题：给手册里的固定口径
         faq(t)?.let { return LocalReply(it) }
 
-        return LocalReply(FALLBACK)
+        return LocalReply(KxText.s(R.string.coach_fallback))
     }
 
     // ---------------- 习惯 ----------------
@@ -141,39 +144,41 @@ object LocalCoach {
         // 否则「做到了」这种快捷说法会白白落到兜底
         if (RE_PAUSE.containsMatchIn(t) && (mentionsHabit || named != null || knownHabits.isNotEmpty())) {
             val name = resolveHabitName(named, knownHabits)
-                ?: return LocalReply("暂停哪个习惯？" + listOrAsk(knownHabits))
-            return LocalReply("暂停「$name」，日历先不响（已打的天数留着）👇",
+                ?: return LocalReply(KxText.s(R.string.coach_pause_which) + listOrAsk(knownHabits))
+            return LocalReply(KxText.s(R.string.coach_habit_paused, name),
                 obj("action" to "habit", "op" to "pause", "name" to name))
         }
         if (RE_DONE.containsMatchIn(t) && (mentionsHabit || named != null || knownHabits.isNotEmpty())) {
             val name = resolveHabitName(named, knownHabits)
-                ?: return LocalReply("给哪个习惯打卡？" + listOrAsk(knownHabits))
-            return LocalReply("记「$name」今天做到了 👇",
+                ?: return LocalReply(KxText.s(R.string.coach_done_which) + listOrAsk(knownHabits))
+            return LocalReply(KxText.s(R.string.coach_habit_done, name),
                 obj("action" to "habit", "op" to "done", "name" to name))
         }
         // 建习惯要有明确的动词，否则「习惯养成得怎么样」这类提问会被误建成新习惯
-        if (mentionsHabit && Regex("(建|开|加|新|养|培养|弄|搞|来个|来一个|设一个)").containsMatchIn(t)) {
+        if (mentionsHabit && RE_HABIT_ADD.containsMatchIn(t)) {
             val name = habitName(t)
-                ?: return LocalReply("习惯叫什么？比如「建个习惯：饭后散步，20:30，21天」。")
+                ?: return LocalReply(KxText.s(R.string.coach_habit_name))
             val cue = parseTime(t, defaultPm = false)
-                ?: return LocalReply("「$name」每天几点做？给我一个固定锚点，比如「饭后散步，20:30，21天」。")
-            val days = Regex("(\\d{1,3})\\s*天").find(t)?.groupValues?.get(1)?.toIntOrNull() ?: 21
+                ?: return LocalReply(KxText.s(R.string.coach_habit_cue, name))
+            val days = findDays(t) ?: 21
             val start = parseDate(t, today) ?: today.toString()
-            return LocalReply("开这个习惯：$name，每天 $cue（连响 $days 天）👇",
+            return LocalReply(KxText.s(R.string.coach_habit_added, name, cue, days),
                 obj("action" to "habit", "op" to "add", "name" to name,
                     "cueTime" to cue, "days" to days, "startDate" to start))
         }
         return null
     }
 
-    /** 从句子里抠出习惯名：取「习惯/养成/培养」之后、第一个标点之前的那截。含疑问词的当提问，不算名字。 */
+    /** 从句子里抠出习惯名：取「习惯/habit」之后、第一个标点之前的那截。含疑问词的当提问，不算名字。 */
     private fun habitName(t: String): String? {
-        val m = Regex("(?:习惯|养成|培养)[:：]?\\s*(.+)").find(t) ?: return null
+        val m = Regex("(?:习惯|养成|培养|\\bhabit)[:：]?\\s*(.+)", I).find(t) ?: return null
         var s = m.groupValues[1].split(Regex("[，,、。；;\\n]")).firstOrNull().orEmpty()
         s = s.replace(Regex("^(一个|个|的)"), "")
         s = s.replace(Regex("(每天|每日).*$"), "")
+        s = s.replace(Regex("(?i)^\\s*(to|a|an|the|called|named|\\*)\\s+"), "")
         s = s.trim()
         if (s.isBlank() || s.any { it in "吗什么如何？?怎" }) return null
+        if (Regex("(?i)\\b(how|what|why|whether|is it|does)\\b").containsMatchIn(s)) return null
         return s
     }
 
@@ -181,50 +186,50 @@ object LocalCoach {
         named ?: knownHabits.singleOrNull()
 
     private fun listOrAsk(knownHabits: List<String>): String =
-        if (knownHabits.isEmpty()) "还没有进行中的习惯，先用「建个习惯：…，20:30，21天」开一个。"
-        else "现有：" + knownHabits.joinToString("、") + "。"
+        if (knownHabits.isEmpty()) KxText.s(R.string.coach_no_habits)
+        else KxText.s(R.string.coach_existing,
+            knownHabits.joinToString(KxText.s(R.string.common_or)))
 
     // ---------------- FAQ（口径来自 early-sleep/reference/coaching-playbook.md） ----------------
 
     private fun faq(t: String): String? {
-        fun hit(vararg ks: String) = ks.any { t.contains(it) }
+        fun hit(vararg ks: String) = ks.any { t.contains(it, ignoreCase = true) }
         return when {
-            hit("科学吗", "科学不", "靠谱吗", "有依据", "有用吗", "有效吗", "科学") ->
-                "诚实打分：固定起床锚点、咖啡因截断、晨间光照、睡前仪式是 CBT-I 的硬证据，计划骨架就是这些；" +
-                    "「15 分钟 × 每 3 天」渐进前移是时差调整的临床惯例、不是硬法则，价值在于每步小到不可能失败。" +
-                    "微任务/打卡/复盘是行为设计，帮执行、不改生理。我不是医生——长期入睡困难、严重打鼾、白天不可控困倦请去睡眠门诊。"
+            hit("科学吗", "科学不", "靠谱吗", "有依据", "有用吗", "有效吗", "科学",
+                "scientific", "evidence", "does this work", "sound") ->
+                KxText.s(R.string.faq_science)
 
-            hit("第一天", "和平常一样", "没效果", "没变化", "一样") ->
-                "这是刻意的。第 1 天真正的变化不是入睡时刻，而是起床锚点（雷打不动）和睡前风屏仪式。" +
-                    "生物钟认定 1:30 才是「夜晚」，第一天就 23:00 上床 = 躺 2.5 小时清醒地熬。阶梯：前 2 天维持现状 → " +
-                    "第 3 天起每 3 天提前 15 分钟 → 最后一天达成目标。"
+            hit("第一天", "和平常一样", "没效果", "没变化", "一样",
+                "day 1", "first day", "no change", "same as usual") ->
+                KxText.s(R.string.faq_day1)
 
-            hit("早点睡", "提前睡", "困了", "9点睡", "10点睡") ->
-                "bedtime 是上限不是任务——困了可以提前睡，不困可以推迟 15–30 分钟，唯一不许动的是起床时间。" +
-                    "但注意「过早上床」：对惯于 1:30 睡的人，21–23 点正值生物钟觉醒高峰，9 点多睡着 → 前半夜耗完睡眠压力 → 3–4 点早醒。" +
-                    "接住困意：先做低刺激活动（暖光/纸质书/拉伸）撑到 22:30 再上床；真早醒了别碰手机别开灯，黑暗躺到起床锚点。"
+            hit("早点睡", "提前睡", "困了", "9点睡", "10点睡",
+                "sleep earlier", "fell asleep early", "too early", "get sleepy") ->
+                KxText.s(R.string.faq_early)
 
-            hit("几点睡着", "准吗", "怎么知道", "自动记录", "测得准") ->
-                "没有手环时入睡时刻本质测不准，这是生理测量问题、不是 App 缺陷。App 用系统用量统计查「昨晚最后一次亮屏/熄屏」" +
-                    "作为上界估计（最后亮屏 00:58 → 估计 01:00）。放下手机后的记忆不可信，系统日志不会撒谎。复盘看趋势和上界，别抠分钟。"
+            hit("几点睡着", "准吗", "怎么知道", "自动记录", "测得准",
+                "how do you know", "accurate", "measure", "track my sleep") ->
+                KxText.s(R.string.faq_measure)
 
-            hit("半夜醒", "早醒", "3点醒", "4点醒", "醒了睡不") ->
-                "黑暗中躺 20 分钟仍清醒 → 换个姿势继续躺，计划执行期别起来干活/刷手机。" +
-                    "连续多晚 3–4 点醒且白天崩溃 → 这属于 CBT-I 刺激控制领域，建议就医，同时把目标放缓（每周 15 分钟）。"
+            hit("半夜醒", "早醒", "3点醒", "4点醒", "醒了睡不",
+                "wake at 3", "wake at 4", "woke up", "3am", "4am", "can'?t get back to sleep") ->
+                KxText.s(R.string.faq_night_wake)
 
-            hit("破功", "熬夜", "没做到", "加班", "又晚睡", "失败", "断了") ->
-                "不指责——计划是活的，破功了改参数重来，不叫失败。单晚破功：什么都不用改，今天照常（锚点是起床），当晚按计划档位继续。" +
-                    "连续多晚或生活节奏变了：调整计划（放宽 2–3 天再收回来）。别「干脆重来」，改参数比重启心理成本低得多。"
+            hit("破功", "熬夜", "没做到", "加班", "又晚睡", "失败", "断了",
+                "broke my streak", "streak broke", "failed", "up late", "overtime", "gave up") ->
+                KxText.s(R.string.faq_slip)
 
-            hit("周末", "补觉", "睡懒觉", "报复性") ->
-                "周末作息浮动 ≤ ±30 分钟。社交时差会一次清掉两周进度。实在困，允许午睡 ≤ 20 分钟且不晚于 15:00。"
+            hit("周末", "补觉", "睡懒觉", "报复性",
+                "weekend", "catch up on sleep", "sleep in", "revenge") ->
+                KxText.s(R.string.faq_weekend)
 
-            hit("复盘", "周报", "总结", "这周怎么样", "这周如何") ->
-                "每 7 天的复盘点见计划里的「周复盘」事件。看首页的昨晚评分/连续天数就是最简版复盘；" +
-                    "想更细就把这段打卡趋势念给我（或配 Key 让我读数据），然后一起决定怎么调。"
+            hit("复盘", "周报", "总结", "这周怎么样", "这周如何",
+                "review", "weekly", "how was my week", "recap") ->
+                KxText.s(R.string.faq_review)
 
-            hit("太慢", "太快", "进度", "变化太慢") ->
-                "太慢：可加大步长（如 20 分钟/3 天），会出现 1:10 这类零头时间；太快（躺下超 30 分钟睡不着连续 2 晚）：退回上一档 3 天再继续。"
+            hit("太慢", "太快", "进度", "变化太慢",
+                "too slow", "too fast", "progress", "faster") ->
+                KxText.s(R.string.faq_pace)
 
             else -> null
         }
@@ -233,11 +238,18 @@ object LocalCoach {
     // ---------------- 时间 / 日期解析（公开以便单测） ----------------
 
     private val RE_HHMM = Regex("(\\d{1,2})\\s*[:：]\\s*(\\d{2})")
+    // 英文写法：11pm / 9:30 am / at 8
+    private val RE_EN_TIME = Regex("(\\d{1,2})(?:\\s*[:.]\\s*(\\d{2}))?\\s*(am|pm)?", I)
     // 修饰词前不能是「昨/今/明」——否则「昨晚1点」的「晚」会被误当「晚上」，把 01:00 算成 13:00
     private val RE_POINT = Regex(
         "(?<![昨今明])(凌晨|早上|早晨|上午|中午|下午|傍晚|晚上|夜里|晚|早)?\\s*" +
             "([0-9]{1,2}|[零〇一二两三四五六七八九十]{1,3})\\s*点\\s*" +
             "(半|[0-9]{1,2}|[零〇一二两三四五六七八九十]{1,3})?\\s*分?")
+    private val RE_DAYS = Regex("(\\d{1,3})\\s*(?:天|\\bdays?\\b)", I)
+    private val RE_EN_WEEKDAY = Regex(
+        "\\b(next\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b", I)
+    private val EN_DAY_NUM = mapOf("monday" to 1, "tuesday" to 2, "wednesday" to 3, "thursday" to 4,
+        "friday" to 5, "saturday" to 6, "sunday" to 7)
 
     private val CN = mapOf(
         '零' to 0, '〇' to 0, '一' to 1, '两' to 2, '二' to 2, '三' to 3, '四' to 4,
@@ -256,6 +268,9 @@ object LocalCoach {
         }
         return if (t.length == 1) CN[t[0]] else null
     }
+
+    /** 计划天数：中文「28天」与英文「28 days」同一套。 */
+    private fun findDays(t: String): Int? = RE_DAYS.find(t)?.groupValues?.get(1)?.toIntOrNull()
 
     /**
      * 从任意句子抠出时间 → "HH:MM"。
@@ -286,6 +301,16 @@ object LocalCoach {
             if (h !in 0..23) return@let
             return "%02d:%02d".format(h, mi)
         }
+        RE_EN_TIME.find(raw)?.let { m ->
+            var h = m.groupValues[1].toIntOrNull() ?: return@let
+            val mi = m.groupValues[2].toIntOrNull() ?: 0
+            when (m.groupValues[3].lowercase()) {
+                "pm" -> if (h in 1..11) h += 12
+                "am" -> if (h == 12) h = 0
+                else -> if (defaultPm && h in 1..11) h += 12
+            }
+            if (h in 0..23 && mi in 0..59) return "%02d:%02d".format(h, mi)
+        }
         return null
     }
 
@@ -310,11 +335,20 @@ object LocalCoach {
                 return today.plusDays(ahead.toLong()).toString()
             }
         }
+        RE_EN_WEEKDAY.find(raw)?.let { m ->
+            val target = EN_DAY_NUM[m.groupValues[2].lowercase()] ?: return@let
+            // 口径跟中文「下周一」一致：当天不算，下一个同一天起算，带 next 再往后一整周
+            var ahead = ((target - today.dayOfWeek.value) + 7) % 7
+            if (ahead == 0) ahead = 7 else if (m.groupValues[1].isNotEmpty()) ahead += 7
+            return today.plusDays(ahead.toLong()).toString()
+        }
         return when {
-            raw.contains("大后天") -> today.plusDays(3)
+            raw.contains("大后天") || Regex("\\bday after tomorrow\\b", I).containsMatchIn(raw) -> today.plusDays(3)
             raw.contains("后天") -> today.plusDays(2)
-            raw.contains("明天") || raw.contains("明晚") || raw.contains("明早") -> today.plusDays(1)
-            raw.contains("今天") || raw.contains("今晚") || raw.contains("今早") -> today
+            raw.contains("明天") || raw.contains("明晚") || raw.contains("明早") ||
+                Regex("\\btomorrow\\b", I).containsMatchIn(raw) -> today.plusDays(1)
+            raw.contains("今天") || raw.contains("今晚") || raw.contains("今早") ||
+                Regex("\\b(today|tonight|this (morning|evening|night))\\b", I).containsMatchIn(raw) -> today
             else -> null
         }?.toString()
     }
@@ -324,21 +358,35 @@ object LocalCoach {
     private fun toMin(hhmm: String) = PlanEngine.hhmmToMin(hhmm)
 
     /** 提醒正文：剥掉日期/时间/祈使词，剩下的就是要提醒的事。 */
-    private fun reminderBody(t: String): String = t
-        .replace(Regex("(今天|今晚|明天|明晚|后天|大后天|下?周[一二三四五六日天])"), "")
-        .replace(RE_HHMM, "").replace(RE_POINT, "")
-        .replace(Regex("提前\\s*\\d{1,3}\\s*分钟"), "")
-        .replace(Regex("(提醒我|提醒一下|提醒|叫我|帮我记一下|记一下|别忘了|别忘|记着)"), "")
-        .replace(Regex("[，,。；;：:、\\s]"), "")
-        .trim()
+    private fun reminderBody(t: String): String {
+        val s = t
+            .replace(Regex("(今天|今晚|明天|明晚|后天|大后天|下?周[一二三四五六日天])"), " ")
+            .replace(RE_HHMM, " ").replace(RE_POINT, " ")
+            .replace(Regex("提前\\s*\\d{1,3}\\s*分钟"), " ")
+            .replace(Regex("(提醒我|提醒一下|提醒|叫我|帮我记一下|记一下|别忘了|别忘|记着)"), " ")
+            .replace(Regex("(?i)\\b(remind me to|remind me|remind|note that|don'?t forget to|don'?t forget|remember to)\\b"), " ")
+            .replace(RE_EN_TIME, " ")
+            .replace(Regex("\\b(mon|monday|tue|tuesday|wed|wednesday|thu|thursday|fri|friday|sat|saturday|sun|sunday|tomorrow|today|tonight|next|on|at)\\b", I), " ")
+        return normalizePhrase(s)
+    }
+
+    /**
+     * 中文里空白是噪音（"提醒我 喝水" → "喝水"），英文里空白是词界（"drink water" 不能压成 "drinkwater"）。
+     * 所以按**这段文字本身**有没有汉字判断：中文界面里说英文、英文界面里说中文都得对。
+     */
+    private fun normalizePhrase(s: String): String =
+        if (s.any { it in '\u4E00'..'\u9FFF' }) s.replace(Regex("[，,。；;：:、\\s]"), "").trim()
+        else s.replace(Regex("[，,。；;：:、]+"), " ").replace(Regex("\\s+"), " ").trim()
 
     /** 生图 prompt：剥掉祈使词，补上助眠风格后缀。 */
     private fun imagePrompt(t: String): String {
-        val s = t
-            .replace(Regex("(帮我|给我|生成一张|生成|来一张|画一张|画个|画一下|画|助眠画面|助眠图|晚安图|插画|一张图|图片|图)"), "")
-            .replace(Regex("[，,。；;：:、\\s]"), "")
-            .ifBlank { "深邃夜空与群山剪影" }
-        return "$s，安静柔和的助眠插画风格，柔和低饱和色调，无文字"
+        val s = normalizePhrase(
+            t.replace(Regex("(帮我|给我|生成一张|生成|来一张|画一张|画个|画一下|画|助眠画面|助眠图|晚安图|插画|一张图|图片|图)"), " ")
+                .replace(Regex("(?i)^\\s*(please\\s+)?(draw|generate|create|make|paint|render)\\s+(me\\s+)?(a|an|the)?\\s*"), " ")
+                .replace(Regex("(?i)\\b(wind-?down|sleep|bedtime|good night|picture|image|illustration|art|of|please)\\b"), " ")
+                .replace(Regex("[，,。；;：:]"), " ")
+        ).ifBlank { KxText.s(R.string.img_prompt_default) }
+        return s + KxText.s(R.string.img_prompt_suffix)
     }
 
     /** 手搓小 JSON：LocalCoach 保持纯函数（不依赖 android 的 org.json，便于 JVM 单测）。 */

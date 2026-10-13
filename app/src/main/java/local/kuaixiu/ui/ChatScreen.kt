@@ -51,14 +51,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import local.kuaixiu.R
 import local.kuaixiu.data.ChatLog
 import local.kuaixiu.data.HabitCheck
 import local.kuaixiu.data.Habits
 import local.kuaixiu.data.ImageGen
 import local.kuaixiu.data.KxStore
+import local.kuaixiu.data.KxText
 import local.kuaixiu.data.LlmLogger
 import local.kuaixiu.data.Time
 import local.kuaixiu.llm.ActionRunner
@@ -100,17 +103,19 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text("已选 ${picked.size} 条", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.chat_selected_count, picked.size),
+                     style = MaterialTheme.typography.titleSmall)
                 androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
                 TextButton(onClick = {
                     picked.clear(); picked.addAll(msgs.indices)
-                }) { Text("全选") }
+                }) { Text(stringResource(R.string.chat_select_all)) }
                 TextButton(onClick = {
                     ChatStore.removeAll(ctx, picked.toList())
                     picked.clear(); selecting = false
-                    Toast.makeText(ctx, "已删除", Toast.LENGTH_SHORT).show()
-                }, enabled = picked.isNotEmpty()) { Text("删除") }
-                TextButton(onClick = { picked.clear(); selecting = false }) { Text("取消") }
+                    Toast.makeText(ctx, ctx.getString(R.string.home_reminder_deleted),
+                        Toast.LENGTH_SHORT).show()
+                }, enabled = picked.isNotEmpty()) { Text(stringResource(R.string.home_delete)) }
+                TextButton(onClick = { picked.clear(); selecting = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         }
         LazyColumn(
@@ -137,20 +142,22 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                         val mode = if (KxStore.config.effectiveImageModel().isNotBlank())
                             local.kuaixiu.data.PosterMode.LOCAL_POSTER
                         else local.kuaixiu.data.PosterMode.LOCAL_ONLY
-                        Toast.makeText(ctx, "做海报中…", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(ctx, ctx.getString(R.string.chat_poster_making),
+                            Toast.LENGTH_SHORT).show()
                         local.kuaixiu.KxScope.app.launch {
                             runCatching { local.kuaixiu.data.PosterFlow.make(ctx, t, mode) }
                                 .onSuccess { f -> kotlinx.coroutines.withContext(Dispatchers.Main) {
                                     posterResult = f; onResult(true)
                                 } }
                                 .onFailure { e -> kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                    Toast.makeText(ctx, "做海报失败：${e.message}", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(ctx, ctx.getString(R.string.chat_poster_failed,
+                                        e.message ?: ""), Toast.LENGTH_LONG).show()
                                     onResult(false)
                                 } }
                         }
                     }, onImage = { prompt, ratio ->
                         val genIdx = msgs.size
-                        ChatStore.addTransient(ChatMsg("assistant", "🎨 生图中…（约半分钟）"))
+                        ChatStore.addTransient(ChatMsg("assistant", ctx.getString(R.string.chat_image_generating)))
                         val size = if (ratio.equals("portrait", ignoreCase = true))
                             ImageGen.PORTRAIT_SIZE else ImageGen.DEFAULT_SIZE
                         // 应用级作用域：切页签/锁屏不中断，完成后原地变成图片并落盘
@@ -166,7 +173,8 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                                 .onFailure { e ->
                                     kotlinx.coroutines.withContext(Dispatchers.Main) {
                                         ChatStore.replace(ctx, genIdx,
-                                            ChatMsg("assistant", "生图失败：${e.message}"), persisted = true)
+                                            ChatMsg("assistant", ctx.getString(R.string.chat_image_failed,
+                                                e.message ?: "")), persisted = true)
                                     }
                                 }
                         }
@@ -207,7 +215,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                             if (bmp != null) {
                                 androidx.compose.foundation.Image(
                                     bitmap = bmp.asImageBitmap(),
-                                    contentDescription = "生成的图片",
+                                    contentDescription = stringResource(R.string.chat_image_desc),
                                     modifier = Modifier.fillMaxWidth(),
                                     contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
                                 )
@@ -222,7 +230,8 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)))
                     Icon(
                         if (checked) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
-                        contentDescription = if (checked) "已选" else "未选",
+                        contentDescription = if (checked) stringResource(R.string.common_selected)
+                                             else stringResource(R.string.chat_not_selected),
                         tint = if (checked) MaterialTheme.colorScheme.primary
                                else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.align(Alignment.CenterStart).size(20.dp),
@@ -254,9 +263,11 @@ fun ChatScreen(modifier: Modifier = Modifier) {
             msgs.add(ChatMsg("assistant", "…"))  // 瞬态占位，不入盘
             // 应用级作用域：切页签/锁屏流式不中断
             local.kuaixiu.KxScope.app.launch {
+                // 开场白只是给用户的引导，不该进上下文：按当前语言的开场白文案剔掉
+                val greeting = listOf(ctx.getString(R.string.chat_welcome),
+                    ctx.getString(R.string.chat_welcome_offline))
                 val history = msgs.filter {
-                    !it.text.startsWith("我是你的早睡教练") &&
-                        !it.text.startsWith("离线教练") && it.text != "…"
+                    greeting.none { g -> it.text.startsWith(g) } && it.text != "…"
                 }.takeLast(12).map { it.role to it.text }
                 val onDelta: suspend (String) -> Unit = { full ->
                     if (placeholderIdx < msgs.size) {
@@ -265,7 +276,9 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                     }
                 }
                 fun finalize(reply: LlmReply) {
-                    val shown = LlmClient.stripAction(reply.text).ifBlank { "（建议如下）" }
+                    val shown = LlmClient.stripAction(reply.text).ifBlank {
+                        ctx.getString(R.string.chat_fallback_suggestion)
+                    }
                     val actionJson = reply.actionJson
                     // 如果工具/Markdown 都没解析出动作，但原文里有 kuaixiu 块，把它暴露成排查卡片
                     val fallbackAction = if (actionJson == null) {
@@ -282,7 +295,8 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                 fun showError(e: Throwable) {
                     LlmLogger.log(ctx, KxStore.config.llmModel, raw = "", error = e.message ?: e.toString())
                     if (placeholderIdx < msgs.size) {
-                        msgs[placeholderIdx] = ChatMsg("assistant", "出错了：${e.message}\n检查设置页的 base_url / key / model。")
+                        msgs[placeholderIdx] = ChatMsg("assistant",
+                            ctx.getString(R.string.chat_llm_error, e.message ?: e.toString()))
                     }
                     busy = false
                 }
@@ -328,7 +342,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
         if (KxStore.config.llmKey.isBlank()) {
             Column(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
-                    "离线教练：只认下面这些说法（想自由聊就去「设置」配 LLM Key）",
+                    stringResource(R.string.chat_offline_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -337,15 +351,16 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     listOf(
-                        "目标改到23:00" to false,
-                        "起床改到7点" to false,
-                        "开始风屏了" to true,
-                        "明天08:00 提醒我 喝水" to false,
-                        "把喝水那条提醒删了" to false,
-                        "建个习惯：饭后散步，20:30，21天" to false,
-                        "做到了" to true,
-                        "这个计划科学吗" to true,
-                    ).forEach { (tpl, auto) ->
+                        R.string.chat_chip_target_23 to false,
+                        R.string.chat_chip_wake_7 to false,
+                        R.string.chat_chip_winddown to true,
+                        R.string.chat_chip_water_rem to false,
+                        R.string.chat_chip_del_water to false,
+                        R.string.chat_chip_new_habit to false,
+                        R.string.chat_chip_done to true,
+                        R.string.chat_chip_scientific to true,
+                    ).forEach { (res, auto) ->
+                        val tpl = stringResource(res)
                         AssistChip(
                             onClick = { if (auto) send(tpl) else input = tpl },
                             label = { Text(tpl, maxLines = 1) },
@@ -362,7 +377,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
             OutlinedTextField(
                 value = input, onValueChange = { input = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("和教练聊聊…") },
+                placeholder = { Text(stringResource(R.string.chat_input_placeholder)) },
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
                 maxLines = 4,
             )
@@ -371,7 +386,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                 enabled = !busy && !selecting,   // 多选时禁发，否则索引会错位
                 modifier = Modifier.height(56.dp),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
-            ) { Text("发送") }
+            ) { Text(stringResource(R.string.chat_send)) }
         }
     }
 
@@ -381,7 +396,8 @@ fun ChatScreen(modifier: Modifier = Modifier) {
         if (m == null) { menuIdx = null; return@let }
         AlertDialog(
             onDismissRequest = { menuIdx = null },
-            title = { Text(if (m.role == "user") "我说的" else "教练说的") },
+            title = { Text(if (m.role == "user") stringResource(R.string.chat_menu_mine)
+                           else stringResource(R.string.chat_menu_coach)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(m.text, maxLines = 6,
@@ -391,23 +407,25 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                         TextButton(onClick = {
                             clipboard.setText(androidx.compose.ui.text.AnnotatedString(m.text))
                             menuIdx = null
-                            Toast.makeText(ctx, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
-                        }) { Text("复制") }
+                            Toast.makeText(ctx, ctx.getString(R.string.chat_copied),
+                                Toast.LENGTH_SHORT).show()
+                        }) { Text(stringResource(R.string.chat_copy)) }
                         TextButton(onClick = {
                             selecting = true
                             picked.clear(); picked.add(i)
                             menuIdx = null
-                        }) { Text("多选") }
+                        }) { Text(stringResource(R.string.chat_multi_select)) }
                         TextButton(onClick = {
                             ChatStore.remove(ctx, i)
                             menuIdx = null
-                            Toast.makeText(ctx, "已删除这条", Toast.LENGTH_SHORT).show()
-                        }) { Text("删除") }
+                            Toast.makeText(ctx, ctx.getString(R.string.chat_msg_deleted),
+                                Toast.LENGTH_SHORT).show()
+                        }) { Text(stringResource(R.string.home_delete)) }
                     }
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(onClick = { menuIdx = null }) { Text("取消") } },
+            dismissButton = { TextButton(onClick = { menuIdx = null }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 }
@@ -426,9 +444,9 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
         Card(Modifier.fillMaxWidth(),
              colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.12f))) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("⚠️ 动作块解析失败", style = MaterialTheme.typography.titleSmall,
+                Text(stringResource(R.string.chat_parse_fail_title), style = MaterialTheme.typography.titleSmall,
                      color = MaterialTheme.colorScheme.error)
-                Text("App 没认出这块 JSON，可长按复制给开发者排查：", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.chat_parse_fail_body), style = MaterialTheme.typography.bodySmall)
                 Text(actionJson, style = MaterialTheme.typography.bodySmall,
                      color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -461,73 +479,80 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
             when (kind) {
                 "adjust" -> {
                     val labelMap = mapOf(
-                        "currentBedtime" to "当前入睡", "targetBedtime" to "目标入睡",
-                        "wake" to "起床锚点", "days" to "天数", "startDate" to "开始日期")
+                        "currentBedtime" to ctx.getString(R.string.set_current_bedtime),
+                        "targetBedtime" to ctx.getString(R.string.set_target_bedtime),
+                        "wake" to ctx.getString(R.string.set_wake),
+                        "days" to ctx.getString(R.string.chat_days),
+                        "startDate" to ctx.getString(R.string.set_start_date))
                     val parts = buildList {
                         labelMap.forEach { (k, label) ->
                             if (action.has(k)) add("$label → ${action.optString(k)}")
                         }
                     }
-                    Text("📐 教练建议调整计划：", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.chat_adjust_title), style = MaterialTheme.typography.titleSmall)
                     Text(parts.joinToString("  "))
                 }
                 "checkin" -> {
-                    Text("✅ 教练帮你记一笔打卡：${action.optString("status")}" +
-                        (if (action.optString("bedtime").isNotBlank()) "（${action.optString("bedtime")}）" else ""))
+                    Text(stringResource(R.string.chat_checkin_title, action.optString("status")) +
+                        (if (action.optString("bedtime").isNotBlank())
+                            stringResource(R.string.home_parenthetical, action.optString("bedtime"))
+                         else ""))
                 }
                 "image" -> {
-                    Text("🎨 教练想画一张助眠画面：", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.chat_image_title), style = MaterialTheme.typography.titleSmall)
                     Text(action.optString("prompt"))
                     if (applied) {
-                        Text("🎨 已交给画师，成品马上贴在下面 ↓", style = MaterialTheme.typography.bodySmall,
+                        Text(stringResource(R.string.chat_image_sent), style = MaterialTheme.typography.bodySmall,
                              color = MaterialTheme.colorScheme.secondary)
                     }
                 }
                 "poster" -> {
                     val tpl = action.optString("template").ifBlank { "A" }
-                    Text("🖼 教练想做一张分享海报：", style = MaterialTheme.typography.titleSmall)
-                    Text(when (tpl) {
-                        "B" -> "奖章圆环版"
-                        "C" -> "杂志版「昨晚我在 00:38 放下了手机」"
-                        "D" -> "周报版（7 根横条 = 每晚评分）"
-                        else -> "打卡纪念版（巨大连续天数）"
-                    })
-                    Text("数字由 App 从本地记录排版，不经过模型", style = MaterialTheme.typography.bodySmall,
+                    Text(stringResource(R.string.chat_poster_title), style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(when (tpl) {
+                        "B" -> R.string.chat_poster_tpl_b
+                        "C" -> R.string.chat_poster_tpl_c
+                        "D" -> R.string.chat_poster_tpl_d
+                        else -> R.string.chat_poster_tpl_a
+                    }))
+                    Text(stringResource(R.string.chat_poster_note), style = MaterialTheme.typography.bodySmall,
                          color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 "reminder" -> {
                     val when_ = listOf(action.optString("date"), action.optString("time"))
                         .filter { it.isNotBlank() }.joinToString(" ")
-                    val lead = if (action.optInt("leadMin") > 0) "，提前 ${action.optInt("leadMin")} 分钟" else ""
+                    val leadMin = action.optInt("leadMin")
+                    val lead = if (leadMin > 0) stringResource(R.string.chat_reminder_lead, leadMin) else ""
                     if (action.optString("op") == "cancel") {
-                        Text("🗑 教练帮你删掉提醒：${action.optString("text", "")}")
+                        Text(stringResource(R.string.chat_reminder_cancel_title, action.optString("text", "")))
                     } else {
-                        Text("⏰ 教练帮你加一个提醒：${action.optString("text", "提醒")}" +
-                            (if (when_.isNotBlank()) "（$when_$lead）" else ""))
+                        Text(stringResource(R.string.chat_reminder_add_title,
+                                action.optString("text", stringResource(R.string.chat_reminder_default))) +
+                            (if (when_.isNotBlank())
+                                stringResource(R.string.home_parenthetical, when_ + lead) else ""))
                     }
                 }
                 "habit" -> {
                     val h = habit ?: return@Column
                     when (h.op) {
-                        "done" -> Text("✅ 教练帮你记一笔习惯打卡：${h.name}（今天）")
-                        "pause" -> Text("⏸ 教练帮你暂停习惯：${h.name}（日历先不响，已打的天数留着）")
+                        "done" -> Text(stringResource(R.string.chat_habit_done_title, h.name))
+                        "pause" -> Text(stringResource(R.string.chat_habit_pause_title, h.name))
                         else -> {
-                            Text(
-                                if (habitUpdate) "🌱 教练要改这个习惯的参数：${h.name}"
-                                else "🌱 教练想帮你开一个习惯：${h.name}",
+                            val addTitleRes = if (habitUpdate) R.string.chat_habit_update_title
+                                              else R.string.chat_habit_add_title
+                            Text(stringResource(addTitleRes, h.name),
                                 style = MaterialTheme.typography.titleSmall,
                             )
-                            Text((if (habitUpdate) "改成：" else "") +
-                                "${h.start} 起，每天 ${h.cue} 系统日历提醒，连响 ${h.days} 天")
+                            Text((if (habitUpdate) stringResource(R.string.chat_habit_change_prefix) else "") +
+                                stringResource(R.string.chat_habit_schedule_line, h.start, h.cue, h.days))
                             when (val r = habitCheck) {
                                 is HabitCheck.AnchorConflict -> Text(
-                                    "锚点和「${r.otherName}」只差 ${r.gapMin} 分钟——挨太近的两个执行意图会互相抵消，" +
-                                        "先错开时间再来。",
+                                    stringResource(R.string.habit_conflict_hint, r.otherName, r.gapMin),
                                     color = MaterialTheme.colorScheme.error)
                                 is HabitCheck.QuotaFull -> Text(
-                                    if (ackCost) "你已经看过代价，再点一次就写进日历。"
-                                    else "「${r.activeNames.joinToString("、")}」还在跑。同时开第 3 个，" +
-                                        "研究里成功率明显下降，建议先跑稳这两个。",
+                                    if (ackCost) stringResource(R.string.chat_habit_ack_again)
+                                    else stringResource(R.string.habit_quota_hint,
+                                        r.activeNames.joinToString(stringResource(R.string.common_or))),
                                     color = MaterialTheme.colorScheme.tertiary)
                                 is HabitCheck.Invalid -> Text(r.reason,
                                     color = MaterialTheme.colorScheme.error)
@@ -538,7 +563,9 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
                 }
                 else -> {
                     // 不认识的动作也要看得见，否则卡片凭空消失，谁都不知道模型给了什么
-                    Text("⚠️ App 还不认识这个动作：${kind.ifBlank { "（块里没有 action 字段）" }}",
+                    val kindShown = if (kind.isBlank())
+                        stringResource(R.string.chat_unknown_action_blank) else kind
+                    Text(stringResource(R.string.chat_unknown_action, kindShown),
                          style = MaterialTheme.typography.titleSmall)
                     Text(action.toString(), style = MaterialTheme.typography.bodySmall,
                          color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -551,7 +578,8 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
             Button(onClick = {
                 if (applied) return@Button
                 validateAction(action)?.let {
-                    Toast.makeText(ctx, "参数有误：$it", Toast.LENGTH_LONG).show()
+                    Toast.makeText(ctx, ctx.getString(R.string.chat_invalid_params, it),
+                        Toast.LENGTH_LONG).show()
                     return@Button
                 }
                 when (kind) {
@@ -568,10 +596,12 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
                             KxStore.regenerate(ctx)
                             local.kuaixiu.calendar.CalendarWriter.syncPlan(ctx, KxStore.plan!!)
                         }.onSuccess {
-                            Toast.makeText(ctx, "计划已更新并写入日历（$it 个事件）", Toast.LENGTH_LONG).show()
+                            Toast.makeText(ctx, ctx.getString(R.string.set_plan_done, it),
+                                Toast.LENGTH_LONG).show()
                             applied = true
                         }.onFailure {
-                            Toast.makeText(ctx, "日历写入失败: ${it.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(ctx, ctx.getString(R.string.chat_calendar_write_failed,
+                                it.message ?: ""), Toast.LENGTH_LONG).show()
                         }
                     }
                     "checkin" -> {
@@ -589,7 +619,8 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
                             )
                             local.kuaixiu.data.Checkins.add(ctx, c)
                         }
-                        Toast.makeText(ctx, "已打卡 ✅", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(ctx, ctx.getString(R.string.home_checkin_saved_toast),
+                            Toast.LENGTH_SHORT).show()
                         applied = true
                     }
                     "reminder" -> {
@@ -598,24 +629,30 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
                             runCatching {
                                 ActionRunner.cancelReminder(ctx, t)
                             }.onSuccess { n ->
-                                Toast.makeText(ctx, if (n > 0) "已删掉 $n 条「$t」" else "没找到「$t」这条提醒",
+                                Toast.makeText(ctx, if (n > 0)
+                                        ctx.getString(R.string.chat_reminders_deleted_n, n, t)
+                                    else ctx.getString(R.string.chat_reminder_not_found, t),
                                     Toast.LENGTH_SHORT).show()
                                 applied = n > 0
                             }.onFailure {
-                                Toast.makeText(ctx, "删除失败：${it.message}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(ctx, ctx.getString(R.string.chat_delete_failed,
+                                    it.message ?: ""), Toast.LENGTH_SHORT).show()
                             }
                         } else {
                             val today = Time.today()
                             val d = action.optString("date").ifBlank { today.toString() }
                             val t = action.optString("time", "09:00")
                             ActionRunner.applyReminder(
-                                ctx, d, t, action.optString("text", "提醒"),
+                                ctx, d, t, action.optString("text",
+                                    ctx.getString(R.string.chat_reminder_default)),
                                 action.optInt("leadMin", 0)
                             ).onSuccess {
-                                Toast.makeText(ctx, "已加进日历「快休提醒」✅", Toast.LENGTH_LONG).show()
+                                Toast.makeText(ctx, ctx.getString(R.string.rem_added),
+                                    Toast.LENGTH_LONG).show()
                                 applied = true
                             }.onFailure {
-                                Toast.makeText(ctx, "提醒写入失败：${it.message}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(ctx, ctx.getString(R.string.rem_failed,
+                                    it.message ?: ""), Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
@@ -625,30 +662,36 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
                             "done" -> {
                                 val target = Habits.findByName(h.name)
                                 if (target == null) {
-                                    Toast.makeText(ctx, "没找到「${h.name}」这个习惯", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(ctx,
+                                        ctx.getString(R.string.chat_habit_not_found, h.name),
+                                        Toast.LENGTH_SHORT).show()
                                 } else if (Habits.dayOf(target) == 0) {
-                                    Toast.makeText(ctx, "「${target.name}」还没开始（${target.startDate} 起），" +
-                                        "今天先不记", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(ctx, ctx.getString(R.string.chat_habit_not_started,
+                                            target.name, target.startDate), Toast.LENGTH_LONG).show()
                                 } else {
                                     Habits.markDone(ctx, target.id)
-                                    Toast.makeText(ctx, "「${target.name}」第 ${Habits.dayOf(target)} 天已打卡 ✅",
-                                        Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(ctx, ctx.getString(R.string.chat_habit_checked_n,
+                                            target.name, Habits.dayOf(target)), Toast.LENGTH_SHORT).show()
                                     applied = true
                                 }
                             }
                             "pause" -> {
                                 val target = Habits.findByName(h.name)
                                 if (target == null) {
-                                    Toast.makeText(ctx, "没找到「${h.name}」这个习惯", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(ctx,
+                                        ctx.getString(R.string.chat_habit_not_found, h.name),
+                                        Toast.LENGTH_SHORT).show()
                                 } else {
                                     runCatching { Habits.setEnabled(ctx, target.id, on = false) }
                                         .onSuccess {
-                                            Toast.makeText(ctx, "已暂停「${target.name}」，日历不再响",
+                                            Toast.makeText(ctx,
+                                                ctx.getString(R.string.chat_habit_paused, target.name),
                                                 Toast.LENGTH_LONG).show()
                                             applied = true
                                         }
                                         .onFailure {
-                                            Toast.makeText(ctx, "暂停失败：${it.message}", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(ctx, ctx.getString(R.string.chat_pause_failed,
+                                                it.message ?: ""), Toast.LENGTH_SHORT).show()
                                         }
                                 }
                             }
@@ -656,17 +699,19 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
                                 ctx, h.name, h.cue, h.days, h.start, ackCost)) {
                                 is HabitCheck.Ok -> {
                                     Toast.makeText(ctx,
-                                        (if (habitUpdate) "已改好，日历里那条重写了" else "已写进日历「快休习惯」") +
-                                            "，连响 ${r.habit.days} 天 ✅", Toast.LENGTH_LONG).show()
+                                        if (habitUpdate)
+                                            ctx.getString(R.string.chat_habit_updated_toast, r.habit.days)
+                                        else ctx.getString(R.string.habit_added, r.habit.days),
+                                        Toast.LENGTH_LONG).show()
                                     applied = true
                                 }
                                 is HabitCheck.QuotaFull -> {
                                     ackCost = true
-                                    Toast.makeText(ctx, "第 3 个习惯要先确认代价，再点一次才真的加上",
+                                    Toast.makeText(ctx, ctx.getString(R.string.habit_quota_again),
                                         Toast.LENGTH_LONG).show()
                                 }
                                 is HabitCheck.AnchorConflict -> Toast.makeText(ctx,
-                                    "锚点和「${r.otherName}」只差 ${r.gapMin} 分钟，先错开时间",
+                                    ctx.getString(R.string.habit_conflict_toast, r.otherName, r.gapMin),
                                     Toast.LENGTH_LONG).show()
                                 is HabitCheck.Invalid -> Toast.makeText(ctx, r.reason,
                                     Toast.LENGTH_LONG).show()
@@ -686,30 +731,32 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
                 }
             }, enabled = !applied && !habitBlocked) {
                 val cancel = kind == "reminder" && action.optString("op") == "cancel"
-                Text(when {
-                    kind == "image" -> if (applied) "已交给画师 ✓" else "🎨 生成这张助眠图"
+                Text(stringResource(when {
+                    kind == "image" -> if (applied) R.string.chat_btn_image_done else R.string.chat_btn_image
                     kind == "poster" -> when {
-                        posterDone -> "海报已生成 ✓"
-                        applied -> "已在做海报…"
-                        else -> "🖼 做这张海报"
+                        posterDone -> R.string.chat_btn_poster_done
+                        applied -> R.string.chat_btn_poster_busy
+                        else -> R.string.chat_btn_poster
                     }
-                    kind == "checkin" -> if (applied) "已记上 ✓" else "记上这笔"
-                    cancel -> if (applied) "已删掉 ✓" else "删掉这个提醒"
-                    kind == "reminder" -> if (applied) "已加进日历 ✓" else "加进日历"
+                    kind == "checkin" ->
+                        if (applied) R.string.chat_btn_checkin_done else R.string.chat_btn_checkin
+                    cancel -> if (applied) R.string.chat_btn_cancel_done else R.string.chat_btn_del_reminder
+                    kind == "reminder" -> if (applied) R.string.chat_btn_reminder_done else R.string.rem_add_btn
                     kind == "habit" -> when {
                         applied -> when (habit?.op) {
-                            "done" -> "已打卡 ✓"
-                            "pause" -> "已暂停 ✓"
-                            else -> if (habitUpdate) "已改好 ✓" else "已写进日历 ✓"
+                            "done" -> R.string.chat_btn_habit_checkin_done
+                            "pause" -> R.string.chat_btn_habit_pause_done
+                            else -> if (habitUpdate) R.string.chat_btn_habit_update_done
+                                    else R.string.chat_btn_habit_written_done
                         }
-                        habit?.op == "done" -> "记为今天做到了"
-                        habit?.op == "pause" -> "暂停这个习惯"
-                        habitBlocked -> "先解决冲突再来"
-                        ackCost -> "我了解代价，照样加"
-                        else -> if (habitUpdate) "就按这个改" else "开这个习惯"
+                        habit?.op == "done" -> R.string.home_habit_check_btn
+                        habit?.op == "pause" -> R.string.chat_btn_pause_habit
+                        habitBlocked -> R.string.chat_btn_fix_conflict
+                        ackCost -> R.string.habit_ack_btn
+                        else -> if (habitUpdate) R.string.chat_btn_apply_update else R.string.habit_add_btn
                     }
-                    else -> if (applied) "已应用 ✓" else "应用更改"
-                })
+                    else -> if (applied) R.string.chat_btn_applied else R.string.chat_btn_apply
+                }))
             }
                 // 那张卡对应的提醒/习惯还在，就顺手给"删掉"
                 if (reminderExists || habitExists) {
@@ -719,23 +766,28 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
                             runCatching {
                                 ActionRunner.cancelReminder(ctx, remindText)
                             }.onSuccess { n ->
-                                Toast.makeText(ctx, if (n > 0) "已删掉这条提醒" else "没找到「$remindText」",
+                                Toast.makeText(ctx, if (n > 0)
+                                        ctx.getString(R.string.chat_reminder_deleted_one)
+                                    else ctx.getString(R.string.chat_reminder_not_found, remindText),
                                     Toast.LENGTH_SHORT).show()
                             }.onFailure {
-                                Toast.makeText(ctx, "删除失败：${it.message}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(ctx, ctx.getString(R.string.chat_delete_failed,
+                                    it.message ?: ""), Toast.LENGTH_SHORT).show()
                             }
-                        }) { Text("删掉这条提醒") }
+                        }) { Text(stringResource(R.string.chat_btn_del_reminder)) }
                         habitExists && h != null -> OutlinedButton(onClick = {
                             val target = Habits.findByName(h.name)
                             if (target == null) {
-                                Toast.makeText(ctx, "没找到「${h.name}」", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(ctx, ctx.getString(R.string.chat_habit_not_found, h.name),
+                                    Toast.LENGTH_SHORT).show()
                             } else if (runCatching { Habits.remove(ctx, target.id) }.getOrDefault(false)) {
-                                Toast.makeText(ctx, "已删掉「${target.name}」，日历里那条也清了",
+                                Toast.makeText(ctx, ctx.getString(R.string.home_habit_removed_toast, target.name),
                                     Toast.LENGTH_LONG).show()
                             } else {
-                                Toast.makeText(ctx, "删除失败", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(ctx, ctx.getString(R.string.home_reminder_delete_failed),
+                                    Toast.LENGTH_SHORT).show()
                             }
-                        }) { Text("删掉这个习惯") }
+                        }) { Text(stringResource(R.string.chat_btn_del_habit)) }
                     }
                 }
             }
@@ -798,35 +850,40 @@ private fun validateAction(action: JSONObject): String? {
     return when (kind) {
         "adjust" -> {
             listOf("currentBedtime", "targetBedtime", "wake").firstOrNull { !okTime(it) }
-                ?.let { "「$it」格式应为 HH:MM" }
-                ?: if (!okDate("startDate")) "「startDate」格式应为 YYYY-MM-DD" else null
+                ?.let { KxText.s(R.string.chat_err_time_fmt, it) }
+                ?: if (!okDate("startDate"))
+                    KxText.s(R.string.chat_err_date_fmt, "startDate") else null
         }
         "reminder" -> {
             if (action.optString("op") == "cancel") {
-                if (action.optString("text").isBlank()) "取消提醒需要写明标题" else null
+                if (action.optString("text").isBlank())
+                    KxText.s(R.string.chat_err_cancel_needs_title) else null
             } else {
-                if (!okTime("time")) "「time」格式应为 HH:MM"
-                else if (!okDate("date")) "「date」格式应为 YYYY-MM-DD"
-                else if (action.optString("text").isBlank()) "提醒内容不能为空"
+                if (!okTime("time")) KxText.s(R.string.chat_err_time_fmt, "time")
+                else if (!okDate("date")) KxText.s(R.string.chat_err_date_fmt, "date")
+                else if (action.optString("text").isBlank())
+                    KxText.s(R.string.chat_err_reminder_empty)
                 else null
             }
         }
         "habit" -> {
             when (action.optString("op", "add")) {
-                "done", "pause" -> if (action.optString("name").isBlank()) "习惯名不能为空" else null
+                "done", "pause" -> if (action.optString("name").isBlank())
+                    KxText.s(R.string.habit_err_name_empty) else null
                 else -> {
-                    if (action.optString("name").isBlank()) "习惯名不能为空"
-                    else if (!okTime("cueTime")) "「cueTime」格式应为 HH:MM"
-                    else if (!okDate("startDate")) "「startDate」格式应为 YYYY-MM-DD"
+                    if (action.optString("name").isBlank()) KxText.s(R.string.habit_err_name_empty)
+                    else if (!okTime("cueTime")) KxText.s(R.string.chat_err_time_fmt, "cueTime")
+                    else if (!okDate("startDate")) KxText.s(R.string.chat_err_date_fmt, "startDate")
                     else null
                 }
             }
         }
         "checkin" -> {
             listOf("bedtime", "winddown").firstOrNull { !okTime(it) }
-                ?.let { "「$it」格式应为 HH:MM" }
+                ?.let { KxText.s(R.string.chat_err_time_fmt, it) }
         }
-        "image" -> if (action.optString("prompt").isBlank()) "画面描述不能为空" else null
+        "image" -> if (action.optString("prompt").isBlank())
+            KxText.s(R.string.chat_err_prompt_empty) else null
         // 模板随便填都能用：认不出来就当 A，不做成报错卡
         "poster" -> null
         else -> null

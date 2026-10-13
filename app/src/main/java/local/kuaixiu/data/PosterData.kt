@@ -1,5 +1,7 @@
 package local.kuaixiu.data
 
+import local.kuaixiu.R
+
 /**
  * 分享海报的**数据**：全部来自本地记录（Checkins / Score / Plan / UsageProbe），
  * 生图模型只出无字底图，一个数字都不许模型写——它不知道、也抄不准。
@@ -50,6 +52,16 @@ data class PosterData(
 }
 
 /** 四版版式。A 打卡后自动弹 / B 里程碑 / C 主动分享 / D 周报。 */
-enum class PosterTemplate(val label: String) {
-    A("打卡纪念"), B("奖章"), C("杂志"), D("周报")
+enum class PosterTemplate {
+    A, B, C, D;
+
+    /** 版式名按系统语言取资源（这里拿不到 Context，走 KxText）。 */
+    val label: String
+        get() = KxText.s(
+            when (this) {
+                PosterTemplate.A -> R.string.poster_name_a
+                PosterTemplate.B -> R.string.poster_name_b
+                PosterTemplate.C -> R.string.poster_name_c
+                PosterTemplate.D -> R.string.poster_name_d
+            })
 }

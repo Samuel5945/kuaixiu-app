@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 声明支持的两种语言：Android 13+ 才会在系统设置里给出「本应用单独选语言」的入口；
+     默认仍跟随系统语言。 -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="zh-CN" />
+    <locale android:name="en" />
+</locale-config>

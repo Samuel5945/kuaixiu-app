@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Home: calendar permission -->
+    <string name="home_cal_permission_hint">Allow calendar access first — otherwise plans, reminders and habits can\'t reach your system calendar.</string>
+    <string name="home_cal_permission_btn">Allow calendar access</string>
+
+    <!-- Home: no plan yet -->
+    <string name="home_empty_title">No plan yet</string>
+    <string name="home_empty_body">Check your schedule numbers in \"Settings\" (current bedtime / target / wake). Saving builds a 28-day plan and writes it to your calendar, starting tonight by default.</string>
+    <string name="home_generate_now">Build the plan now</string>
+    <string name="home_plan_written">Plan generated — %1$d events written</string>
+    <string name="home_sync_failed">Failed: %1$s: %2$s</string>
+
+    <!-- Home: today card -->
+    <string name="home_day_header">Day %1$d · %2$s · %3$s %4$s</string>
+    <string name="home_target_bedtime">🌙 Target bedtime %1$s</string>
+    <string name="home_winddown_wake">💤 Wind-down from %1$s  ☀️ Wake %2$s</string>
+    <string name="home_theme">Theme: %1$s</string>
+    <string name="home_task_line">· %1$s</string>
+    <string name="home_tip">Quick tip: %1$s</string>
+    <string name="home_target_reach">" · target %1$s reached on day %2$d"</string>
+    <string name="home_progress">Progress: day %1$d/%2$d · %3$d min earlier so far%4$s</string>
+
+    <!-- Home: reminders card -->
+    <string name="home_reminders_title">Upcoming reminders</string>
+    <string name="home_reminder_date_format">MMM d, HH:mm</string>
+    <string name="home_reminders_footnote">The system calendar fires the notification — this app needs no background service.</string>
+    <string name="home_delete">Delete</string>
+    <string name="home_reminder_deleted">Deleted</string>
+    <string name="home_reminder_delete_failed">Couldn\'t delete</string>
+
+    <!-- Home: habits card -->
+    <string name="home_habits_title">Habits</string>
+    <string name="home_habits_footnote">The system calendar rings them from the \"Kuaixiu Habits\" calendar — one write, N days running. Recomputing your sleep plan won\'t touch them.</string>
+    <string name="home_habit_resumed">Resumed — %1$d days left, starting today</string>
+    <string name="home_habit_quota_resume">\"%1$s\" is still running — pause one before resuming this.</string>
+    <string name="home_habit_conflict_resume">Its anchor is only %2$d min apart from \"%1$s\" — resuming would be blocked.</string>
+    <string name="home_habit_resume">Resume</string>
+    <string name="home_habit_pause">Pause</string>
+    <string name="home_habit_paused_toast">Paused — the calendar stays quiet (days you logged are kept)</string>
+    <string name="home_habit_removed_toast">Deleted \"%1$s\" — its calendar events are gone too</string>
+    <string name="home_habit_status_paused">Paused · anchor %1$s</string>
+    <string name="home_habit_status_upcoming">Not started · from %1$s, daily at %2$s</string>
+    <string name="home_habit_status_expired">%1$d days done · anchor %2$s · %3$d/%4$d kept</string>
+    <string name="home_habit_status_running">Day %1$d/%2$d · anchor %3$s · %4$d-day streak · %5$d/%6$d kept</string>
+    <string name="home_habit_done_today">Checked in today ✓</string>
+    <string name="home_habit_check_btn">Done today — check in</string>
+    <string name="home_habit_check_toast">Logged — day %1$d 🔥</string>
+
+    <!-- Home: last night score -->
+    <string name="home_score_title">☀️ Last night %1$d/100</string>
+    <string name="home_score_streak">"  🔥 %1$d nights on time"</string>
+    <string name="home_score_badge_next">" (%1$d-day badge: %2$d to go)"</string>
+    <string name="home_score_badge_max">" (Top badge earned 🏆)"</string>
+    <string name="home_score_parts">Wind-down %1$d/%2$d · Sleep %3$d/%4$d · Wake %5$d/%6$d</string>
+    <string name="home_no_details">Nothing to break down yet</string>
+    <string name="home_winddown_auto_note">; wind-down logged automatically (screen off at %1$s)</string>
+
+    <!-- Home: tonight wind-down + check-in -->
+    <string name="home_tonight_winddown">🌙 Wind-down tonight · planned start %1$s</string>
+    <string name="home_winddown_start_btn">Wind-down started — log it</string>
+    <string name="home_winddown_logged">Logged %1$s ✅</string>
+    <string name="home_winddown_logged_toast">Wind-down logged at %1$s ✅</string>
+    <string name="home_image_generating">Drawing…</string>
+    <string name="home_image_gen_btn">🎨 Generate tonight\'s sleep image</string>
+    <string name="home_image_save_btn">Save to gallery</string>
+    <string name="home_image_saved_toast">Saved to your gallery</string>
+    <string name="home_image_desc">Tonight\'s sleep image</string>
+    <string name="home_status_on_time">On time</string>
+    <string name="home_status_late">Late</string>
+    <string name="home_status_missed">Missed</string>
+    <string name="home_last_night_checked">😴 Last night checked in · %1$s%2$s</string>
+    <string name="home_edit_btn">Edit</string>
+    <string name="home_wake_title">☀️ Morning wake</string>
+    <string name="home_wake_label">Wake time</string>
+    <string name="home_pick_wake">Choose wake time</string>
+    <string name="home_wake_desc">Wake time %1$s, tap to choose</string>
+    <string name="home_unset">Not logged</string>
+    <string name="home_use_auto">Use auto</string>
+    <string name="home_target_diff_over">+%1$d min off target</string>
+    <string name="home_target_diff_under">%1$d min off target</string>
+    <string name="home_first_pickup">📱 First screen on this morning %1$s</string>
+    <string name="home_parenthetical">(%1$s)</string>
+    <string name="home_sleep_title">😴 Bedtime last night</string>
+    <string name="home_actual_bedtime_label">Actual bedtime</string>
+    <string name="home_pick_bedtime">Choose bedtime</string>
+    <string name="home_actual_bedtime_desc">Actual bedtime %1$s, tap to choose</string>
+    <string name="home_last_screen_on">📱 Screen last on %1$s</string>
+    <string name="home_phone_down">" (phone down)"</string>
+    <string name="home_no_more_screen">📱 Screen stayed off after wind-down ✅ (until this morning\'s pickup)</string>
+    <string name="home_usage_access_btn">Grant \"Usage access\" to log bedtime and wake automatically →</string>
+    <string name="home_note_label">Note</string>
+    <string name="home_note_optional">Optional</string>
+    <string name="home_checkin_save_btn">Save check-in</string>
+    <string name="home_checkin_saved_toast">Checked in ✅</string>
+    <string name="home_poster_failed">No poster this time: %1$s</string>
+    <string name="home_collapse">Collapse</string>
+    <string name="home_recent">Recent: %1$s</string>
+    <string name="home_recent_winddown">"Wind-down %1$s "</string>
+
+    <!-- Home: next days -->
+    <string name="home_upcoming_title">Next few days</string>
+    <string name="home_upcoming_row">%1$s %2$s  %3$s  target %4$s</string>
+
+    <!-- Home: manual add -->
+    <string name="home_manual_title">Add by hand</string>
+    <string name="home_manual_reminder">+ Add reminder</string>
+    <string name="home_manual_habit">+ New habit</string>
+    <string name="home_manual_poster">+ Make a poster</string>
+    <string name="home_manual_hint">No coach needed — a reminder fires once in the system calendar, a habit rings for N days.</string>
+</resources>

@@ -1,12 +1,19 @@
 package local.kuaixiu.data
 
+import local.kuaixiu.R
 import local.kuaixiu.engine.PlanEngine
 
 /** 每日评分：风屏 30 + 入睡 30 + 起床锚点 40，量纲是"偏差分钟"。
  *  起床权重最高——手册口径里"起床锚点固定比入睡时间更重要"，卡面三项细分也要按这个顺序显示。 */
 object Score {
 
-    data class Result(val total: Int, val winddown: Int, val sleep: Int, val wake: Int, val notes: List<String>)
+    data class Result(
+        val total: Int, val winddown: Int, val sleep: Int, val wake: Int,
+        /** 逐项说明，顺序固定：[0] 风屏、[1] 入睡、[2] 起床。界面按位置取，别匹配文案。 */
+        val notes: List<String>,
+        /** 入睡晚了多少分钟（0 = 没晚或没记）；评语按语言取文案，不能再拿中文子串去匹配。 */
+        val lateMin: Int = 0,
+    )
 
     /** 带符号偏差（分钟）：正 = 比"计划值"晚。跨午夜安全。 */
     fun diffMinutes(from: String?, to: String?): Int? = runCatching {
@@ -27,8 +34,8 @@ object Score {
 
         val w = checkin?.winddownAt
         when {
-            w.isNullOrBlank() -> notes += "风屏未记录"
-            plannedWinddown == null -> { wind = 15; notes += "风屏已执行" }
+            w.isNullOrBlank() -> notes += KxText.s(R.string.score_winddown_missing)
+            plannedWinddown == null -> { wind = 15; notes += KxText.s(R.string.score_winddown_done) }
             else -> {
                 val d = diffMinutes(plannedWinddown, w)
                 wind = when {
@@ -37,45 +44,54 @@ object Score {
                     d in -30..30 -> 19
                     else -> 8
                 }
-                notes += "风屏${if ((d ?: 0) >= 0) "晚" else "早"} ${kotlin.math.abs(d ?: 0)} 分钟"
+                notes += KxText.s(
+                    if ((d ?: 0) >= 0) R.string.score_winddown_late else R.string.score_winddown_early,
+                    kotlin.math.abs(d ?: 0))
             }
         }
 
+        var lateMin = 0
         val b = checkin?.bedtime
         when {
-            b.isNullOrBlank() -> notes += "入睡未记录"
-            plannedBedtime == null -> { sleep = 15; notes += "入睡已记录" }
+            b.isNullOrBlank() -> notes += KxText.s(R.string.score_sleep_missing)
+            plannedBedtime == null -> { sleep = 15; notes += KxText.s(R.string.score_sleep_done) }
             else -> {
                 val d = diffMinutes(plannedBedtime, b)
                 // 早睡不是越多越好：早 30 分钟以内照满分，「困了可提前睡」；早 30–60 给过渡档；
                 // 早 1 小时以上会在生物钟觉醒高峰前睡着 → 前半夜耗完睡眠压力、3-4 点早醒，反而扣得多。
                 sleep = when {
                     d == null -> 15
-                    d <= -60 -> 11.also { notes += "比计划早睡 ${-d} 分钟（过早上床）" }
-                    d < -30 -> 22.also { notes += "比计划早睡 ${-d} 分钟" }
-                    d <= 30 -> 30.also { notes += "入睡准时" }
-                    d <= 60 -> 19.also { notes += "晚睡 $d 分钟" }
-                    d <= 120 -> 8.also { notes += "晚睡 $d 分钟" }
-                    else -> 4.also { notes += "晚睡 $d 分钟" }
+                    d <= -60 -> 11.also { notes += KxText.s(R.string.score_sleep_early_too_much, -d) }
+                    d < -30 -> 22.also { notes += KxText.s(R.string.score_sleep_early, -d) }
+                    d <= 30 -> 30.also { notes += KxText.s(R.string.score_sleep_on_time) }
+                    d <= 60 -> 19.also { lateMin = d; notes += KxText.s(R.string.score_sleep_late, d) }
+                    d <= 120 -> 8.also { lateMin = d; notes += KxText.s(R.string.score_sleep_late, d) }
+                    else -> 4.also { lateMin = d; notes += KxText.s(R.string.score_sleep_late, d) }
                 }
             }
         }
 
         val k = checkin?.wakeupAt
         when {
-            k.isNullOrBlank() -> notes += "起床未记录"
-            wakeAnchor == null -> { wake = 20; notes += "起床已记录" }
+            k.isNullOrBlank() -> notes += KxText.s(R.string.score_wake_missing)
+            wakeAnchor == null -> { wake = 20; notes += KxText.s(R.string.score_wake_done) }
             else -> {
                 val d = diffMinutes(wakeAnchor, k)
                 wake = when {
                     d == null -> 20
-                    kotlin.math.abs(d) <= 30 -> 40.also { notes += "起床锚点守住（$d 分钟）" }
-                    kotlin.math.abs(d) <= 60 -> 20.also { notes += "起床偏 ${if (d >= 0) "晚" else "早"} ${kotlin.math.abs(d)} 分钟" }
-                    else -> 0.also { notes += "起床偏 ${if (d >= 0) "晚" else "早"} ${kotlin.math.abs(d)} 分钟" }
+                    kotlin.math.abs(d) <= 30 -> 40.also { notes += KxText.s(R.string.score_wake_held, d) }
+                    kotlin.math.abs(d) <= 60 -> 20.also {
+                        notes += KxText.s(if (d >= 0) R.string.score_wake_late else R.string.score_wake_early,
+                            kotlin.math.abs(d))
+                    }
+                    else -> 0.also {
+                        notes += KxText.s(if (d >= 0) R.string.score_wake_late else R.string.score_wake_early,
+                            kotlin.math.abs(d))
+                    }
                 }
             }
         }
-        return Result(wind + sleep + wake, wind, sleep, wake, notes)
+        return Result(wind + sleep + wake, wind, sleep, wake, notes, lateMin)
     }
 
     /** 卡面用的三项满分，别在 UI 里写死数字。 */
@@ -85,14 +101,17 @@ object Score {
 
     /** 风格化评语（App 内评分卡 / 未来复盘用）。 */
     fun voice(style: String, r: Result): String = when (style) {
-        "strict" -> (r.notes.firstOrNull { it.contains("晚睡") } ?: "记录不全就是执行不全。") +
-            "今晚目标不变，风屏提前 10 分钟开始。"
-        "data" -> r.notes.joinToString("；").ifBlank { "暂无数据" }
-        "humor" -> if (r.total >= 80) "这分数可以拿去炫耀了，今晚保持。" 
-            else "分数已经在表达不满了——今晚早点让手机退休。"
-        "auto" -> (if (r.total >= 80) "保持。" else "今晚从准时风屏开始。") +
+        "strict" -> if (r.lateMin > 0) KxText.s(R.string.score_voice_strict_late, r.lateMin)
+                   else KxText.s(R.string.score_voice_strict_blind)
+        "data" -> r.notes.joinToString(KxText.s(R.string.score_notes_sep))
+            .ifBlank { KxText.s(R.string.score_no_data) }
+        "humor" -> KxText.s(
+            if (r.total >= 80) R.string.score_voice_humor_good else R.string.score_voice_humor_bad)
+        "auto" -> KxText.s(
+            if (r.total >= 80) R.string.score_voice_auto_good else R.string.score_voice_auto_bad) +
             (r.notes.firstOrNull()?.let { " $it" } ?: "")
-        else -> (if (r.total >= 80) "漂亮，保持这个节奏。" else "没关系，今晚从准时风屏开始就好。")
+        else -> KxText.s(
+            if (r.total >= 80) R.string.score_voice_gentle_good else R.string.score_voice_gentle_bad)
     }
 
     /**

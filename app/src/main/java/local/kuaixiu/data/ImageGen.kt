@@ -1,6 +1,7 @@
 package local.kuaixiu.data
 
 import android.content.Context
+import local.kuaixiu.R
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -43,7 +44,7 @@ object ImageGen {
 
     fun generate(ctx: Context, cfg: KxConfig, prompt: String, size: String = DEFAULT_SIZE): File {
         val imageModel = cfg.effectiveImageModel()
-        require(imageModel.isNotBlank()) { "未配置生图模型：设置 → AI 教练 → 拉取模型列表 → 生图列点选一个" }
+        require(imageModel.isNotBlank()) { ctx.getString(R.string.img_err_no_model) }
         val (base, key) = imageEndpoint(ctx, cfg)
         val url = base.trimEnd('/') + "/images/generations"
         val body = JSONObject().apply {
@@ -68,19 +69,20 @@ object ImageGen {
             conn.inputStream.use { it.readBytes().decodeToString() }
         } catch (e: Exception) {
             val errText = runCatching { conn.errorStream?.use { it.readBytes().decodeToString() } }.getOrNull() ?: ""
-            throw java.io.IOException("生图失败 HTTP ${conn.responseCode}：${errText.take(200)}")
+            throw java.io.IOException(
+                ctx.getString(R.string.img_err_http, conn.responseCode, errText.take(200)))
         } finally {
             conn.disconnect()
         }
         val json = JSONObject(text)
         val item = json.optJSONArray("data")?.optJSONObject(0)
-            ?: throw java.io.IOException("响应缺少 data：${text.take(200)}")
+            ?: throw java.io.IOException(ctx.getString(R.string.img_err_no_data, text.take(200)))
         val b64 = item.optString("b64_json", "")
         val bytes = when {
             b64.isNotBlank() -> Base64.getDecoder().decode(b64)
             else -> {
                 val imgUrl = item.optString("url", "")
-                require(imgUrl.isNotBlank()) { "响应既无 b64_json 也无 url" }
+                require(imgUrl.isNotBlank()) { ctx.getString(R.string.img_err_no_image) }
                 (URL(imgUrl).openConnection() as HttpURLConnection).apply {
                     connectTimeout = 15_000; readTimeout = 60_000
                 }.inputStream.use { it.readBytes() }

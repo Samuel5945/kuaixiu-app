@@ -1,8 +1,12 @@
 package local.kuaixiu.engine
 
+import local.kuaixiu.R
+import local.kuaixiu.data.KxText
 import local.kuaixiu.data.Time
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.format.TextStyle
+import java.util.Locale
 
 /**
  * 快休计划引擎（从 scripts/plan_engine.py 移植，规则一一对应，见 reference/science-rules.md）：
@@ -11,59 +15,44 @@ import java.time.LocalDateTime
  */
 object PlanEngine {
 
-    val WEEKDAY_CN = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
+    /** 阶段值是数据（与 PC 端 plan.json 同一套取值，也被单测断言），只有显示时才翻。 */
+    const val STAGE_ADAPTING = "适应期"
+    const val STAGE_CONSOLIDATING = "巩固期"
 
-    val THEMES = mapOf(
-        1 to "锚定起床与睡前仪式",
-        2 to "光照与咖啡因",
-        3 to "屏幕与卧室环境",
-        4 to "巩固与破功预案",
-    )
+    fun phaseLabel(stage: String): String = KxText.s(
+        if (stage == STAGE_CONSOLIDATING) R.string.phase_consolidating else R.string.phase_adapting)
 
-    val TASK_POOL = mapOf(
-        1 to listOf(
-            "固定起床时间到！昨晚几点睡的？给自己打个分（1-5分）",
-            "起床后 30 分钟内拉开窗帘/到窗边待 10 分钟",
-            "睡前把手机放到离床 2 米外",
-            "睡前洗漱 + 5 分钟简单拉伸，固定仪式顺序",
-            "列出明天最重要的 1 件事，写完就不再想",
-        ),
-        2 to listOf(
-            "白天光照 ≥ 30 分钟（散步/晒太阳都算）",
-            "14:00 后不再碰咖啡/浓茶/可乐",
-            "晚饭不吃太晚太饱，睡前 2 小时结束进食",
-            "今晚不喝酒（酒精毁掉深睡眠）",
-            "下午困了就起身走 5 分钟，别靠咖啡续命",
-        ),
-        3 to listOf(
-            "睡前 45 分钟进入暖光模式：大灯换小灯",
-            "把明早要用的东西提前收拾好，减少早起决策",
-            "卧室调凉一点（18–22°C 更易入睡）",
-            "睡前把手机设为勿扰，通知清零",
-            "躺下后不刷手机；睡不着就 4-7-8 呼吸法",
-        ),
-        4 to listOf(
-            "连续 3 天在目标时间前 15 分钟上床，巩固成果",
-            "想出这周最容易破功的场景，写下一个应对动作",
-            "周末作息浮动不超过 ±30 分钟",
-            "把成功的一周告诉一个朋友（社会承诺）",
-            "给自己定一个 28 天完成奖励",
-        ),
-    )
+    /** 星期交给 CLDR 显示：中文「周二」、英文「Tue」，不再自建中文表。 */
+    fun weekdayOf(date: LocalDate): String =
+        date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())
 
-    val TIP_POOL = listOf(
-        "手机放离床 2 米外，刷手机欲望直接减半",
-        "早起一杯温水 + 10 分钟晨光照射，当晚入睡会更顺利",
-        "躺下睡不着？试试 4-7-8 呼吸法：吸气 4 秒-憋 7 秒-呼气 8 秒",
-        "睡前 30 分钟做拉伸或写日记，比刷手机助眠 10 倍",
-        "周末也保持 ±30 分钟作息浮动，别报复性熬夜",
-        "固定仪式的顺序比时长更重要，让身体学会'这套动作=要睡了'",
-    )
+    // 周主题 / 行动清单 / 小提示是内容文案，生成计划时按当前语言烘进 plan；
+    // 换系统语言后点「重算计划并写入日历」即刷新。
+    fun themeFor(week: Int): String = KxText.s(themeRes(week))
+
+    fun tasksFor(week: Int): List<String> = when (week) {
+        2 -> listOf(R.string.task_2_1, R.string.task_2_2, R.string.task_2_3, R.string.task_2_4, R.string.task_2_5)
+        3 -> listOf(R.string.task_3_1, R.string.task_3_2, R.string.task_3_3, R.string.task_3_4, R.string.task_3_5)
+        4 -> listOf(R.string.task_4_1, R.string.task_4_2, R.string.task_4_3, R.string.task_4_4, R.string.task_4_5)
+        else -> listOf(R.string.task_1_1, R.string.task_1_2, R.string.task_1_3, R.string.task_1_4, R.string.task_1_5)
+    }.map { KxText.s(it) }
+
+    fun tipFor(index: Int): String = KxText.s(TIP_IDS[index % TIP_IDS.size])
+
+    private fun themeRes(week: Int): Int = when (week) {
+        2 -> R.string.theme_2
+        3 -> R.string.theme_3
+        4 -> R.string.theme_4
+        else -> R.string.theme_1
+    }
+
+    private val TIP_IDS = listOf(
+        R.string.tip_1, R.string.tip_2, R.string.tip_3, R.string.tip_4, R.string.tip_5, R.string.tip_6)
 
     fun hhmmToMin(s: String): Int {
         val parts = s.trim().split(":")
         val v = parts[0].toInt() * 60 + parts[1].toInt()
-        require(v in 0..1439) { "非法时间: $s" }
+        require(v in 0..1439) { KxText.s(R.string.plan_err_time, s) }
         return v
     }
 
@@ -137,19 +126,20 @@ object PlanEngine {
             val n = i + 1
             val date = start.plusDays(i.toLong())
             val week = minOf(4, i / 7 + 1)
-            val stage = if (b == targetMin) "巩固期" else "适应期"
+            val stage = if (b == targetMin) STAGE_CONSOLIDATING else STAGE_ADAPTING
+            val pool = tasksFor(week)
             PlanDay(
                 day = n,
                 date = date.toString(),
-                weekday = WEEKDAY_CN[date.dayOfWeek.value - 1],
+                weekday = weekdayOf(date),
                 week = week,
                 stage = stage,
-                theme = THEMES[week]!!,
+                theme = themeFor(week),
                 bedtime = minToHHMM(b),
                 winddown = minToHHMM(b - windMin),
                 caffeineCutoff = minToHHMM(caffeineCutoff(b)),
-                tasks = List(3) { k -> TASK_POOL[week]!![(i * 3 + k) % TASK_POOL[week]!!.size] },
-                tip = TIP_POOL[i % TIP_POOL.size],
+                tasks = List(3) { k -> pool[(i * 3 + k) % pool.size] },
+                tip = tipFor(i),
             )
         }
 
@@ -180,40 +170,39 @@ object PlanEngine {
         for (d in plan.days) {
             val date = LocalDate.parse(d.date)
             val bedStart = winddownStartOf(d, windMin)
-            val stage = d.stage
+            val stage = phaseLabel(d.stage)
 
             evs += KxEvent(
                 kind = "bed",
-                title = "第${d.day}天 | 睡前准备 目标${d.bedtime}入睡",
-                description = "【${stage}·${d.theme}】\n目标入睡时间：${d.bedtime}\n\n行动清单：\n" +
-                    d.tasks.mapIndexed { i, t -> "  ${i + 1}. $t" }.joinToString("\n") +
-                    "\n\n小提示：${d.tip}",
+                title = KxText.s(R.string.ev_bed_title, d.day, d.bedtime),
+                description = KxText.s(R.string.ev_bed_desc, stage, d.theme, d.bedtime,
+                    d.tasks.mapIndexed { i, t -> "  ${i + 1}. $t" }.joinToString("\n"), d.tip),
                 start = bedStart, durationMin = windMin, alarmMin = 5,
             )
             evs += KxEvent(
                 kind = "wake",
-                title = "第${d.day}天 | 起床啦",
-                description = "【${stage}·${d.theme}】固定起床时间到！昨晚几点睡的？给自己打个分（1-5分）",
+                title = KxText.s(R.string.ev_wake_title, d.day),
+                description = KxText.s(R.string.ev_wake_desc, stage, d.theme),
                 start = date.atTime(wakeMin / 60, wakeMin % 60), durationMin = 15, alarmMin = 5,
             )
             val cMin = hhmmToMin(d.caffeineCutoff)
             evs += KxEvent(
                 kind = "caff",
-                title = "第${d.day}天 | 咖啡因截断",
-                description = "【${stage}·${d.theme}】从现在起不碰咖啡/浓茶/可乐——离入睡已不足 8 小时。",
+                title = KxText.s(R.string.ev_caff_title, d.day),
+                description = KxText.s(R.string.ev_caff_desc, stage, d.theme),
                 start = date.atTime(cMin / 60, cMin % 60), durationMin = 15, alarmMin = 0,
             )
             evs += KxEvent(
                 kind = "wrap",
-                title = "第${d.day}天 | 今晚收尾规划",
-                description = "【${stage}·${d.theme}】列出今晚最多 3 件收尾事项，做完就允许自己休息。",
+                title = KxText.s(R.string.ev_wrap_title, d.day),
+                description = KxText.s(R.string.ev_wrap_desc, stage, d.theme),
                 start = date.atTime(20, 0), durationMin = 30, alarmMin = 10,
             )
             if (d.day in plan.summary.checkpoints) {
                 evs += KxEvent(
                     kind = "review",
-                    title = "第${d.day}天 | 周复盘",
-                    description = "这周早睡达成几天？最大障碍是什么？下周怎么调整？\n坚持住，习惯正在形成！",
+                    title = KxText.s(R.string.ev_review_title, d.day),
+                    description = KxText.s(R.string.ev_review_desc),
                     start = date.atTime(21, 0), durationMin = 20, alarmMin = 5,
                 )
             }
