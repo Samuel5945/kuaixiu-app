@@ -6,13 +6,13 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 /**
- * App 级时间入口：默认东八区，KxStore 加载配置后更新。
+ * App 级时间入口：默认跟随系统时区，KxStore 加载配置后更新。
  * 避免 CalendarWriter 与 KxStore 互相引用形成循环依赖。
  */
 object Time {
 
     @Volatile
-    var defaultZone: ZoneId = ZoneId.of("Asia/Shanghai")
+    var defaultZone: ZoneId = ZoneId.systemDefault()
 
     fun zone(): ZoneId = defaultZone
 

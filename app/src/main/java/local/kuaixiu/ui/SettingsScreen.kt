@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -39,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -70,6 +72,15 @@ private val PROVIDER_PRESETS = listOf(
     ProviderPreset("基元律动", "https://tokenrhythm.studio/v1", "deepseek-v4-flash"),
 )
 
+// 常用时区（覆盖主要地区）；默认「跟随系统」，空串即跟随。冷门地区以后再补
+private val ZONE_CHOICES = listOf(
+    "Asia/Shanghai", "Asia/Hong_Kong", "Asia/Taipei", "Asia/Tokyo", "Asia/Seoul",
+    "Asia/Singapore", "Asia/Bangkok", "Asia/Kolkata", "Asia/Dubai",
+    "Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Moscow",
+    "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
+    "Australia/Sydney", "Pacific/Auckland", "UTC",
+)
+
 /**
  * 设置页。除「作息参数」外全部改动即时落盘、立即生效；
  * 只有作息参数需要重算计划并写日历（单独按钮，走 IO 线程）。
@@ -89,6 +100,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     var modelsBusy by remember { mutableStateOf(false) }
     var updateBusy by remember { mutableStateOf(false) }
     var updateDlg by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }
+    var zoneDlg by remember { mutableStateOf(false) }
 
     fun persist(nc: KxConfig) {
         cfg = nc
@@ -422,16 +434,19 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("时间与通知", style = MaterialTheme.typography.titleMedium)
-                    OutlinedTextField(
-                        value = cfg.timezone,
-                        onValueChange = { edit { c -> c.copy(timezone = it) } },
-                        label = { Text("时区 ID") },
-                        placeholder = { Text("Asia/Shanghai") },
-                        modifier = Modifier.fillMaxWidth(), singleLine = true,
-                    )
-                    Text("如 Asia/Shanghai、America/New_York。改后计划/提醒/教练时间均按此时区计算。",
-                         style = MaterialTheme.typography.bodySmall,
-                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("时区")
+                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                        TextButton(onClick = { zoneDlg = true }) {
+                            Text(
+                                (if (cfg.timezone.isBlank())
+                                    "跟随系统（${java.time.ZoneId.systemDefault().id}）" else cfg.timezone) + " ▾",
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(checked = cfg.notifyWinddown,
                                onCheckedChange = { edit { c -> c.copy(notifyWinddown = it) } })
@@ -508,6 +523,32 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             onSkip = {
                 Prefs.skipUpdate(ctx.applicationContext, info.version)
                 updateDlg = null
+            },
+        )
+    }
+
+    if (zoneDlg) {
+        AlertDialog(
+            onDismissRequest = { zoneDlg = false },
+            confirmButton = { TextButton(onClick = { zoneDlg = false }) { Text("关闭") } },
+            title = { Text("选择时区") },
+            text = {
+                val sysZone = java.time.ZoneId.systemDefault().id
+                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
+                    item {
+                        TextButton(onClick = {
+                            edit { c -> c.copy(timezone = "") }
+                            zoneDlg = false
+                        }) { Text("跟随系统（$sysZone）" + if (cfg.timezone.isBlank()) " ✓" else "") }
+                    }
+                    items(ZONE_CHOICES.size) { i ->
+                        val z = ZONE_CHOICES[i]
+                        TextButton(onClick = {
+                            edit { c -> c.copy(timezone = z) }
+                            zoneDlg = false
+                        }) { Text(z + if (cfg.timezone == z) " ✓" else "") }
+                    }
+                }
             },
         )
     }

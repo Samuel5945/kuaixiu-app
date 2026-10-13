@@ -24,7 +24,7 @@ data class KxConfig(
     val pcUploadCheckin: Boolean = false,
     val coachStyle: String = "gentle",
     val providerName: String = "",   // 当前激活的供应商档案名
-    val timezone: String = "Asia/Shanghai",  // App 统一时区（与系统日历一致）
+    val timezone: String = "",  // App 统一时区；空 = 跟随系统设置
     val notifyWinddown: Boolean = true,
     val notifyMorning: Boolean = true,
 ) {
@@ -41,9 +41,12 @@ data class KxConfig(
         if (isImageModel(llmModel)) llmModel else ""
     }
 
-    /** 当前配置时区（非法时回退到 Asia/Shanghai）。 */
-    fun zone(): java.time.ZoneId = runCatching { java.time.ZoneId.of(timezone) }
-        .getOrDefault(java.time.ZoneId.of("Asia/Shanghai"))
+    /** 当前配置时区；空（跟随系统）或非法都回退到系统设置里的时区。 */
+    fun zone(): java.time.ZoneId {
+        if (timezone.isBlank()) return java.time.ZoneId.systemDefault()
+        return runCatching { java.time.ZoneId.of(timezone) }
+            .getOrDefault(java.time.ZoneId.systemDefault())
+    }
 
     /** UI 展示用的掩码：前 4 位…后 4 位（sk-pq…dE58）。 */
     fun keyMasked(): String = when {
@@ -108,7 +111,7 @@ object Prefs {
             pcUploadCheckin = s.getBoolean("pcUploadCheckin", false),
             coachStyle = s.getString("coachStyle", null) ?: "gentle",
             providerName = s.getString("providerName", null) ?: "",
-            timezone = s.getString("timezone", null) ?: "Asia/Shanghai",
+            timezone = s.getString("timezone", "") ?: "",
             notifyWinddown = s.getBoolean("notifyWinddown", true),
             notifyMorning = s.getBoolean("notifyMorning", true),
         )
