@@ -54,6 +54,7 @@ import local.kuaixiu.data.Prefs
 import local.kuaixiu.data.ProviderProfiles
 import local.kuaixiu.data.UpdateChecker
 import local.kuaixiu.llm.CoachPrompt
+import local.kuaixiu.R
 import org.json.JSONObject
 
 private data class ProviderPreset(
@@ -185,7 +186,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 is UpdateChecker.Result.Available -> { updateBusy = false; updateDlg = r.info }
                 is UpdateChecker.Result.UpToDate -> {
                     updateBusy = false
-                    Toast.makeText(ctx, "已是最新版本", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(ctx, ctx.getString(R.string.upd_latest), Toast.LENGTH_SHORT).show()
                 }
                 is UpdateChecker.Result.Failed -> {
                     updateBusy = false

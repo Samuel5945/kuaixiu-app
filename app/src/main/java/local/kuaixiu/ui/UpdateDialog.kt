@@ -20,7 +20,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import local.kuaixiu.R
 import local.kuaixiu.data.UpdateChecker
 
 /**
@@ -38,13 +40,14 @@ fun UpdateDialog(
     val ctx = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("发现新版本 v${info.version}") },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("稍后") } },
-        dismissButton = { TextButton(onClick = onSkip) { Text("忽略此版本") } },
+        title = { Text(stringResource(R.string.upd_title, info.version)) },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.upd_later)) } },
+        dismissButton = { TextButton(onClick = onSkip) { Text(stringResource(R.string.upd_ignore)) } },
         text = {
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    "当前 v$current" + (info.releaseDate?.let { " · $it" } ?: ""),
+                    stringResource(R.string.upd_current, current) +
+                        (info.releaseDate?.let { " · $it" } ?: ""),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -62,8 +65,14 @@ fun UpdateDialog(
                 }
                 if (info.downloads.isNotEmpty()) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        info.downloads.forEach { (label, url) ->
-                            OutlinedButton(onClick = { openUrl(ctx, url) }) { Text(label) }
+                        info.downloads.forEach { (key, url) ->
+                            OutlinedButton(onClick = { openUrl(ctx, url) }) {
+                                Text(when (key) {
+                                    "quark" -> stringResource(R.string.dl_quark)
+                                    "baidu" -> stringResource(R.string.dl_baidu)
+                                    else -> stringResource(R.string.dl_site)
+                                })
+                            }
                         }
                     }
                 }
@@ -77,5 +86,5 @@ private fun openUrl(ctx: Context, url: String) {
         ctx.startActivity(
             Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
-    }.onFailure { Toast.makeText(ctx, "没有可打开链接的应用", Toast.LENGTH_SHORT).show() }
+    }.onFailure { Toast.makeText(ctx, ctx.getString(R.string.upd_no_browser), Toast.LENGTH_SHORT).show() }
 }

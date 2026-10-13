@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kuaixiu</string>
+
+    <!-- Bottom tabs -->
+    <string name="tab_home">Home</string>
+    <string name="tab_coach">Coach</string>
+    <string name="tab_pc">PC</string>
+    <string name="tab_settings">Settings</string>
+
+    <!-- Update check -->
+    <string name="upd_check_failed">Couldn\'t check for updates — the update source is unreachable right now. Try again later or check the website.</string>
+    <string name="upd_title">New version available: %1$s</string>
+    <string name="upd_current">You\'re on v%1$s</string>
+    <string name="upd_latest">You\'re on the latest version</string>
+    <string name="upd_later">Later</string>
+    <string name="upd_ignore">Skip this version</string>
+    <string name="dl_quark">Quark Drive</string>
+    <string name="dl_baidu">Baidu Drive</string>
+    <string name="dl_site">Website</string>
+    <string name="upd_no_browser">No app can open this link</string>
+</resources>

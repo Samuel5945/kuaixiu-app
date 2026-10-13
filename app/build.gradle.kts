@@ -34,6 +34,15 @@ android {
     packaging {
         resources.excludes += "META-INF/{AL2.0,LGPL2.1}"
     }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            all {
+                // Robolectric 运行时要拉 android-all jar，直连 Maven Central 太慢，走阿里云镜像
+                it.systemProperty("robolectric.dependency.repo.url", "https://maven.aliyun.com/repository/central")
+            }
+        }
+    }
 }
 
 dependencies {
@@ -51,5 +60,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // 单测跑在 JVM 上，android.jar 里的 org.json 是桩；换真实现才能测清单解析
     testImplementation("org.json:json:20240303")
+    // 逻辑层文案走资源后，单测要能解析真实 strings.xml（Robolectric 会按 @Config 限定符选语言）
+    testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation("androidx.test:core:1.6.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

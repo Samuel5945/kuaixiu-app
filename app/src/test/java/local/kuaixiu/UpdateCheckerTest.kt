@@ -44,7 +44,7 @@ class UpdateCheckerTest {
         assertEquals("0.8.0", info.version)
         assertEquals("2026-10-20", info.releaseDate)
         assertEquals(listOf("新评分口径", "修复连续天数清零"), info.notes)
-        assertEquals(listOf("夸克网盘", "百度网盘", "官网"), info.downloads.map { it.first })
+        assertEquals(listOf("quark", "baidu", "site"), info.downloads.map { it.first })
     }
 
     @Test fun `清单_notes可以是整段文本且缺的下载入口不出现`() {
@@ -53,7 +53,7 @@ class UpdateCheckerTest {
         )!!
         assertEquals("0.8.0", info.version)
         assertEquals(listOf("第一行", "第二行"), info.notes)
-        assertEquals(listOf("夸克网盘"), info.downloads.map { it.first })
+        assertEquals(listOf("quark"), info.downloads.map { it.first })
         assertNull(info.releaseDate)
     }
 

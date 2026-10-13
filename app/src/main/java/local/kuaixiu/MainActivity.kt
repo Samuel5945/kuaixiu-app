@@ -3,6 +3,7 @@ package local.kuaixiu
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
@@ -25,6 +26,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -50,13 +52,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private data class Tab(val idx: Int, val label: String, val icon: ImageVector)
+private data class Tab(val idx: Int, @StringRes val labelRes: Int, val icon: ImageVector)
 
 private val TABS = listOf(
-    Tab(0, "首页", Icons.Filled.Bedtime),
-    Tab(1, "教练", Icons.Filled.Forum),
-    Tab(2, "电脑", Icons.Filled.Computer),
-    Tab(3, "设置", Icons.Filled.Settings),
+    Tab(0, R.string.tab_home, Icons.Filled.Bedtime),
+    Tab(1, R.string.tab_coach, Icons.Filled.Forum),
+    Tab(2, R.string.tab_pc, Icons.Filled.Computer),
+    Tab(3, R.string.tab_settings, Icons.Filled.Settings),
 )
 
 @Composable
@@ -81,8 +83,8 @@ private fun App() {
                     NavigationBarItem(
                         selected = tab == t.idx,
                         onClick = { tab = t.idx },
-                        icon = { Icon(t.icon, contentDescription = t.label) },
-                        label = { Text(t.label) },
+                        icon = { Icon(t.icon, contentDescription = stringResource(t.labelRes)) },
+                        label = { Text(stringResource(t.labelRes)) },
                     )
                 }
             }

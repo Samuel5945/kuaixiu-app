@@ -3,6 +3,7 @@ package local.kuaixiu.data
 import android.content.Context
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import local.kuaixiu.R
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
@@ -16,7 +17,6 @@ import java.util.concurrent.TimeUnit
 object UpdateChecker {
 
     const val MANIFEST_URL = "https://ligdesign.win/kuaixiu-update.json"
-    const val SITE_PAGE = "https://ligdesign.win/kuaixiu"
 
     // 部分网关对默认 UA（okhttp/curl）会拦或给缓存页，装成浏览器最稳
     private const val UA =
@@ -27,7 +27,7 @@ object UpdateChecker {
         val version: String,
         val releaseDate: String?,
         val notes: List<String>,
-        /** (按钮文字, 链接)：夸克网盘 / 百度网盘 / 官网，清单里没给的就不出现。 */
+        /** (渠道键, 链接)：quark / baidu / site。标签交给界面按当前语言解析，这里保持纯函数可单测。 */
         val downloads: List<Pair<String, String>>,
     )
 
@@ -83,13 +83,8 @@ object UpdateChecker {
                 else -> emptyList()
             }
             val d = j.optJSONObject("downloads")
-            val downloads = buildList {
-                fun add(label: String, key: String) {
-                    d?.optString(key)?.trim()?.takeIf { it.isNotEmpty() }?.let { add(label to it) }
-                }
-                add("夸克网盘", "quark")
-                add("百度网盘", "baidu")
-                add("官网", "site")
+            val downloads = listOf("quark", "baidu", "site").mapNotNull { key ->
+                d?.optString(key)?.trim()?.takeIf { it.isNotEmpty() }?.let { key to it }
             }
             UpdateInfo(version, j.optString("releaseDate").trim().ifEmpty { null }, notes, downloads)
         } catch (_: Exception) {
@@ -106,7 +101,7 @@ object UpdateChecker {
         val text = try {
             fetch()
         } catch (_: Exception) {
-            return Result.Failed("检查更新失败：更新源暂时连不上，请稍后重试或前往官网查看")
+            return Result.Failed(KxText.s(R.string.upd_check_failed))
         }
         // 清单还没发布（软 404/硬 404 已被 fetch 拦下）或内容无效：按没有新版本处理
         val info = parseManifest(text) ?: return Result.UpToDate(current)
