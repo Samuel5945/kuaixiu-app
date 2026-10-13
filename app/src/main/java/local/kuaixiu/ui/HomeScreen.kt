@@ -490,12 +490,12 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
     var wakeOverride by remember { mutableStateOf("") }
     var showWakePick by remember { mutableStateOf(false) }
     var posterFile by remember { mutableStateOf<java.io.File?>(null) }   // 打卡后自动出的那张海报
-    // 风屏块只在「快到点 / 刚过点」时出现：风屏时刻前 1 小时起，到过点后 6 小时内。
-    // 白天不给——早上 7 点顶着「今晚风屏 00:30 开始」没意义，还把卡片撑得很长。
+    // 风屏块从「今晚」归属翻转（中午）起一直挂着，风屏开始后 6 小时才收走：
+    // 它要一直在列表里按到点时间参与排序，而不是到点前 1 小时才冒出来。
     val nowLdt = Time.now().toLocalDateTime()
     val winddownDay: PlanDay? = tonightEntry?.takeIf {
         val at = PlanEngine.winddownStartOf(it, KxStore.config.winddownMin)
-        !nowLdt.isBefore(at.minusMinutes(60)) && nowLdt.isBefore(at.plusHours(6))
+        nowLdt.isBefore(at.plusHours(6))
     }
     // 昨晚的结果记过了就收成一行，别让整张表单常年占着地方
     val nightRec = Checkins.all(ctx).firstOrNull { it.date == night.toString() }
