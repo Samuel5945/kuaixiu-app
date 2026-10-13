@@ -22,7 +22,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import local.kuaixiu.R
 import local.kuaixiu.data.HabitCheck
 import local.kuaixiu.data.Habits
 import local.kuaixiu.llm.ActionRunner
@@ -45,23 +47,24 @@ fun ReminderDialog(onDismiss: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("加一条提醒") },
+        title = { Text(stringResource(R.string.rem_title)) },
         confirmButton = {
             TextButton(
                 enabled = text.isNotBlank(),
                 onClick = {
                     ActionRunner.applyReminder(ctx, date, time, text.trim(), lead)
                         .onSuccess {
-                            Toast.makeText(ctx, "已加进日历「快休提醒」✅", Toast.LENGTH_LONG).show()
+                            Toast.makeText(ctx, ctx.getString(R.string.rem_added), Toast.LENGTH_LONG).show()
                             onDismiss()
                         }
                         .onFailure {
-                            Toast.makeText(ctx, "提醒写入失败：${it.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(ctx, ctx.getString(R.string.rem_failed, it.message ?: ""),
+                                Toast.LENGTH_LONG).show()
                         }
                 },
-            ) { Text("加进日历") }
+            ) { Text(stringResource(R.string.rem_add_btn)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } },
         text = {
             Column(
                 Modifier.fillMaxWidth(),
@@ -69,19 +72,21 @@ fun ReminderDialog(onDismiss: () -> Unit) {
             ) {
                 OutlinedTextField(
                     value = text, onValueChange = { text = it },
-                    label = { Text("提醒什么事") }, placeholder = { Text("喝水 / 吃药 / 接人") },
+                    label = { Text(stringResource(R.string.rem_what_label)) },
+                    placeholder = { Text(stringResource(R.string.rem_what_hint)) },
                     modifier = Modifier.fillMaxWidth(), singleLine = true,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DateField(date, "日期", Modifier.weight(1f)) { date = it }
-                    TimeField(time, "时间", Modifier.weight(1f)) { time = it }
+                    DateField(date, stringResource(R.string.common_date), Modifier.weight(1f)) { date = it }
+                    TimeField(time, stringResource(R.string.common_time), Modifier.weight(1f)) { time = it }
                 }
-                Text("提前", style = MaterialTheme.typography.labelSmall,
+                Text(stringResource(R.string.rem_lead_label), style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(0, 5, 10, 30).forEach { n ->
                         FilterChip(selected = lead == n, onClick = { lead = n },
-                            label = { Text(if (n == 0) "到点" else "${n}分") })
+                            label = { Text(stringResource(
+                                if (n == 0) R.string.rem_lead_at_time else R.string.rem_lead_n, n)) })
                     }
                 }
             }
@@ -107,41 +112,41 @@ fun HabitDialog(onDismiss: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("开一个新习惯") },
+        title = { Text(stringResource(R.string.habit_title)) },
         confirmButton = {
             TextButton(
                 enabled = name.isNotBlank() && !blocked,
                 onClick = {
                     when (val r = ActionRunner.applyHabitAdd(ctx, name.trim(), cue, days, start, ackCost)) {
                         is HabitCheck.Ok -> {
-                            Toast.makeText(ctx, "已写进日历「快休习惯」，连响 ${r.habit.days} 天 ✅",
+                            Toast.makeText(ctx, ctx.getString(R.string.habit_added, r.habit.days),
                                 Toast.LENGTH_LONG).show()
                             onDismiss()
                         }
                         is HabitCheck.QuotaFull -> {
                             if (!ackCost) {
                                 ackCost = true
-                                Toast.makeText(ctx, "同时开第 3 个，成功率明显下降——再点一次才真的加上",
+                                Toast.makeText(ctx, ctx.getString(R.string.habit_quota_again),
                                     Toast.LENGTH_LONG).show()
                             } else {
-                                Toast.makeText(ctx, "还是被拦下了：先暂停一个再开", Toast.LENGTH_LONG).show()
+                                Toast.makeText(ctx, ctx.getString(R.string.habit_quota_blocked),
+                                    Toast.LENGTH_LONG).show()
                             }
                         }
                         is HabitCheck.AnchorConflict -> Toast.makeText(ctx,
-                            "锚点和「${r.otherName}」只差 ${r.gapMin} 分钟，先错开时间", Toast.LENGTH_LONG).show()
+                            ctx.getString(R.string.habit_conflict_toast, r.otherName, r.gapMin),
+                            Toast.LENGTH_LONG).show()
                         is HabitCheck.Invalid -> Toast.makeText(ctx, r.reason, Toast.LENGTH_LONG).show()
                     }
                 },
             ) {
-                Text(
-                    when {
-                        check is HabitCheck.QuotaFull && !ackCost -> "我了解代价，照样加"
-                        else -> "开这个习惯"
-                    }
-                )
+                Text(stringResource(
+                    if (check is HabitCheck.QuotaFull && !ackCost) R.string.habit_ack_btn
+                    else R.string.habit_add_btn
+                ))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } },
         text = {
             Column(
                 Modifier.fillMaxWidth(),
@@ -149,35 +154,40 @@ fun HabitDialog(onDismiss: () -> Unit) {
             ) {
                 OutlinedTextField(
                     value = name, onValueChange = { name = it },
-                    label = { Text("习惯名（情境+动作）") }, placeholder = { Text("饭后散步10分钟") },
+                    label = { Text(stringResource(R.string.habit_name_label)) },
+                    placeholder = { Text(stringResource(R.string.habit_name_hint)) },
                     modifier = Modifier.fillMaxWidth(), singleLine = true,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TimeField(cue, "锚点时间", Modifier.weight(1f)) { cue = it }
-                    DateField(start, "开始日期", Modifier.weight(1f)) { start = it }
+                    TimeField(cue, stringResource(R.string.habit_cue_label), Modifier.weight(1f)) { cue = it }
+                    DateField(start, stringResource(R.string.set_start_date), Modifier.weight(1f)) { start = it }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("连响天数", style = MaterialTheme.typography.labelSmall,
+                    Text(stringResource(R.string.habit_days_label), style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         listOf(21, 66).forEach { n ->
                             FilterChip(selected = days == n, onClick = { days = n },
-                                label = { Text("${n}天") })
+                                label = { Text(stringResource(R.string.habit_days_n, n)) })
                         }
                         OutlinedTextField(
                             value = days.toString(), onValueChange = { s ->
                                 s.toIntOrNull()?.let { if (it in 1..365) days = it }
                             },
-                            label = { Text("自定") }, modifier = Modifier.weight(1f), singleLine = true,
+                            label = { Text(stringResource(R.string.habit_days_custom)) },
+                            modifier = Modifier.weight(1f), singleLine = true,
                         )
                     }
                 }
                 val hint = when (check) {
-                    is HabitCheck.AnchorConflict -> "锚点和「${check.otherName}」只差 ${check.gapMin} 分钟——" +
-                        "挨太近的两个执行意图会互相抵消，先错开时间。" to MaterialTheme.colorScheme.error
-                    is HabitCheck.QuotaFull -> "「${check.activeNames.joinToString("、")}」还在跑。" +
-                        "同时开第 3 个，研究里成功率明显下降，建议先跑稳这两个。" to MaterialTheme.colorScheme.tertiary
+                    is HabitCheck.AnchorConflict -> stringResource(
+                        R.string.habit_conflict_hint, check.otherName, check.gapMin
+                    ) to MaterialTheme.colorScheme.error
+                    is HabitCheck.QuotaFull -> stringResource(
+                        R.string.habit_quota_hint,
+                        check.activeNames.joinToString(stringResource(R.string.common_or))
+                    ) to MaterialTheme.colorScheme.tertiary
                     is HabitCheck.Invalid -> check.reason to MaterialTheme.colorScheme.error
                     else -> null
                 }

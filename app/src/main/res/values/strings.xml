@@ -19,4 +19,130 @@
     <string name="dl_baidu">百度网盘</string>
     <string name="dl_site">官网</string>
     <string name="upd_no_browser">没有可打开链接的应用</string>
+
+    <!-- 通用 -->
+    <string name="common_close">关闭</string>
+    <string name="common_selected">已选</string>
+
+    <!-- 设置页 -->
+    <string name="set_rhythm">作息参数</string>
+    <string name="set_current_bedtime">当前入睡</string>
+    <string name="set_target_bedtime">目标入睡</string>
+    <string name="set_wake">起床锚点</string>
+    <string name="set_start_date">开始日期</string>
+    <string name="set_plan_days">计划天数</string>
+    <string name="set_days_n">%1$d 天</string>
+    <string name="set_winddown">风屏时长（睡前放下手机）</string>
+    <string name="set_minutes_n">%1$d 分钟</string>
+    <string name="set_regenerate">重算计划并写入日历</string>
+    <string name="set_regenerating">重算中…</string>
+    <string name="set_apply_hint">其他设置改完即生效</string>
+    <string name="set_coach_style">教练风格</string>
+    <string name="style_gentle">温和陪伴</string>
+    <string name="style_strict">严格督军</string>
+    <string name="style_data">数据理性</string>
+    <string name="style_humor">幽默损友</string>
+    <string name="style_auto">自适应</string>
+    <string name="style_gentle_desc">温和陪伴：温暖、肯定微小进步、绝不指责。</string>
+    <string name="style_strict_desc">严格督军：短句、直接、破功一针见血但给下一步。</string>
+    <string name="style_data_desc">数据理性：偏差分钟、连续天数、达成率，结论先行。</string>
+    <string name="style_humor_desc">幽默损友：调侃带梗，笑完真的去睡。</string>
+    <string name="style_auto_desc">自适应：教练观察你的执行率与语气，逐渐匹配严格度。</string>
+    <string name="set_llm">AI 教练（OpenAI 兼容）</string>
+    <string name="set_base_url">base_url（OpenAI 兼容端点，通常带 /v1）</string>
+    <string name="set_paste_key">粘贴 API Key</string>
+    <string name="set_model">模型</string>
+    <string name="set_image_model">生图模型（从列表选会自动记住来自哪家；手填按当前文本这家算）</string>
+    <string name="set_fetch_models">拉取模型列表</string>
+    <string name="set_fetching">拉取中…</string>
+    <string name="set_save_key">保存 Key</string>
+    <string name="set_key_saved">Key 已加密保存</string>
+    <string name="set_need_key">先填 API Key</string>
+    <string name="set_empty_models">接口返回了空模型列表</string>
+    <string name="set_show_key">显示</string>
+    <string name="set_hide_key">隐藏</string>
+    <string name="set_models_title">模型列表</string>
+    <string name="set_models_text">文本模型（点选）</string>
+    <string name="set_models_image">生图模型（来自 %1$s，点选即归它管）</string>
+    <string name="set_current_provider">当前这家</string>
+    <string name="set_pc">电脑联动（可选）</string>
+    <string name="set_pc_url">PC 信息页地址</string>
+    <string name="set_pc_url_hint">留空 = 按局域网自动发现</string>
+    <string name="set_pc_found">已发现 %1$s</string>
+    <string name="set_pc_use">用它</string>
+    <string name="set_pc_none">未发现电脑：电脑上运行 KuaixiuTray，与手机连同一 Wi-Fi 即自动填入</string>
+    <string name="set_pc_upload">打卡自动上传电脑（同一 Wi-Fi 时）</string>
+    <string name="set_time">时间与通知</string>
+    <string name="tz_label">时区</string>
+    <string name="tz_follow_system">跟随系统（%1$s）</string>
+    <string name="tz_title">选择时区</string>
+    <string name="notify_winddown">风屏提醒</string>
+    <string name="notify_morning">晨间提醒</string>
+    <string name="set_about">关于</string>
+    <string name="about_version">快休 v%1$s</string>
+    <string name="upd_check">检查更新</string>
+    <string name="upd_checking">检查中…</string>
+    <string name="set_plan_done">计划已重算，写入 %1$d 个日历事件</string>
+    <string name="set_plan_failed">重算失败：%1$s</string>
+
+    <!-- 通用 -->
+    <string name="common_cancel">取消</string>
+    <string name="common_ok">确定</string>
+    <string name="common_pick">选择 %1$s</string>
+    <string name="picker_unset">未设置</string>
+    <string name="picker_today">今天</string>
+
+    <!-- 教练开场白 -->
+    <string name="chat_welcome_offline">离线教练（没配 LLM Key）：能识别「目标改到23:00」「昨晚1点睡的记一下」「明天08:00 提醒我 喝水」「建个习惯：饭后散步，20:30，21天」。想自由聊就去「设置」配 Key。</string>
+    <string name="chat_welcome">我是你的早睡教练。可以问我任何作息问题，也可以直接说「目标改到23:00」「昨晚1点睡的帮我打卡」。</string>
+
+    <!-- 电脑页 -->
+    <string name="pc_title">电脑端快休</string>
+    <string name="pc_url_hint">留空 = 自动发现</string>
+    <string name="pc_refresh">刷新</string>
+    <string name="pc_fetch_failed">%1$s（手机和电脑要在同一 Wi-Fi）</string>
+    <string name="pc_json_expand">查看原始 JSON（开放协议，可接其他 Agent）</string>
+    <string name="pc_json_collapse">收起原始 JSON</string>
+    <string name="pc_plan_title">计划（PC 端）</string>
+    <string name="pc_plan_active">进行中：第 %1$d/%2$d 天 · 目标入睡 %3$s</string>
+    <string name="pc_plan_pending">待开始：%1$s 起步，当前档 %2$s</string>
+    <string name="pc_plan_finished">已结束 · 巩固期目标 %1$s</string>
+    <string name="pc_plan_none">未生成</string>
+    <string name="pc_winddown">风屏 %1$s · %2$s</string>
+    <string name="pc_services">服务</string>
+    <string name="pc_info_page">信息页</string>
+    <string name="pc_up">🟢 在线</string>
+    <string name="pc_down">🔴 离线</string>
+    <string name="pc_agent_tasks">PC 督眠任务</string>
+    <string name="pc_next_run">下次 %1$s</string>
+    <string name="pc_recent_checkins">PC 端最近打卡</string>
+
+    <!-- 手动加提醒 / 建习惯 -->
+    <string name="common_date">日期</string>
+    <string name="common_time">时间</string>
+    <string name="common_or">、</string>
+    <string name="rem_title">加一条提醒</string>
+    <string name="rem_add_btn">加进日历</string>
+    <string name="rem_added">已加进日历「快休提醒」✅</string>
+    <string name="rem_failed">提醒写入失败：%1$s</string>
+    <string name="rem_what_label">提醒什么事</string>
+    <string name="rem_what_hint">喝水 / 吃药 / 接人</string>
+    <string name="rem_lead_label">提前</string>
+    <string name="rem_lead_at_time">到点</string>
+    <string name="rem_lead_n">%1$d分</string>
+    <string name="habit_title">开一个新习惯</string>
+    <string name="habit_add_btn">开这个习惯</string>
+    <string name="habit_ack_btn">我了解代价，照样加</string>
+    <string name="habit_added">已写进日历「快休习惯」，连响 %1$d 天 ✅</string>
+    <string name="habit_quota_again">同时开第 3 个，成功率明显下降——再点一次才真的加上</string>
+    <string name="habit_quota_blocked">还是被拦下了：先暂停一个再开</string>
+    <string name="habit_conflict_toast">锚点和「%1$s」只差 %2$d 分钟，先错开时间</string>
+    <string name="habit_conflict_hint">锚点和「%1$s」只差 %2$d 分钟——挨太近的两个执行意图会互相抵消，先错开时间。</string>
+    <string name="habit_quota_hint">「%1$s」还在跑。同时开第 3 个，研究里成功率明显下降，建议先跑稳这两个。</string>
+    <string name="habit_name_label">习惯名（情境+动作）</string>
+    <string name="habit_name_hint">饭后散步10分钟</string>
+    <string name="habit_cue_label">锚点时间</string>
+    <string name="habit_days_label">连响天数</string>
+    <string name="habit_days_n">%1$d天</string>
+    <string name="habit_days_custom">自定</string>
 </resources>

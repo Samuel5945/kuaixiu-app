@@ -19,4 +19,130 @@
     <string name="dl_baidu">Baidu Drive</string>
     <string name="dl_site">Website</string>
     <string name="upd_no_browser">No app can open this link</string>
+
+    <!-- Common -->
+    <string name="common_close">Close</string>
+    <string name="common_selected">Selected</string>
+
+    <!-- Settings -->
+    <string name="set_rhythm">Sleep schedule</string>
+    <string name="set_current_bedtime">Current bedtime</string>
+    <string name="set_target_bedtime">Target bedtime</string>
+    <string name="set_wake">Wake anchor</string>
+    <string name="set_start_date">Start date</string>
+    <string name="set_plan_days">Plan length</string>
+    <string name="set_days_n">%1$d days</string>
+    <string name="set_winddown">Wind-down (phone down before bed)</string>
+    <string name="set_minutes_n">%1$d min</string>
+    <string name="set_regenerate">Recompute plan and write to calendar</string>
+    <string name="set_regenerating">Recomputing…</string>
+    <string name="set_apply_hint">Other settings apply immediately</string>
+    <string name="set_coach_style">Coach style</string>
+    <string name="style_gentle">Gentle</string>
+    <string name="style_strict">Drill sergeant</string>
+    <string name="style_data">Data-driven</string>
+    <string name="style_humor">Wisecracker</string>
+    <string name="style_auto">Adaptive</string>
+    <string name="style_gentle_desc">Gentle: warm, credits small wins, never blames.</string>
+    <string name="style_strict_desc">Drill sergeant: short and direct, names a broken streak and gives the next step.</string>
+    <string name="style_data_desc">Data-driven: minutes off, streaks, completion rate, verdict first.</string>
+    <string name="style_humor_desc">Wisecracker: jokes and callbacks, then you actually go to sleep.</string>
+    <string name="style_auto_desc">Adaptive: the coach reads your follow-through and tone, then tunes strictness.</string>
+    <string name="set_llm">AI coach (OpenAI-compatible)</string>
+    <string name="set_base_url">base_url (OpenAI-compatible endpoint, usually ends in /v1)</string>
+    <string name="set_paste_key">Paste API key</string>
+    <string name="set_model">Model</string>
+    <string name="set_image_model">Image model (picking from the list remembers its provider; typing one uses the current text provider)</string>
+    <string name="set_fetch_models">Fetch model list</string>
+    <string name="set_fetching">Fetching…</string>
+    <string name="set_save_key">Save key</string>
+    <string name="set_key_saved">Key encrypted and saved</string>
+    <string name="set_need_key">Enter an API key first</string>
+    <string name="set_empty_models">The endpoint returned an empty model list</string>
+    <string name="set_show_key">Show</string>
+    <string name="set_hide_key">Hide</string>
+    <string name="set_models_title">Models</string>
+    <string name="set_models_text">Text models (tap to pick)</string>
+    <string name="set_models_image">Image models (from %1$s, tapping assigns the provider)</string>
+    <string name="set_current_provider">current provider</string>
+    <string name="set_pc">PC link (optional)</string>
+    <string name="set_pc_url">PC info-page address</string>
+    <string name="set_pc_url_hint">Leave blank to auto-discover on the LAN</string>
+    <string name="set_pc_found">Found %1$s</string>
+    <string name="set_pc_use">Use it</string>
+    <string name="set_pc_none">No PC found: run KuaixiuTray on your computer and join the same Wi-Fi to fill this in automatically</string>
+    <string name="set_pc_upload">Upload check-ins to the PC (same Wi-Fi)</string>
+    <string name="set_time">Time and notifications</string>
+    <string name="tz_label">Time zone</string>
+    <string name="tz_follow_system">System default (%1$s)</string>
+    <string name="tz_title">Choose time zone</string>
+    <string name="notify_winddown">Wind-down reminder</string>
+    <string name="notify_morning">Morning reminder</string>
+    <string name="set_about">About</string>
+    <string name="about_version">Kuaixiu v%1$s</string>
+    <string name="upd_check">Check for updates</string>
+    <string name="upd_checking">Checking…</string>
+    <string name="set_plan_done">Plan recomputed, %1$d calendar events written</string>
+    <string name="set_plan_failed">Recompute failed: %1$s</string>
+
+    <!-- Common -->
+    <string name="common_cancel">Cancel</string>
+    <string name="common_ok">OK</string>
+    <string name="common_pick">Choose %1$s</string>
+    <string name="picker_unset">Not set</string>
+    <string name="picker_today">Today</string>
+
+    <!-- Coach openers -->
+    <string name="chat_welcome_offline">Offline coach (no LLM key set): it understands \"move my target to 23:00\", \"I fell asleep at 1 last night\", \"remind me to drink water at 08:00 tomorrow\", \"new habit: walk after dinner, 20:30, 21 days\". Add a key in Settings to chat freely.</string>
+    <string name="chat_welcome">I\'m your early-sleep coach. Ask me anything about your schedule, or just say \"move my target to 23:00\" or \"I went to bed at 1 last night\".</string>
+
+    <!-- PC tab -->
+    <string name="pc_title">Kuaixiu on PC</string>
+    <string name="pc_url_hint">Leave blank to auto-discover</string>
+    <string name="pc_refresh">Refresh</string>
+    <string name="pc_fetch_failed">%1$s (phone and PC must be on the same Wi-Fi)</string>
+    <string name="pc_json_expand">Show raw JSON (open protocol, other agents can read it)</string>
+    <string name="pc_json_collapse">Hide raw JSON</string>
+    <string name="pc_plan_title">Plan (PC side)</string>
+    <string name="pc_plan_active">Active: day %1$d of %2$d · target bedtime %3$s</string>
+    <string name="pc_plan_pending">Not started: begins %1$s, current step %2$s</string>
+    <string name="pc_plan_finished">Finished · consolidation target %1$s</string>
+    <string name="pc_plan_none">Not generated</string>
+    <string name="pc_winddown">Wind-down %1$s · %2$s</string>
+    <string name="pc_services">Services</string>
+    <string name="pc_info_page">Info page</string>
+    <string name="pc_up">🟢 Online</string>
+    <string name="pc_down">🔴 Offline</string>
+    <string name="pc_agent_tasks">PC enforcement tasks</string>
+    <string name="pc_next_run">next %1$s</string>
+    <string name="pc_recent_checkins">Recent check-ins on PC</string>
+
+    <!-- Manual reminder / habit dialogs -->
+    <string name="common_date">Date</string>
+    <string name="common_time">Time</string>
+    <string name="common_or">", "</string>
+    <string name="rem_title">Add a reminder</string>
+    <string name="rem_add_btn">Add to calendar</string>
+    <string name="rem_added">Added to the \"Kuaixiu Reminders\" calendar ✅</string>
+    <string name="rem_failed">Couldn\'t write the reminder: %1$s</string>
+    <string name="rem_what_label">What should it remind you of?</string>
+    <string name="rem_what_hint">Water / meds / pick someone up</string>
+    <string name="rem_lead_label">Alert me</string>
+    <string name="rem_lead_at_time">on time</string>
+    <string name="rem_lead_n">%1$d min early</string>
+    <string name="habit_title">Start a new habit</string>
+    <string name="habit_add_btn">Start this habit</string>
+    <string name="habit_ack_btn">I know the cost — add it anyway</string>
+    <string name="habit_added">Written to the \"Kuaixiu Habits\" calendar, ringing for %1$d days ✅</string>
+    <string name="habit_quota_again">A third habit running at once hurts the success rate — tap again to confirm</string>
+    <string name="habit_quota_blocked">Still blocked: pause one before starting another</string>
+    <string name="habit_conflict_toast">Only %2$d minutes apart from \"%1$s\" — space them out</string>
+    <string name="habit_conflict_hint">Its anchor sits only %2$d minutes from \"%1$s\" — two implementation intentions that close together cancel each other out. Space them out.</string>
+    <string name="habit_quota_hint">\"%1$s\" are still running. Once a third habit starts, the success rate drops clearly in the research — steady these two first.</string>
+    <string name="habit_name_label">Habit name (situation + action)</string>
+    <string name="habit_name_hint">10-minute walk after dinner</string>
+    <string name="habit_cue_label">Anchor time</string>
+    <string name="habit_days_label">Days to ring</string>
+    <string name="habit_days_n">%1$d days</string>
+    <string name="habit_days_custom">Custom</string>
 </resources>

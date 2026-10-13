@@ -2,6 +2,7 @@ package local.kuaixiu.ui
 
 import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
+import local.kuaixiu.R
 import local.kuaixiu.data.ChatLog
 import local.kuaixiu.data.KxStore
 
@@ -28,11 +29,8 @@ object ChatStore {
         msgs.addAll(restored)
         if (msgs.isEmpty()) {
             val offline = KxStore.config.llmKey.isBlank()
-            msgs.add(ChatMsg("assistant", if (offline)
-                "离线教练（没配 LLM Key）：能识别「目标改到23:00」「昨晚1点睡的记一下」" +
-                    "「明天08:00 提醒我 喝水」「建个习惯：饭后散步，20:30，21天」。想自由聊就去「设置」配 Key。"
-            else
-                "我是你的早睡教练。可以问我任何作息问题，也可以直接说「目标改到23:00」「昨晚1点睡的帮我打卡」。"))
+            msgs.add(ChatMsg("assistant", ctx.getString(
+                if (offline) R.string.chat_welcome_offline else R.string.chat_welcome)))
         }
     }
 

@@ -1,6 +1,7 @@
 package local.kuaixiu.ui
 
 import android.widget.Toast
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -38,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -81,6 +83,25 @@ private val ZONE_CHOICES = listOf(
     "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
     "Australia/Sydney", "Pacific/Auckland", "UTC",
 )
+
+/** 风格键 → 资源 id：短标签与长说明各一套（中文在 values，英文在 values-en）。 */
+@StringRes
+private fun styleLabelRes(key: String): Int = when (key) {
+    "strict" -> R.string.style_strict
+    "data" -> R.string.style_data
+    "humor" -> R.string.style_humor
+    "auto" -> R.string.style_auto
+    else -> R.string.style_gentle
+}
+
+@StringRes
+private fun styleDescRes(key: String): Int = when (key) {
+    "strict" -> R.string.style_strict_desc
+    "data" -> R.string.style_data_desc
+    "humor" -> R.string.style_humor_desc
+    "auto" -> R.string.style_auto_desc
+    else -> R.string.style_gentle_desc
+}
 
 /**
  * 设置页。除「作息参数」外全部改动即时落盘、立即生效；
@@ -130,7 +151,9 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     }.getOrDefault(emptyList())
 
     fun fetchModels() {
-        if (cfg.llmKey.isBlank()) { Toast.makeText(ctx, "先填 API Key", Toast.LENGTH_SHORT).show(); return }
+        if (cfg.llmKey.isBlank()) {
+            Toast.makeText(ctx, ctx.getString(R.string.set_need_key), Toast.LENGTH_SHORT).show(); return
+        }
         modelsBusy = true; modelsErr = null
         // 记下生图列表来自哪家，点选时把这份归属一起存下来（文本供应商随后切走也不影响）
         val imgHome = if (cfg.imageProvider.isBlank()) cfg.providerName else {
@@ -145,7 +168,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 val textIds = idsAt(cfg.llmBaseUrl, cfg.llmKey)
                 val imageIds = if (imgBase.trimEnd('/') == cfg.llmBaseUrl.trimEnd('/')) textIds
                                else idsAt(imgBase, imgKey)
-                if (textIds.isEmpty() && imageIds.isEmpty()) error("接口返回了空模型列表")
+                if (textIds.isEmpty() && imageIds.isEmpty()) error(ctx.getString(R.string.set_empty_models))
                 ModelClassifier.classify(textIds).first to
                     imageIds.filter { ModelClassifier.isImageModel(it) }.sorted()
             }.onSuccess { (text, image) ->
@@ -165,12 +188,13 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             }.onSuccess { n ->
                 withContext(Dispatchers.Main) {
                     planBusy = false; cfg = KxStore.config
-                    Toast.makeText(ctx, "计划已重算，写入 $n 个日历事件", Toast.LENGTH_LONG).show()
+                    Toast.makeText(ctx, ctx.getString(R.string.set_plan_done, n), Toast.LENGTH_LONG).show()
                 }
             }.onFailure { e ->
                 withContext(Dispatchers.Main) {
                     planBusy = false; cfg = KxStore.config
-                    Toast.makeText(ctx, "重算失败：${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(ctx, ctx.getString(R.string.set_plan_failed, e.message ?: e.toString()),
+                        Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -204,46 +228,46 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("作息参数", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.set_rhythm), style = MaterialTheme.typography.titleMedium)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TimeField(cfg.currentBedtime, "当前入睡", Modifier.weight(1f)) {
+                        TimeField(cfg.currentBedtime, stringResource(R.string.set_current_bedtime), Modifier.weight(1f)) {
                             edit { c -> c.copy(currentBedtime = it) }
                         }
-                        TimeField(cfg.targetBedtime, "目标入睡", Modifier.weight(1f)) {
+                        TimeField(cfg.targetBedtime, stringResource(R.string.set_target_bedtime), Modifier.weight(1f)) {
                             edit { c -> c.copy(targetBedtime = it) }
                         }
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TimeField(cfg.wake, "起床锚点", Modifier.weight(1f)) {
+                        TimeField(cfg.wake, stringResource(R.string.set_wake), Modifier.weight(1f)) {
                             edit { c -> c.copy(wake = it) }
                         }
-                        DateField(cfg.startDate, "开始日期", Modifier.weight(1f)) {
+                        DateField(cfg.startDate, stringResource(R.string.set_start_date), Modifier.weight(1f)) {
                             edit { c -> c.copy(startDate = it) }
                         }
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("计划天数", style = MaterialTheme.typography.labelSmall,
+                        Text(stringResource(R.string.set_plan_days), style = MaterialTheme.typography.labelSmall,
                              color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(21, 28, 30).forEach { n ->
                                 FilterChip(
                                     selected = cfg.planDays == n,
                                     onClick = { edit { c -> c.copy(planDays = n) } },
-                                    label = { Text("$n 天") },
+                                    label = { Text(stringResource(R.string.set_days_n, n)) },
                                     modifier = Modifier.weight(1f),
                                 )
                             }
                         }
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("风屏时长（睡前放下手机）", style = MaterialTheme.typography.labelSmall,
+                        Text(stringResource(R.string.set_winddown), style = MaterialTheme.typography.labelSmall,
                              color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(30, 45, 60).forEach { n ->
                                 FilterChip(
                                     selected = cfg.winddownMin == n,
                                     onClick = { edit { c -> c.copy(winddownMin = n) } },
-                                    label = { Text("$n 分钟") },
+                                    label = { Text(stringResource(R.string.set_minutes_n, n)) },
                                     modifier = Modifier.weight(1f),
                                 )
                             }
@@ -253,9 +277,10 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Button(onClick = { regeneratePlan() }, enabled = !planBusy) {
-                            Text(if (planBusy) "重算中…" else "重算计划并写入日历")
+                            Text(stringResource(
+                                if (planBusy) R.string.set_regenerating else R.string.set_regenerate))
                         }
-                        Text("其他设置改完即生效",
+                        Text(stringResource(R.string.set_apply_hint),
                              style = MaterialTheme.typography.bodySmall,
                              color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -265,29 +290,23 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("教练风格", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.set_coach_style), style = MaterialTheme.typography.titleMedium)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        CoachPrompt.STYLES.forEach { (k, label) ->
+                        CoachPrompt.STYLE_KEYS.forEach { k ->
                             val selected = cfg.coachStyle == k
                             FilterChip(
                                 selected = selected,
                                 onClick = { edit { c -> c.copy(coachStyle = k) } },
-                                label = { Text(label) },
+                                label = { Text(stringResource(styleLabelRes(k))) },
                                 leadingIcon = if (selected) {
-                                    { Icon(Icons.Filled.Check, contentDescription = "已选",
+                                    { Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.common_selected),
                                           modifier = Modifier.size(18.dp)) }
                                 } else null,
                             )
                         }
                     }
                     Text(
-                        when (cfg.coachStyle) {
-                            "strict" -> "严格督军：短句、直接、破功一针见血但给下一步。"
-                            "data" -> "数据理性：偏差分钟、连续天数、达成率，结论先行。"
-                            "humor" -> "幽默损友：调侃带梗，笑完真的去睡。"
-                            "auto" -> "自适应：教练观察你的执行率与语气，逐渐匹配严格度。"
-                            else -> "温和陪伴：温暖、肯定微小进步、绝不指责。"
-                        },
+                        stringResource(styleDescRes(cfg.coachStyle)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -297,7 +316,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("AI 教练（OpenAI 兼容）", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.set_llm), style = MaterialTheme.typography.titleMedium)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         PROVIDER_PRESETS.forEach { preset ->
                             val p = ProviderProfiles.get(ctx, preset.name)
@@ -329,7 +348,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                                 },
                                 label = { Text(preset.name + keyHint) },
                                 leadingIcon = if (selected) {
-                                    { Icon(Icons.Filled.Check, contentDescription = "已选",
+                                    { Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.common_selected),
                                           modifier = Modifier.size(18.dp)) }
                                 } else null,
                             )
@@ -337,7 +356,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     }
                     OutlinedTextField(
                         value = cfg.llmBaseUrl, onValueChange = { editProvider { c -> c.copy(llmBaseUrl = it) } },
-                        label = { Text("base_url（OpenAI 兼容端点，通常带 /v1）") },
+                        label = { Text(stringResource(R.string.set_base_url)) },
                         modifier = Modifier.fillMaxWidth(), singleLine = true,
                     )
                     OutlinedTextField(
@@ -351,12 +370,13 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                                 }
                             }
                         },
-                        placeholder = { Text("粘贴 API Key") },
+                        placeholder = { Text(stringResource(R.string.set_paste_key)) },
                         visualTransformation = if (showKey) VisualTransformation.None
                                                else PasswordVisualTransformation(),
                         trailingIcon = {
                             val icon = if (showKey) Icons.Filled.VisibilityOff else Icons.Filled.Visibility
-                            Icon(icon, contentDescription = if (showKey) "隐藏" else "显示",
+                            Icon(icon, contentDescription = stringResource(
+                                if (showKey) R.string.set_hide_key else R.string.set_show_key),
                                  modifier = Modifier
                                      .padding(4.dp)
                                      .clickable { showKey = !showKey })
@@ -365,18 +385,18 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     )
                     OutlinedTextField(
                         value = cfg.llmModel, onValueChange = { editProvider { c -> c.copy(llmModel = it) } },
-                        label = { Text("模型") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                        label = { Text(stringResource(R.string.set_model)) }, modifier = Modifier.fillMaxWidth(), singleLine = true,
                     )
                     // 生图归属哪家由「这个模型是从哪家的列表里选的」决定，切文本供应商不动它
                     OutlinedTextField(
                         value = cfg.imageModel,
                         onValueChange = { edit { c -> c.copy(imageModel = it, imageProvider = cfg.providerName) } },
-                        label = { Text("生图模型（从列表选会自动记住来自哪家；手填按当前文本这家算）") },
+                        label = { Text(stringResource(R.string.set_image_model)) },
                         modifier = Modifier.fillMaxWidth(), singleLine = true,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = { fetchModels() }, enabled = !modelsBusy) {
-                            Text(if (modelsBusy) "拉取中…" else "拉取模型列表")
+                            Text(stringResource(if (modelsBusy) R.string.set_fetching else R.string.set_fetch_models))
                         }
                         OutlinedButton(onClick = {
                             val k = keyInput.trim()
@@ -387,8 +407,8 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                                 ProviderProfiles.put(ctx, cfg.providerName, cfg.llmBaseUrl, k,
                                     cfg.llmModel, cfg.imageModel)
                             }
-                            Toast.makeText(ctx, "Key 已加密保存", Toast.LENGTH_SHORT).show()
-                        }, enabled = keyInput.isNotBlank()) { Text("保存 Key") }
+                            Toast.makeText(ctx, ctx.getString(R.string.set_key_saved), Toast.LENGTH_SHORT).show()
+                        }, enabled = keyInput.isNotBlank()) { Text(stringResource(R.string.set_save_key)) }
                     }
                     modelsErr?.let {
                         Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -399,11 +419,11 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("电脑联动（可选）", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.set_pc), style = MaterialTheme.typography.titleMedium)
                     OutlinedTextField(
                         value = cfg.pcUrl, onValueChange = { edit { c -> c.copy(pcUrl = it) } },
-                        label = { Text("PC 信息页地址") },
-                        placeholder = { Text("留空 = 按局域网自动发现") },
+                        label = { Text(stringResource(R.string.set_pc_url)) },
+                        placeholder = { Text(stringResource(R.string.set_pc_url_hint)) },
                         modifier = Modifier.fillMaxWidth(), singleLine = true,
                     )
                     val found = LanSync.discoveredUrl
@@ -412,21 +432,24 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Text("已发现 $found", style = MaterialTheme.typography.bodySmall,
+                            Text(stringResource(R.string.set_pc_found, found),
+                                 style = MaterialTheme.typography.bodySmall,
                                  color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            TextButton(onClick = { edit { c -> c.copy(pcUrl = found) } }) { Text("用它") }
+                            TextButton(onClick = { edit { c -> c.copy(pcUrl = found) } }) {
+                                Text(stringResource(R.string.set_pc_use))
+                            }
                         }
-                        found != null -> Text("已发现 $found 🟢",
+                        found != null -> Text(stringResource(R.string.set_pc_found, found) + " 🟢",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        else -> Text("未发现电脑：电脑上运行 KuaixiuTray，与手机连同一 Wi-Fi 即自动填入",
+                        else -> Text(stringResource(R.string.set_pc_none),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(checked = cfg.pcUploadCheckin,
                                onCheckedChange = { edit { c -> c.copy(pcUploadCheckin = it) } })
-                        Text("  打卡自动上传电脑（同一 Wi-Fi 时）")
+                        Text("  " + stringResource(R.string.set_pc_upload))
                     }
                 }
             }
@@ -434,14 +457,16 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("时间与通知", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.set_time), style = MaterialTheme.typography.titleMedium)
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("时区")
+                        Text(stringResource(R.string.tz_label))
                         androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
                         TextButton(onClick = { zoneDlg = true }) {
                             Text(
                                 (if (cfg.timezone.isBlank())
-                                    "跟随系统（${java.time.ZoneId.systemDefault().id}）" else cfg.timezone) + " ▾",
+                                    stringResource(R.string.tz_follow_system,
+                                        java.time.ZoneId.systemDefault().id)
+                                else cfg.timezone) + " ▾",
                                 style = MaterialTheme.typography.bodySmall,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -451,12 +476,12 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(checked = cfg.notifyWinddown,
                                onCheckedChange = { edit { c -> c.copy(notifyWinddown = it) } })
-                        Text("  风屏提醒")
+                        Text("  " + stringResource(R.string.notify_winddown))
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(checked = cfg.notifyMorning,
                                onCheckedChange = { edit { c -> c.copy(notifyMorning = it) } })
-                        Text("  晨间提醒")
+                        Text("  " + stringResource(R.string.notify_morning))
                     }
                 }
             }
@@ -469,13 +494,13 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("关于", style = MaterialTheme.typography.titleMedium)
-                        Text("快休 v${UpdateChecker.currentVersion(ctx)}",
+                        Text(stringResource(R.string.set_about), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.about_version, UpdateChecker.currentVersion(ctx)),
                              style = MaterialTheme.typography.bodySmall,
                              color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     OutlinedButton(onClick = { checkUpdate() }, enabled = !updateBusy) {
-                        Text(if (updateBusy) "检查中…" else "检查更新")
+                        Text(stringResource(if (updateBusy) R.string.upd_checking else R.string.upd_check))
                     }
                 }
             }
@@ -486,11 +511,11 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     modelsDlg?.let { (text, image) ->
         AlertDialog(
             onDismissRequest = { modelsDlg = null },
-            confirmButton = { TextButton(onClick = { modelsDlg = null }) { Text("关闭") } },
-            title = { Text("模型列表") },
+            confirmButton = { TextButton(onClick = { modelsDlg = null }) { Text(stringResource(R.string.common_close)) } },
+            title = { Text(stringResource(R.string.set_models_title)) },
             text = {
                 Column(Modifier.fillMaxWidth()) {
-                    Text("文本模型（点选）", style = MaterialTheme.typography.labelSmall,
+                    Text(stringResource(R.string.set_models_text), style = MaterialTheme.typography.labelSmall,
                          color = MaterialTheme.colorScheme.onSurfaceVariant)
                     LazyColumn(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                         items(text.size) { i ->
@@ -501,7 +526,8 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                         }
                     }
                     if (image.isNotEmpty()) {
-                        Text("生图模型（来自 ${imgSrc.ifBlank { "当前这家" }}，点选即归它管）",
+                        Text(stringResource(R.string.set_models_image,
+                            imgSrc.ifBlank { stringResource(R.string.set_current_provider) }),
                              style = MaterialTheme.typography.labelSmall,
                              color = MaterialTheme.colorScheme.onSurfaceVariant)
                         image.forEach { m ->
@@ -531,8 +557,8 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     if (zoneDlg) {
         AlertDialog(
             onDismissRequest = { zoneDlg = false },
-            confirmButton = { TextButton(onClick = { zoneDlg = false }) { Text("关闭") } },
-            title = { Text("选择时区") },
+            confirmButton = { TextButton(onClick = { zoneDlg = false }) { Text(stringResource(R.string.common_close)) } },
+            title = { Text(stringResource(R.string.tz_title)) },
             text = {
                 val sysZone = java.time.ZoneId.systemDefault().id
                 LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
@@ -540,7 +566,8 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                         TextButton(onClick = {
                             edit { c -> c.copy(timezone = "") }
                             zoneDlg = false
-                        }) { Text("跟随系统（$sysZone）" + if (cfg.timezone.isBlank()) " ✓" else "") }
+                        }) { Text(stringResource(R.string.tz_follow_system, sysZone) +
+                            if (cfg.timezone.isBlank()) " ✓" else "") }
                     }
                     items(ZONE_CHOICES.size) { i ->
                         val z = ZONE_CHOICES[i]

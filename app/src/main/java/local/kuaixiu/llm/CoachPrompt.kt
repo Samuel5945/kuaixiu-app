@@ -16,10 +16,8 @@ object CoachPrompt {
     private val TZ get() = KxStore.config.zone()
 
     /** 教练风格预设（设置页可选；auto = 让教练在对话中自适应）。 */
-    val STYLES = linkedMapOf(
-        "gentle" to "温和陪伴", "strict" to "严格督军", "data" to "数据理性",
-        "humor" to "幽默损友", "auto" to "自适应",
-    )
+    /** 风格键（顺序即界面顺序）；展示名交给资源，中英文各一套。 */
+    val STYLE_KEYS = listOf("gentle", "strict", "data", "humor", "auto")
 
     fun styleLine(style: String): String = when (style) {
         "strict" -> "【教练风格】严格督军：直接、短句、要求明确；破功时一针见血，但永远给出清晰的下一步动作；不侮辱人。"

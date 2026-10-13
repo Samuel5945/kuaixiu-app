@@ -30,6 +30,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import local.kuaixiu.R
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
@@ -74,8 +76,8 @@ private fun PickerDialog(
                         Modifier.align(Alignment.End).padding(end = 8.dp, bottom = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        TextButton(onClick = onDismiss) { Text("取消") }
-                        TextButton(onClick = onConfirm) { Text("确定") }
+                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+                        TextButton(onClick = onConfirm) { Text(stringResource(R.string.common_ok)) }
                     }
                 }
             }
@@ -88,7 +90,8 @@ private fun PickerDialog(
 @Composable
 fun TimeField(value: String, label: String, modifier: Modifier = Modifier, onChange: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    PickerCard(modifier, label, value.ifBlank { "未设置" }, Icons.Filled.Schedule) { open = true }
+    PickerCard(modifier, label, value.ifBlank { stringResource(R.string.picker_unset) },
+        Icons.Filled.Schedule) { open = true }
     if (open) {
         TimePickerDialog(value, onDismiss = { open = false }, onConfirm = { onChange(it); open = false })
     }
@@ -114,7 +117,7 @@ fun DateField(value: String, label: String, modifier: Modifier = Modifier, onCha
     var open by remember { mutableStateOf(false) }
     val display = runCatching { LocalDate.parse(value) }
         .map { "%02d-%02d".format(it.monthValue, it.dayOfMonth) }
-        .getOrDefault(value.ifBlank { "今天" })
+        .getOrDefault(value.ifBlank { stringResource(R.string.picker_today) })
     PickerCard(modifier, label, display, Icons.Filled.Event, bigValue = false) { open = true }
     if (open) {
         val init = runCatching { LocalDate.parse(value) }
@@ -142,7 +145,7 @@ private fun PickerCard(
     bigValue: Boolean = true,
     onClick: () -> Unit,
 ) {
-    Card(modifier.clickable(onClickLabel = "选择$label") { onClick() }) {
+    Card(modifier.clickable(onClickLabel = stringResource(R.string.common_pick, label)) { onClick() }) {
         Row(
             Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
