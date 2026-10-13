@@ -48,7 +48,9 @@ import local.kuaixiu.data.KxConfig
 import local.kuaixiu.data.KxStore
 import local.kuaixiu.data.LanSync
 import local.kuaixiu.data.ModelClassifier
+import local.kuaixiu.data.Prefs
 import local.kuaixiu.data.ProviderProfiles
+import local.kuaixiu.data.UpdateChecker
 import local.kuaixiu.llm.CoachPrompt
 import org.json.JSONObject
 
@@ -85,6 +87,8 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     var imgSrc by remember { mutableStateOf("") }  // 本次生图列表来自哪家
     var modelsErr by remember { mutableStateOf<String?>(null) }
     var modelsBusy by remember { mutableStateOf(false) }
+    var updateBusy by remember { mutableStateOf(false) }
+    var updateDlg by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }
 
     fun persist(nc: KxConfig) {
         cfg = nc
@@ -154,6 +158,26 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 withContext(Dispatchers.Main) {
                     planBusy = false; cfg = KxStore.config
                     Toast.makeText(ctx, "重算失败：${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    /** 手动检查更新：必有反馈（弹窗 / 已是最新 / 失败提示），忽略记录不拦截手动检查。 */
+    fun checkUpdate() {
+        updateBusy = true
+        scope.launch {
+            when (val r = withContext(Dispatchers.IO) {
+                UpdateChecker.check(ctx.applicationContext, manual = true)
+            }) {
+                is UpdateChecker.Result.Available -> { updateBusy = false; updateDlg = r.info }
+                is UpdateChecker.Result.UpToDate -> {
+                    updateBusy = false
+                    Toast.makeText(ctx, "已是最新版本", Toast.LENGTH_SHORT).show()
+                }
+                is UpdateChecker.Result.Failed -> {
+                    updateBusy = false
+                    Toast.makeText(ctx, r.message, Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -421,6 +445,25 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 }
             }
         }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("关于", style = MaterialTheme.typography.titleMedium)
+                        Text("快休 v${UpdateChecker.currentVersion(ctx)}",
+                             style = MaterialTheme.typography.bodySmall,
+                             color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    OutlinedButton(onClick = { checkUpdate() }, enabled = !updateBusy) {
+                        Text(if (updateBusy) "检查中…" else "检查更新")
+                    }
+                }
+            }
+        }
     }
 
     // 模型列表对话框（文本可选 / 生图仅展示）
@@ -453,6 +496,18 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                         }
                     }
                 }
+            },
+        )
+    }
+
+    updateDlg?.let { info ->
+        UpdateDialog(
+            info = info,
+            current = UpdateChecker.currentVersion(ctx),
+            onDismiss = { updateDlg = null },
+            onSkip = {
+                Prefs.skipUpdate(ctx.applicationContext, info.version)
+                updateDlg = null
             },
         )
     }

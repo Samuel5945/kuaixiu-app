@@ -139,6 +139,16 @@ object Prefs {
         }
     }
 
+    /** 「忽略此版本」记录的版本号（更新检测用）；空 = 没忽略过。 */
+    fun skippedUpdate(ctx: Context): String =
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+            .getString("skippedUpdateVersion", "") ?: ""
+
+    fun skipUpdate(ctx: Context, version: String) {
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
+            .putString("skippedUpdateVersion", version).apply()
+    }
+
     /** 从 files/plan.json 导入（exe 经 adb 推送后的入口）。 */
     fun importPlanFromFile(ctx: Context): Plan? = runCatching {
         val f = java.io.File(ctx.filesDir, "plan.json")
