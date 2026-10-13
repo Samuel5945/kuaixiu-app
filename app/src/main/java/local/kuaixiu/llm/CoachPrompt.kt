@@ -70,7 +70,7 @@ object CoachPrompt {
         val imageModel = KxStore.config.effectiveImageModel()
         val imgPart = if (imageModel.isNotBlank())
             "生图模型已配置（$imageModel），可以使用生图工具。"
-        else "生图模型未配置，不要提供生图。"
+        else "生图模型未配置，不要提供生图；但做分享海报（poster）仍然可以——底图用 App 内置的。"
         val recent = Checkins.all(ctx).takeLast(7)
             .joinToString("；") { "${it.date}:${it.status}" + if (it.bedtime.isNotBlank()) "(${it.bedtime})" else "" }
         val habitLine = Habits.statusLine()
@@ -106,11 +106,12 @@ $imgPart
 【动作协议】（只在需要改计划、记打卡、加提醒、建习惯、生图时使用；普通回答不用）
 **铁律：嘴上说「已加/帮你建好了/这就安排」却没调用工具或输出块，等于什么都没做。**
 优先调用已提供的工具函数；若工具不可用，在回复最后另起一行输出：
-```kuaixiu {"action":"adjust|checkin|reminder|habit|image", ...}```
+```kuaixiu {"action":"adjust|checkin|reminder|habit|image|poster", ...}```
 动作字段看工具描述；Markdown 兜底格式要求：一次一个块，块内一个 JSON，半角引号，无注释无尾逗号。
 关键限制：
 - 提醒/习惯的 text/name 必须逐字准确；取消提醒的 text 要与原提醒完全一致。
 - 习惯 add 时同名即修改；两个进行中习惯的锚点需相隔 60 分钟以上，上限 2 个。
+- 做海报（poster）任何时候都能用：数字由 App 从本地记录排版，你不用写数字；
 - 生图仅在【当前状态】显示"生图模型已配置"时可用；prompt 是画面描述，不要带文字渲染要求。""".trimIndent()
     }
 }

@@ -227,13 +227,17 @@ class LlmClient(private val baseUrl: String, private val apiKey: String) {
                     optInt(args, "days")?.let { put("days", it) }
                     optStr(args, "startDate")?.let { put("startDate", it) }
                 }
+                "make_poster" -> JSONObject().apply {
+                    put("action", "poster")
+                    optStr(args, "template")?.let { put("template", it.uppercase()) }
+                }
                 "generate_image" -> JSONObject().apply {
                     put("action", "image")
                     optStr(args, "prompt")?.let { put("prompt", it) }
                     optStr(args, "ratio")?.let { put("ratio", it) }
                 }
                 // 兼容模型把 action 字段直接塞进 arguments 的情况
-                else -> if (action.isNotBlank() && action in setOf("adjust", "checkin", "reminder", "habit", "image")) args else null
+                else -> if (action.isNotBlank() && action in setOf("adjust", "checkin", "reminder", "habit", "image", "poster")) args else null
             }
         }
 
@@ -311,6 +315,17 @@ class LlmClient(private val baseUrl: String, private val apiKey: String) {
                         put("cueTime", timeProp("每日固定锚点 HH:MM，add 时必填"))
                         put("days", intProp("连续提醒天数，add 时默认 21"))
                         put("startDate", dateProp("开始日期 YYYY-MM-DD，add 时省略=今天"))
+                    })
+                }
+            ))
+            put(tool(
+                "make_poster", "做分享海报：连续天数/评分/放下手机时刻由 App 本地排版，不写画；" +
+                    "没配生图模型也能用（走 App 内置底图）",
+                JSONObject().apply {
+                    put("type", "object")
+                    put("properties", JSONObject().apply {
+                        put("template", enumProp(listOf("A", "B", "C", "D"),
+                            "A=打卡纪念（连续天数巨字）B=奖章圆环 C=杂志「放下了手机」D=周报横条；默认 A"))
                     })
                 }
             ))

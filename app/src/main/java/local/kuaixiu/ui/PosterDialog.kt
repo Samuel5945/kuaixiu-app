@@ -10,7 +10,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -40,22 +39,27 @@ fun PosterDialog(onDismiss: () -> Unit) {
     // 没配生图模型就默认本地出图：那条路本来也调不通生图，别让人白等一次失败
     val hasImageModel = local.kuaixiu.data.KxStore.config.effectiveImageModel().isNotBlank()
     var localOnly by remember { mutableStateOf(!hasImageModel) }
+    var done by remember { mutableStateOf<java.io.File?>(null) }
 
     fun run(tpl: PosterTemplate, mode: PosterMode) {
         busy = true
-        Toast.makeText(ctx, "生成中…（要调生图，约半分钟）", Toast.LENGTH_SHORT).show()
+        // 本地出图不调模型，别说"要调生图"——提示得跟实际走的那条路一致
+        val local = mode == PosterMode.LOCAL_ONLY || (mode == PosterMode.LOCAL_POSTER && tpl == PosterTemplate.D)
+        Toast.makeText(ctx, if (local) "本地出图中…" else "生成中…（要调生图，约半分钟）",
+            Toast.LENGTH_SHORT).show()
         // KxScope.app 跑在 Dispatchers.Default：Toast 和 Compose 状态必须切回主线程，
         // 否则 "Can't create handler inside thread that has not called Looper.prepare()" 直接把 App 崩掉
         KxScope.app.launch {
             val r = runCatching { PosterFlow.make(ctx, tpl, mode) }
             withContext(Dispatchers.Main) {
                 busy = false
-                r.onSuccess { f -> Toast.makeText(ctx, "已存进相册：${f.name}", Toast.LENGTH_LONG).show() }
+                r.onSuccess { f -> done = f }
                     .onFailure { e -> Toast.makeText(ctx, "生成失败：${e.message}", Toast.LENGTH_LONG).show() }
             }
         }
-        onDismiss()
     }
+
+    done?.let { f -> PosterResultDialog(file = f, onDismiss = { done = null; onDismiss() }) }
 
     val items = listOf(
         Triple("打卡纪念（本地叠字）", "底图 + 巨大连续天数，打卡后自动弹的那版", PosterTemplate.A),
@@ -68,7 +72,7 @@ fun PosterDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
-        title = { Text("做分享海报") },
+        title = { Text(if (busy) "正在出图…" else "做分享海报") },
         text = {
             Column(Modifier.fillMaxWidth()) {
                 // 调试/没额度时用：不出生图，只看字和数据摆得对不对（整行可点，别只让那个小开关能点）

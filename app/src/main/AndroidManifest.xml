@@ -21,6 +21,17 @@
             </intent-filter>
         </receiver>
 
+        <!-- 分享海报要走 content:// 给别的 App 读，不能直接给 file:// 路径 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="local.kuaixiu.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

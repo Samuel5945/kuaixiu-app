@@ -78,6 +78,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
     var input by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var menuIdx by remember { mutableStateOf<Int?>(null) }   // 长按气泡弹出的复制/多选/删除菜单
+    var posterResult by remember { mutableStateOf<java.io.File?>(null) }  // 做完的海报，弹保存/分享
     var selecting by remember { mutableStateOf(false) }      // 多选模式（气泡和动作卡都能选）
     val picked = remember { mutableStateListOf<Int>() }
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
@@ -88,6 +89,9 @@ fun ChatScreen(modifier: Modifier = Modifier) {
     LaunchedEffect(rows.size) {
         if (rows.isNotEmpty()) listState.animateScrollToItem(rows.size - 1)
     }
+
+    // 做好了就弹出来：先看一眼，再决定分享还是收下
+    posterResult?.let { f -> PosterResultDialog(file = f, onDismiss = { posterResult = null }) }
 
     Column(modifier = modifier.fillMaxSize().imePadding().padding(12.dp)) {
         if (selecting) {
@@ -122,7 +126,29 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                 val toggle = { if (r.idx in picked) picked.remove(r.idx) else picked.add(r.idx) }
                 Box(Modifier.fillMaxWidth()) {
                 if (aj != null) {
-                    ActionCard(aj, onImage = { prompt, ratio ->
+                    ActionCard(aj, onPoster = { tpl, onResult ->
+                        val t = when (tpl.uppercase()) {
+                            "B" -> local.kuaixiu.data.PosterTemplate.B
+                            "C" -> local.kuaixiu.data.PosterTemplate.C
+                            "D" -> local.kuaixiu.data.PosterTemplate.D
+                            else -> local.kuaixiu.data.PosterTemplate.A
+                        }
+                        // 没配生图模型就直接用内置底图——不该因为缺个模型就让这条路走不通
+                        val mode = if (KxStore.config.effectiveImageModel().isNotBlank())
+                            local.kuaixiu.data.PosterMode.LOCAL_POSTER
+                        else local.kuaixiu.data.PosterMode.LOCAL_ONLY
+                        Toast.makeText(ctx, "做海报中…", Toast.LENGTH_SHORT).show()
+                        local.kuaixiu.KxScope.app.launch {
+                            runCatching { local.kuaixiu.data.PosterFlow.make(ctx, t, mode) }
+                                .onSuccess { f -> kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                    posterResult = f; onResult(true)
+                                } }
+                                .onFailure { e -> kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                    Toast.makeText(ctx, "做海报失败：${e.message}", Toast.LENGTH_LONG).show()
+                                    onResult(false)
+                                } }
+                        }
+                    }, onImage = { prompt, ratio ->
                         val genIdx = msgs.size
                         ChatStore.addTransient(ChatMsg("assistant", "🎨 生图中…（约半分钟）"))
                         val size = if (ratio.equals("portrait", ignoreCase = true))
@@ -387,9 +413,11 @@ fun ChatScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: String) -> Unit) {
+private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: String) -> Unit,
+                       onPoster: (template: String, onResult: (ok: Boolean) -> Unit) -> Unit) {
     val ctx = LocalContext.current
     var applied by remember { mutableStateOf(false) }
+    var posterDone by remember { mutableStateOf(false) }
     val parsedAction = runCatching { JSONObject(actionJson) }.getOrNull()
     val action = parsedAction
     val kind = action?.optString("action") ?: ""
@@ -417,7 +445,7 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
     // 同名 add 就是"改这个习惯"（协议里没有 edit 动作，教练说"改成明天开始"只会再发一次 add）
     val habitUpdate = habit != null && habit.op == "add" &&
         Habits.items.any { it.name.trim() == habit.name.trim() }
-    val actionable = kind in setOf("adjust", "checkin", "image", "reminder", "habit")
+    val actionable = kind in setOf("adjust", "checkin", "image", "reminder", "habit", "poster")
     // 删除按钮的显示条件看"东西还在不在"，不看 applied——applied 不落盘，重启后旧卡也该能删
     val remindText = action.optString("text")
     val reminderExists = remember(actionJson) {
@@ -454,6 +482,18 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
                         Text("🎨 已交给画师，成品马上贴在下面 ↓", style = MaterialTheme.typography.bodySmall,
                              color = MaterialTheme.colorScheme.secondary)
                     }
+                }
+                "poster" -> {
+                    val tpl = action.optString("template").ifBlank { "A" }
+                    Text("🖼 教练想做一张分享海报：", style = MaterialTheme.typography.titleSmall)
+                    Text(when (tpl) {
+                        "B" -> "奖章圆环版"
+                        "C" -> "杂志版「昨晚我在 00:38 放下了手机」"
+                        "D" -> "周报版（7 根横条 = 每晚评分）"
+                        else -> "打卡纪念版（巨大连续天数）"
+                    })
+                    Text("数字由 App 从本地记录排版，不经过模型", style = MaterialTheme.typography.bodySmall,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 "reminder" -> {
                     val when_ = listOf(action.optString("date"), action.optString("time"))
@@ -637,11 +677,23 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
                         applied = true
                         onImage(action.optString("prompt"), action.optString("ratio"))
                     }
+                    "poster" -> {
+                        applied = true
+                        onPoster(action.optString("template").ifBlank { "A" }) { ok ->
+                            if (ok) posterDone = true else applied = false
+                        }
+                    }
                 }
             }, enabled = !applied && !habitBlocked) {
                 val cancel = kind == "reminder" && action.optString("op") == "cancel"
                 Text(when {
                     kind == "image" -> if (applied) "已交给画师 ✓" else "🎨 生成这张助眠图"
+                    kind == "poster" -> when {
+                        posterDone -> "海报已生成 ✓"
+                        applied -> "已在做海报…"
+                        else -> "🖼 做这张海报"
+                    }
+                    kind == "checkin" -> if (applied) "已记上 ✓" else "记上这笔"
                     cancel -> if (applied) "已删掉 ✓" else "删掉这个提醒"
                     kind == "reminder" -> if (applied) "已加进日历 ✓" else "加进日历"
                     kind == "habit" -> when {
@@ -775,6 +827,8 @@ private fun validateAction(action: JSONObject): String? {
                 ?.let { "「$it」格式应为 HH:MM" }
         }
         "image" -> if (action.optString("prompt").isBlank()) "画面描述不能为空" else null
+        // 模板随便填都能用：认不出来就当 A，不做成报错卡
+        "poster" -> null
         else -> null
     }
 }

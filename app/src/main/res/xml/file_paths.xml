@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 分享海报/生图用：只暴露 files 下的 poster 与 gen_images，不给整个数据目录 -->
+    <files-path name="posters" path="posters/" />
+    <files-path name="gen_images" path="gen_images/" />
+</paths>
