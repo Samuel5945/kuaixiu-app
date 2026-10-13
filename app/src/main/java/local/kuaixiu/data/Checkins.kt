@@ -16,10 +16,13 @@ import java.time.Duration
 data class Checkin(
     val date: String,          // ISO：这一夜所属的计划日（傍晚起算）
     val status: String = "",   // on_time / late / skip（结果打卡，次日早上记）
-    val bedtime: String = "",  // 实际入睡 HH:MM
+    val bedtime: String = "",  // 实际入睡 HH:MM（**手填**：他自己觉得几点睡着的）
     val note: String = "",
     val winddownAt: String = "", // 今晚风屏开始 HH:MM（过程打卡，当天记）
     val wakeupAt: String = "",   // 今早首次拿起手机 HH:MM（起床代理，次日早上记）
+    // 自动探测的"放下手机"时刻（UsageProbe.estimateOnset）——比手填的 bedtime 客观，
+    // 周报按它算均值/画点阵；老记录没有这个字段，反序列化默认空串。
+    val phoneDownAt: String = "",
 )
 
 object Checkins {

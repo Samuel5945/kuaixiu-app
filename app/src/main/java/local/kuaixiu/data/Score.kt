@@ -2,7 +2,8 @@ package local.kuaixiu.data
 
 import local.kuaixiu.engine.PlanEngine
 
-/** 每日评分：风屏 40 + 入睡 40 + 起床锚点 20，量纲是"偏差分钟"。 */
+/** 每日评分：风屏 30 + 入睡 30 + 起床锚点 40，量纲是"偏差分钟"。
+ *  起床权重最高——手册口径里"起床锚点固定比入睡时间更重要"，卡面三项细分也要按这个顺序显示。 */
 object Score {
 
     data class Result(val total: Int, val winddown: Int, val sleep: Int, val wake: Int, val notes: List<String>)
@@ -27,14 +28,14 @@ object Score {
         val w = checkin?.winddownAt
         when {
             w.isNullOrBlank() -> notes += "风屏未记录"
-            plannedWinddown == null -> { wind = 20; notes += "风屏已执行" }
+            plannedWinddown == null -> { wind = 15; notes += "风屏已执行" }
             else -> {
                 val d = diffMinutes(plannedWinddown, w)
                 wind = when {
-                    d == null -> 20
-                    d in -10..10 -> 40
-                    d in -30..30 -> 25
-                    else -> 10
+                    d == null -> 15
+                    d in -10..10 -> 30
+                    d in -30..30 -> 19
+                    else -> 8
                 }
                 notes += "风屏${if ((d ?: 0) >= 0) "晚" else "早"} ${kotlin.math.abs(d ?: 0)} 分钟"
             }
@@ -43,16 +44,19 @@ object Score {
         val b = checkin?.bedtime
         when {
             b.isNullOrBlank() -> notes += "入睡未记录"
-            plannedBedtime == null -> { sleep = 20; notes += "入睡已记录" }
+            plannedBedtime == null -> { sleep = 15; notes += "入睡已记录" }
             else -> {
                 val d = diffMinutes(plannedBedtime, b)
+                // 早睡不是越多越好：早 30 分钟以内照满分，「困了可提前睡」；早 30–60 给过渡档；
+                // 早 1 小时以上会在生物钟觉醒高峰前睡着 → 前半夜耗完睡眠压力、3-4 点早醒，反而扣得多。
                 sleep = when {
-                    d == null -> 20
-                    d <= -60 -> 15.also { notes += "比计划早睡 ${-d} 分钟（过早上床）" }
-                    d <= 30 -> 40.also { notes += "入睡准时" }
-                    d <= 60 -> 25.also { notes += "晚睡 $d 分钟" }
-                    d <= 120 -> 10.also { notes += "晚睡 $d 分钟" }
-                    else -> 5.also { notes += "晚睡 $d 分钟" }
+                    d == null -> 15
+                    d <= -60 -> 11.also { notes += "比计划早睡 ${-d} 分钟（过早上床）" }
+                    d < -30 -> 22.also { notes += "比计划早睡 ${-d} 分钟" }
+                    d <= 30 -> 30.also { notes += "入睡准时" }
+                    d <= 60 -> 19.also { notes += "晚睡 $d 分钟" }
+                    d <= 120 -> 8.also { notes += "晚睡 $d 分钟" }
+                    else -> 4.also { notes += "晚睡 $d 分钟" }
                 }
             }
         }
@@ -60,19 +64,24 @@ object Score {
         val k = checkin?.wakeupAt
         when {
             k.isNullOrBlank() -> notes += "起床未记录"
-            wakeAnchor == null -> { wake = 10; notes += "起床已记录" }
+            wakeAnchor == null -> { wake = 20; notes += "起床已记录" }
             else -> {
                 val d = diffMinutes(wakeAnchor, k)
                 wake = when {
-                    d == null -> 10
-                    kotlin.math.abs(d) <= 30 -> 20.also { notes += "起床锚点守住（$d 分钟）" }
-                    kotlin.math.abs(d) <= 60 -> 10.also { notes += "起床偏 ${if (d >= 0) "晚" else "早"} ${kotlin.math.abs(d)} 分钟" }
+                    d == null -> 20
+                    kotlin.math.abs(d) <= 30 -> 40.also { notes += "起床锚点守住（$d 分钟）" }
+                    kotlin.math.abs(d) <= 60 -> 20.also { notes += "起床偏 ${if (d >= 0) "晚" else "早"} ${kotlin.math.abs(d)} 分钟" }
                     else -> 0.also { notes += "起床偏 ${if (d >= 0) "晚" else "早"} ${kotlin.math.abs(d)} 分钟" }
                 }
             }
         }
         return Result(wind + sleep + wake, wind, sleep, wake, notes)
     }
+
+    /** 卡面用的三项满分，别在 UI 里写死数字。 */
+    const val MAX_WINDDOWN = 30
+    const val MAX_SLEEP = 30
+    const val MAX_WAKE = 40
 
     /** 风格化评语（App 内评分卡 / 未来复盘用）。 */
     fun voice(style: String, r: Result): String = when (style) {

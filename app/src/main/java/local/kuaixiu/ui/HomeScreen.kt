@@ -453,6 +453,13 @@ private fun ScoreCard() {
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(Score.voice(KxStore.config.coachStyle, r), style = MaterialTheme.typography.bodyMedium)
+            // 扣分项一眼可见：三项细分 + 各自满分（权重跟手册口径一致：起床最重）
+            Text(
+                "风屏 ${r.winddown}/${Score.MAX_WINDDOWN} · 入睡 ${r.sleep}/${Score.MAX_SLEEP} · " +
+                    "起床 ${r.wake}/${Score.MAX_WAKE}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             val notes = if (autoWinddown != null && c0?.winddownAt.isNullOrBlank())
                 r.notes.filterNot { it.contains("风屏") }.joinToString("；")
                     .ifBlank { "暂无明细" } + "；风屏已自动记录（最后亮屏 $autoWinddown）"
@@ -704,7 +711,10 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
             ) {
                 Button(onClick = {
                     val wakeup = facts?.firstMorningPickup?.format(fmt) ?: ""
-                    val c = Checkin(night.toString(), status, bedtime.trim(), note.trim(), wakeupAt = wakeup)
+                    // 放下手机时刻自动探测（熄屏优先，否则最后交互 +2 分钟）：手填的入睡不可靠，周报按这个算
+                    val phoneDown = facts?.let { UsageProbe.estimateOnset(it)?.format(fmt) } ?: ""
+                    val c = Checkin(night.toString(), status, bedtime.trim(), note.trim(),
+                        wakeupAt = wakeup, phoneDownAt = phoneDown)
                     Checkins.add(ctx, c)
                     if (KxStore.config.pcUploadCheckin) {
                         scope.launch(Dispatchers.IO) {
