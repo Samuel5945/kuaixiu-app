@@ -479,7 +479,6 @@ private fun ScoreCard() {
 private fun CheckinCard(tonightEntry: PlanDay?) {
     val ctx = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    var status by remember { mutableStateOf("on_time") }
     val night = Time.today().minusDays(1)
     val nightEntry = KxStore.plan?.entryFor(night.toString())
     // 预设目标入睡：昨晚在计划内用昨晚档位；计划外（含计划前夜晚）用当晚实际基准
@@ -487,6 +486,10 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
     var bedtime by remember(night) { mutableStateOf(presetTarget) }
     var note by remember { mutableStateOf("") }
     var showPick by remember { mutableStateOf(false) }
+    // 早上起床：空 = 用自动探测的首次拿起；非空 = 手选覆盖（海报和「起床 40 分」都按它算）
+    var wakeOverride by remember { mutableStateOf("") }
+    var showWakePick by remember { mutableStateOf(false) }
+    var posterFile by remember { mutableStateOf<java.io.File?>(null) }   // 打卡后自动出的那张海报
     // 风屏块只在「快到点 / 刚过点」时出现：风屏时刻前 1 小时起，到过点后 6 小时内。
     // 白天不给——早上 7 点顶着「今晚风屏 00:30 开始」没意义，还把卡片撑得很长。
     val nowLdt = Time.now().toLocalDateTime()
@@ -600,13 +603,11 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
                     )
                     TextButton(onClick = {
                         nightRec.bedtime.takeIf { it.isNotBlank() }?.let { bedtime = it }
-                        nightRec.status.takeIf { it.isNotBlank() }?.let { status = it }
                         editing = true
                     }) { Text("改一下") }
                 }
                 return@Column   // 已打卡就一行收尾，不再往下画整张表单
             }
-            Text("😴 昨晚入睡", style = MaterialTheme.typography.titleMedium)
             var usageDenied by remember { mutableStateOf(false) }
             var facts by remember { mutableStateOf<UsageProbe.NightFacts?>(null) }
             LaunchedEffect(night) {
@@ -621,27 +622,78 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
                 facts = UsageProbe.nightFacts(ctx, wd, anchor, Time.now().toLocalDateTime())
             }
             val fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+
+            // —— 早上起床（放在「昨晚入睡」上面）：默认自动探测，可手选覆盖 ——
+            val autoWake = facts?.firstMorningPickup
+            val wakeShown = wakeOverride.ifBlank { autoWake?.format(fmt).orEmpty() }
+            Text("☀️ 早上起床", style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) {
+                    OutlinedTextField(
+                        value = wakeShown, onValueChange = {},
+                        readOnly = true, singleLine = true,
+                        label = { Text("起床时间", maxLines = 1) },
+                        trailingIcon = { Icon(Icons.Filled.Schedule, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Box(
+                        Modifier.matchParentSize()
+                            .clickable(onClickLabel = "选择起床时间") { showWakePick = true }
+                            .semantics { contentDescription = "起床时间 ${wakeShown.ifBlank { "未记录" }}，点按选择时间" },
+                    )
+                }
+                if (wakeOverride.isNotBlank()) {
+                    TextButton(onClick = { wakeOverride = "" }) { Text("用自动") }
+                }
+            }
+            // 跟「昨晚最后亮屏」对应的那行：系统探测的原始事实，不随手选改变
+            autoWake?.let { w ->
+                val devTxt = Score.diffMinutes(KxStore.config.wake, w.format(fmt))?.let { d ->
+                    if (d >= 0) "目标差 +$d 分钟" else "目标差 $d 分钟"
+                }
+                Text("📱 今早首次亮屏 ${w.format(fmt)}" + (devTxt?.let { "（$it）" } ?: ""),
+                    style = MaterialTheme.typography.bodySmall)
+            }
+            if (showWakePick) {
+                TimePickerDialog(
+                    wakeOverride.ifBlank { autoWake?.format(fmt) ?: KxStore.config.wake },
+                    onDismiss = { showWakePick = false },
+                    onConfirm = { wakeOverride = it; showWakePick = false },
+                )
+            }
+            Text("😴 昨晚入睡", style = MaterialTheme.typography.titleMedium)
+            // 跟「起床时间」同一款排版：整宽字段，点整块开时间盘
+            Box(Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = bedtime, onValueChange = {},
+                    readOnly = true, singleLine = true,
+                    label = { Text("实际入睡", maxLines = 1) },
+                    trailingIcon = { Icon(Icons.Filled.Schedule, contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Box(
+                    Modifier.matchParentSize()
+                        .clickable(onClickLabel = "选择入睡时间") { showPick = true }
+                        .semantics { contentDescription = "实际入睡 $bedtime，点按选择时间" },
+                )
+            }
             facts?.let { f2 ->
-                val inMorning = Time.now().toLocalTime().hour in 4..12
-                val pickup = if (inMorning) f2.firstMorningPickup else null
+                val pickup = f2.firstMorningPickup
                 val lastOn = f2.lastInteractive?.takeIf { pickup == null || it < pickup }
                 if (lastOn != null) {
-                    Text("📱 昨晚最后亮屏 ${lastOn.format(fmt)}（放下手机）",
+                    // 放下手机的目标 = 昨晚计划的风屏开始时刻；计划外的一夜没有目标就只报事实
+                    val devTxt = nightEntry?.let { e ->
+                        Score.diffMinutes(
+                            PlanEngine.winddownStartOf(e, KxStore.config.winddownMin).toLocalTime().format(fmt),
+                            lastOn.format(fmt),
+                        )?.let { d -> if (d >= 0) "目标差 +$d 分钟" else "目标差 $d 分钟" }
+                    }
+                    Text("📱 昨晚最后亮屏 ${lastOn.format(fmt)}" + (devTxt?.let { "（$it）" } ?: "（放下手机）"),
                         style = MaterialTheme.typography.bodySmall)
                 } else if (pickup != null) {
                     Text("📱 昨晚风屏后未再亮屏 ✅（直到今早拿起）",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.secondary)
-                }
-                pickup?.let {
-                    val anchorT = java.time.LocalTime.parse(KxStore.config.wake)
-                    val dev = java.time.Duration.between(anchorT, java.time.LocalTime.from(it)).toMinutes()
-                    val devTxt = if (dev >= 0) "+$dev 分钟" else "$dev 分钟"
-                    Text("☀️ 今早首次拿起 ${it.format(fmt)}（锚点 ${KxStore.config.wake} $devTxt）",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (kotlin.math.abs(dev) <= 30) MaterialTheme.colorScheme.secondary
-                                else MaterialTheme.colorScheme.error,
-                    )
                 }
                 LaunchedEffect(f2) { /* 预填改由下方 chips 显式选择 */ }
             }
@@ -651,70 +703,33 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
                         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
                 }) { Text("授予「使用情况访问」权限，自动记录入睡/起床事实 →") }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("on_time" to "准时入睡", "late" to "迟睡了", "skip" to "没做到").forEach { (k, label) ->
-                    FilterChip(
-                        selected = status == k,
-                        onClick = { status = k },
-                        label = { Text(label) },
-                    )
-                }
-            }
+            // 状态不手选，保存时按「实际入睡 vs 目标」自检；时间就靠上面那个字段
             val target = nightEntry?.bedtime ?: KxStore.config.currentBedtime
-            run {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(selected = bedtime == target, onClick = { bedtime = target },
-                        label = { Text("目标 $target") })
-                    facts?.let { f2 ->
-                        UsageProbe.estimateOnset(f2)?.let { est ->
-                            val estS = est.format(fmt)
-                            FilterChip(selected = bedtime == estS, onClick = { bedtime = estS },
-                                label = { Text("📱 $estS") })
-                        }
-                    }
-                    }
-                if (showPick) {
-                    TimePickerDialog(
-                        bedtime,
-                        onDismiss = { showPick = false },
-                        onConfirm = { bedtime = it; showPick = false },
-                    )
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // 时间不靠手打：整块可点，开时间选择器（和「自选…」同一个）。
-                // 覆盖一层透明可点区，readOnly 输入框自己会吃掉点击，外面这层才收得到。
-                Box(Modifier.weight(1f)) {
-                    OutlinedTextField(
-                        value = bedtime, onValueChange = {},
-                        readOnly = true, singleLine = true,
-                        label = { Text("实际入睡", maxLines = 1) },
-                        trailingIcon = { Icon(Icons.Filled.Schedule, contentDescription = null) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    // 覆盖层要带语义，否则输入框本身会被它盖掉，读屏和 uiautomator 都看不见这一格
-                    Box(
-                        Modifier.matchParentSize()
-                            .clickable(onClickLabel = "选择入睡时间") { showPick = true }
-                            .semantics { contentDescription = "实际入睡 $bedtime，点按选择时间" },
-                    )
-                }
-                OutlinedTextField(
-                    value = note, onValueChange = { note = it },
-                    // 标签写短一点：窄栏里「备注（可选）」会折成两行，把这一格撑高、跟左边对不齐
-                    label = { Text("备注", maxLines = 1) }, placeholder = { Text("可选") },
-                    modifier = Modifier.weight(1f), singleLine = true,
+            if (showPick) {
+                TimePickerDialog(
+                    bedtime,
+                    onDismiss = { showPick = false },
+                    onConfirm = { bedtime = it; showPick = false },
                 )
             }
+            OutlinedTextField(
+                value = note, onValueChange = { note = it },
+                label = { Text("备注", maxLines = 1) }, placeholder = { Text("可选") },
+                modifier = Modifier.fillMaxWidth(), singleLine = true,
+            )
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Button(onClick = {
-                    val wakeup = facts?.firstMorningPickup?.format(fmt) ?: ""
+                    // 状态自检：比目标晚 30 分钟以内算准时，再晚算迟睡
+                    val d = Score.diffMinutes(target, bedtime.trim())
+                    val autoStatus = if (d != null && d > 30) "late" else "on_time"
+                    // 手选优先；没手选就用自动探测的首次拿起
+                    val wakeup = wakeOverride.ifBlank { facts?.firstMorningPickup?.format(fmt) ?: "" }
                     // 放下手机时刻自动探测（熄屏优先，否则最后交互 +2 分钟）：手填的入睡不可靠，周报按这个算
                     val phoneDown = facts?.let { UsageProbe.estimateOnset(it)?.format(fmt) } ?: ""
-                    val c = Checkin(night.toString(), status, bedtime.trim(), note.trim(),
+                    val c = Checkin(night.toString(), autoStatus, bedtime.trim(), note.trim(),
                         wakeupAt = wakeup, phoneDownAt = phoneDown)
                     Checkins.add(ctx, c)
                     if (KxStore.config.pcUploadCheckin) {
@@ -725,6 +740,20 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
                     note = ""
                     editing = false   // 记完收成一行；bedtime 留着，点「改一下」时还是这条记录
                     Toast.makeText(ctx, "已打卡 ✅", Toast.LENGTH_SHORT).show()
+                    // 打卡后自动出一张 A 版海报（内置底图秒出）：看一眼，再决定存/分享
+                    local.kuaixiu.KxScope.app.launch {
+                        runCatching {
+                            local.kuaixiu.data.PosterFlow.make(ctx,
+                                local.kuaixiu.data.PosterTemplate.A,
+                                local.kuaixiu.data.PosterMode.LOCAL_ONLY)
+                        }.onSuccess { f ->
+                            kotlinx.coroutines.withContext(Dispatchers.Main) { posterFile = f }
+                        }.onFailure { e ->
+                            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                Toast.makeText(ctx, "海报没生成：${e.message}", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
                 }) { Text("保存打卡") }
                 // 展开后能收回去（有记录可回时才给，否则收起来就没内容了）
                 if (nightRec != null) {
@@ -745,6 +774,8 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
             }
         }
     }
+    // 打卡后自动出的海报：先看一眼，再决定存/分享
+    posterFile?.let { f -> PosterResultDialog(file = f, onDismiss = { posterFile = null }) }
 }
 
 @Composable
