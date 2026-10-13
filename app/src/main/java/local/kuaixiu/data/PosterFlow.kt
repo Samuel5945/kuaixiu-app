@@ -27,8 +27,9 @@ enum class PosterMode(val label: String) {
  */
 object PosterFlow {
 
-    /** 内置底图：从历史生图里留下的三张（竖幅给 A/B，方形给 C）。 */
+    /** 内置底图：从历史生图里留下的四张（A/B 竖幅各一张，C 方形两张）。 */
     private const val ASSET_TALL = "poster_bg/tall_sea.jpg"
+    private const val ASSET_MEDAL = "poster_bg/tall_forest.jpg"
     private val ASSET_SQUARE = listOf("poster_bg/square_cabin.jpg", "poster_bg/square_monkey.jpg")
 
     /** 各版式的出图尺寸：跟最终版面 1:1，别让模型画完再被裁。 */
@@ -64,8 +65,11 @@ object PosterFlow {
 
     /** 内置底图：不联网也能出海报（也是生图失败时的兜底）。 */
     fun builtinBg(ctx: Context, tpl: PosterTemplate, dayIndex: Int) = runCatching {
-        val path = if (tpl == PosterTemplate.C) ASSET_SQUARE[Math.floorMod(dayIndex, ASSET_SQUARE.size)]
-        else ASSET_TALL
+        val path = when (tpl) {
+            PosterTemplate.C -> ASSET_SQUARE[Math.floorMod(dayIndex, ASSET_SQUARE.size)]
+            PosterTemplate.B -> ASSET_MEDAL
+            else -> ASSET_TALL
+        }
         ctx.assets.open(path).use { BitmapFactory.decodeStream(it) }
     }.getOrNull()
 
