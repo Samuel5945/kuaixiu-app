@@ -6,12 +6,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,6 +41,48 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 
+/**
+ * 选择器外壳。不用 M3 的 DatePickerDialog / AlertDialog：前者最小宽度 360dp，比这块屏（约 359dp）
+ * 还宽，必然左右顶到屏幕边；后者要把内容裁高，一裁高就得滚，一滚就多出那条滚动条。
+ *
+ * 卡片宽度必须跟着内容走：按钮行一旦 fillMaxWidth，卡片就被撑满整屏，而列是默认左对齐的，
+ * 256dp 的表盘会贴着左边、右边空出一大块。所以按钮用 align(End) 而不撑宽。
+ * scale 只给日期用（月历 360dp 放不下），时间盘按原密度渲染，别把 48dp 的选点热区缩小。
+ */
+@Composable
+private fun PickerDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    scale: Float = 0.9f,
+    content: @Composable () -> Unit,
+) {
+    val density = LocalDensity.current
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(shape = RoundedCornerShape(28.dp), tonalElevation = 6.dp) {
+                Column {
+                    CompositionLocalProvider(
+                        LocalDensity provides Density(density.density * scale, density.fontScale),
+                    ) { content() }
+                    Row(
+                        Modifier.align(Alignment.End).padding(end = 8.dp, bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        TextButton(onClick = onDismiss) { Text("取消") }
+                        TextButton(onClick = onConfirm) { Text("确定") }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /** 选择卡片：label 小字 + 当前值大字 + 图标，整卡可点，值对读屏可见。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,21 +90,21 @@ fun TimeField(value: String, label: String, modifier: Modifier = Modifier, onCha
     var open by remember { mutableStateOf(false) }
     PickerCard(modifier, label, value.ifBlank { "未设置" }, Icons.Filled.Schedule) { open = true }
     if (open) {
-        val init = runCatching { LocalTime.parse(value) }.getOrElse { LocalTime.of(23, 0) }
-        val st = rememberTimePickerState(initialHour = init.hour, initialMinute = init.minute, is24Hour = true)
-        AlertDialog(
-            onDismissRequest = { open = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    onChange("%02d:%02d".format(st.hour, st.minute)); open = false
-                }) { Text("确定") }
-            },
-            dismissButton = { TextButton(onClick = { open = false }) { Text("取消") } },
-            text = { Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
-                TimePicker(state = st)
-            } },
-        )
+        TimePickerDialog(value, onDismiss = { open = false }, onConfirm = { onChange(it); open = false })
     }
+}
+
+/** 时间选择弹窗。表盘固定 256dp，只能放在宽度不受限的外壳里，见 [PickerDialog] 注释。 */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TimePickerDialog(value: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    val init = runCatching { LocalTime.parse(value) }.getOrElse { LocalTime.of(23, 0) }
+    val st = rememberTimePickerState(initialHour = init.hour, initialMinute = init.minute, is24Hour = true)
+    PickerDialog(
+        onDismiss = onDismiss,
+        onConfirm = { onConfirm("%02d:%02d".format(st.hour, st.minute)) },
+        scale = 1f,
+    ) { TimePicker(state = st, modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) }
 }
 
 /** 选择卡片：日期版，值为 ISO yyyy-MM-dd（空 = 今天）。 */
@@ -83,40 +121,15 @@ fun DateField(value: String, label: String, modifier: Modifier = Modifier, onCha
             .getOrElse { LocalDate.now() }
             .atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
         val st = rememberDatePickerState(initialSelectedDateMillis = init)
-        val density = LocalDensity.current
-        // 自己开 Dialog，不用 M3 的 DatePickerDialog：后者最小宽度 360dp，比这块屏（约 359dp）还宽，
-        // 必然左右顶到屏幕边。这里 0.9 密度把月历缩一点，再靠居中留出四周留白（矢量缩放，字不糊）。
-        Dialog(
-            onDismissRequest = { open = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false),
-        ) {
-            Box(
-                Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Surface(shape = RoundedCornerShape(28.dp), tonalElevation = 6.dp) {
-                    Column {
-                        CompositionLocalProvider(
-                            LocalDensity provides Density(density.density * 0.9f, density.fontScale),
-                        ) {
-                            DatePicker(state = st)
-                        }
-                        Row(
-                            Modifier.fillMaxWidth().padding(end = 8.dp, bottom = 8.dp),
-                            horizontalArrangement = Arrangement.End,
-                        ) {
-                            TextButton(onClick = { open = false }) { Text("取消") }
-                            TextButton(onClick = {
-                                st.selectedDateMillis?.let {
-                                    onChange(Instant.ofEpochMilli(it).atZone(ZoneId.of("UTC")).toLocalDate().toString())
-                                }
-                                open = false
-                            }) { Text("确定") }
-                        }
-                    }
+        PickerDialog(
+            onDismiss = { open = false },
+            onConfirm = {
+                st.selectedDateMillis?.let {
+                    onChange(Instant.ofEpochMilli(it).atZone(ZoneId.of("UTC")).toLocalDate().toString())
                 }
-            }
-        }
+                open = false
+            },
+        ) { DatePicker(state = st) }
     }
 }
 

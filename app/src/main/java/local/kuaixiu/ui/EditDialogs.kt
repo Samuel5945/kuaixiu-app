@@ -3,12 +3,11 @@ package local.kuaixiu.ui
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +33,7 @@ import java.time.LocalDate
  * 写操作走 [ActionRunner]（与 AI 动作卡同一套语义），复用 PickerFields 的 TimeField/DateField。
  */
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ReminderDialog(onDismiss: () -> Unit) {
     val ctx = LocalContext.current
@@ -63,8 +63,8 @@ fun ReminderDialog(onDismiss: () -> Unit) {
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
         text = {
             Column(
-                Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 OutlinedTextField(
                     value = text, onValueChange = { text = it },
@@ -75,19 +75,14 @@ fun ReminderDialog(onDismiss: () -> Unit) {
                     DateField(date, "日期", Modifier.weight(1f)) { date = it }
                     TimeField(time, "时间", Modifier.weight(1f)) { time = it }
                 }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("提前", style = MaterialTheme.typography.labelMedium)
+                Text("提前", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(0, 5, 10, 30).forEach { n ->
                         FilterChip(selected = lead == n, onClick = { lead = n },
-                            label = { Text(if (n == 0) "到点" else "$n 分") })
+                            label = { Text(if (n == 0) "到点" else "${n}分") })
                     }
                 }
-                Text("到点由系统日历弹通知，不依赖本 App 后台。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
     )
@@ -148,8 +143,8 @@ fun HabitDialog(onDismiss: () -> Unit) {
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
         text = {
             Column(
-                Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 OutlinedTextField(
                     value = name, onValueChange = { name = it },
@@ -167,7 +162,7 @@ fun HabitDialog(onDismiss: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically) {
                         listOf(21, 66).forEach { n ->
                             FilterChip(selected = days == n, onClick = { days = n },
-                                label = { Text("$n 天") })
+                                label = { Text("${n}天") })
                         }
                         OutlinedTextField(
                             value = days.toString(), onValueChange = { s ->
@@ -176,9 +171,6 @@ fun HabitDialog(onDismiss: () -> Unit) {
                             label = { Text("自定") }, modifier = Modifier.weight(1f), singleLine = true,
                         )
                     }
-                    Text("21 天 / 66 天只是参考区间，研究里个体差异 18–254 天，别当成关卡。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 val hint = when (check) {
                     is HabitCheck.AnchorConflict -> "锚点和「${check.otherName}」只差 ${check.gapMin} 分钟——" +
@@ -191,9 +183,6 @@ fun HabitDialog(onDismiss: () -> Unit) {
                 hint?.let { (msg, color) ->
                     Text(msg, style = MaterialTheme.typography.bodySmall, color = color)
                 }
-                Text("习惯落在独立日历「快休习惯」，重算作息计划不会动它。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
     )

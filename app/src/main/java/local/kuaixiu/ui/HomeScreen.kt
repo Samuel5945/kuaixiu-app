@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -667,21 +666,10 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
                     }
                     }
                 if (showPick) {
-                    val init = runCatching { java.time.LocalTime.parse(bedtime) }
-                        .getOrElse { java.time.LocalTime.of(23, 0) }
-                    val st = androidx.compose.material3.rememberTimePickerState(
-                        initialHour = init.hour, initialMinute = init.minute, is24Hour = true)
-                    androidx.compose.material3.AlertDialog(
-                        onDismissRequest = { showPick = false },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                bedtime = "%02d:%02d".format(st.hour, st.minute); showPick = false
-                            }) { Text("确定") }
-                        },
-                        dismissButton = { TextButton(onClick = { showPick = false }) { Text("取消") } },
-                        text = { Column(Modifier.heightIn(max = 420.dp)) {
-                            androidx.compose.material3.TimePicker(state = st)
-                        } },
+                    TimePickerDialog(
+                        bedtime,
+                        onDismiss = { showPick = false },
+                        onConfirm = { bedtime = it; showPick = false },
                     )
                 }
             }
