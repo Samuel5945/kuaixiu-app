@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
@@ -461,7 +462,7 @@ private fun ScoreCard() {
             val nextTier = listOf(3, 7, 14, 28).firstOrNull { it > streak }
             Text(
                 stringResource(R.string.home_score_title, r.total) +
-                    (if (streak > 0) stringResource(R.string.home_score_streak, streak) else "") +
+                    (if (streak > 0) pluralStringResource(R.plurals.home_score_streak, streak, streak) else "") +
                     (nextTier?.let { stringResource(R.string.home_score_badge_next, it, it - streak) }
                         ?: stringResource(R.string.home_score_badge_max)),
                 style = MaterialTheme.typography.titleMedium,

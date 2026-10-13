@@ -57,17 +57,23 @@
 
     <!-- 分享海报 · 画进图里的文字 -->
     <string name="poster_a_streak_label">连 续 准 时</string>
-    <string name="poster_unit_days">天</string>
+    <plurals name="poster_unit_days">
+        <item quantity="other">天</item>
+    </plurals>
     <string name="poster_a_night_line">第 %1$d 夜 · %2$s · 目标入睡 %3$s</string>
     <string name="poster_lab_score">昨晚评分</string>
     <string name="poster_lab_phone_down">放下手机</string>
     <string name="poster_lab_wake_anchor">起床锚点</string>
     <string name="poster_lab_morning">早上拿起</string>
     <string name="poster_lab_streak">连续准时</string>
-    <string name="poster_days_count">%1$d天</string>
+    <plurals name="poster_days_count">
+        <item quantity="other">%1$d天</item>
+    </plurals>
     <string name="poster_brand">快休 · 早睡执行系统</string>
     <string name="poster_b_still_going">坚 持 中</string>
-    <string name="poster_b_days_on_time">连续准时 · 天</string>
+    <plurals name="poster_b_days_on_time">
+        <item quantity="other">连续准时 · 天</item>
+    </plurals>
     <string name="poster_b_unlock">再 %1$d 天解锁「%2$d 天徽章」</string>
     <string name="poster_c_last_night">昨晚我在</string>
     <string name="poster_c_phone_down">放下了手机</string>

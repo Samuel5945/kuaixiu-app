@@ -43,6 +43,8 @@ data class Plan(
     val created: String,
     val config: PlanConfig,
     val summary: PlanSummary,
+    /** 生成这份计划时 App 的语言（zh/en）。空 = 不是 App 生成的（PC 推来的），换语言时不重算。 */
+    val lang: String = "",
     val days: List<PlanDay>,
 ) {
     /** 今天在计划中的档位；不在则 null。 */

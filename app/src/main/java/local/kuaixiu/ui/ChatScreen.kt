@@ -701,7 +701,7 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
                                     Toast.makeText(ctx,
                                         if (habitUpdate)
                                             ctx.getString(R.string.chat_habit_updated_toast, r.habit.days)
-                                        else ctx.getString(R.string.habit_added, r.habit.days),
+                                        else ctx.resources.getQuantityString(R.plurals.habit_added, r.habit.days, r.habit.days),
                                         Toast.LENGTH_LONG).show()
                                     applied = true
                                 }

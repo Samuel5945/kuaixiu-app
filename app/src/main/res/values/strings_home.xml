@@ -49,7 +49,9 @@
 
     <!-- 首页：昨晚评分卡 -->
     <string name="home_score_title">☀️ 昨晚评分 %1$d/100</string>
-    <string name="home_score_streak">"  🔥 连续准时 %1$d 天"</string>
+    <plurals name="home_score_streak">
+        <item quantity="other">  🔥 连续准时 %1$d 天</item>
+    </plurals>
     <string name="home_score_badge_next">（%1$d 天徽章还差 %2$d 天）</string>
     <string name="home_score_badge_max">（满级徽章 🏆）</string>
     <string name="home_score_parts">风屏 %1$d/%2$d · 入睡 %3$d/%4$d · 起床 %5$d/%6$d</string>

@@ -18,11 +18,20 @@ object KxText {
         return if (args.isEmpty()) c.getString(id) else c.getString(id, *args)
     }
 
+    /** 取复数文案：[count] 既决定单复数形式，也作为占位符实参传入。 */
+    fun n(id: Int, count: Int, vararg args: Any): String {
+        val c = app ?: throw IllegalStateException("KxText 未初始化（KxApp.onCreate 没跑到？）")
+        return c.resources.getQuantityString(id, count, *args)
+    }
+
+    /** 当前语言标签（zh / en）：给计划打语言戳用。 */
+    val langTag: String
+        get() = app?.resources?.configuration?.locales
+            ?.takeIf { it.size() > 0 }?.get(0)?.language ?: ""
+
     /**
      * 当前界面语言是否走英文。**取文案不要用它的**（资源自己按语言选），
-     * 只有日期/数字格式这类要挑 Locale 的地方才需要（如海报的「10 月 13 日 · 星期一」）。
+     * 只有日期/大小写这类要挑 Locale 的地方才需要（如海报的「10 月 13 日 · 星期一」）。
      */
-    val english: Boolean
-        get() = app?.resources?.configuration?.locales
-            ?.takeIf { it.size() > 0 }?.get(0)?.language == "en"
+    val english: Boolean get() = langTag == "en"
 }

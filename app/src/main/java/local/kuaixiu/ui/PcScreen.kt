@@ -62,7 +62,7 @@ fun PcScreen(modifier: Modifier = Modifier) {
                 kotlinx.coroutines.withContext(Dispatchers.Main) { raw = it; busy = false }
             }.onFailure {
                 kotlinx.coroutines.withContext(Dispatchers.Main) {
-                    error = ctx.getString(R.string.pc_fetch_failed, it.message ?: ""); busy = false
+                    error = ctx.getString(R.string.pc_fetch_failed, (it.message ?: "").removePrefix("/")); busy = false
                 }
             }
         }

@@ -73,9 +73,9 @@ object PosterComposer {
         text(c, d.streak.toString(), PAD, 700f, 520f, Color.WHITE, bold)
         // 单位字的位置按巨字的实际宽度量：换语言后"天 / days"长短差很多，写死会压到画布外
         val unitX = PAD + textWidth(d.streak.toString(), 520f, bold) + 32f
-        val dayUnit = KxText.s(R.string.poster_unit_days)
+        val dayUnit = KxText.n(R.plurals.poster_unit_days, d.streak)
         text(c, dayUnit, unitX, 648f, fittedSize(dayUnit, 96f, W - PAD - unitX), 0xFFDBE5F8.toInt(), bold)
-        val nightLine = KxText.s(R.string.poster_a_night_line, d.dayIndex, d.stage, d.targetBedtime)
+        val nightLine = KxText.s(R.string.poster_a_night_line, d.dayIndex, phaseForArt(d.stage), d.targetBedtime)
         text(c, nightLine, PAD, 800f, fittedSize(nightLine, 52f, W - 2 * PAD, normal), MUTED_LIGHT, normal)
         // 底部三格
         val y = 2210f
@@ -112,7 +112,7 @@ object PosterComposer {
             paint().apply { style = Paint.Style.STROKE; strokeWidth = stroke; strokeCap = Paint.Cap.ROUND; color = AMBER })
         c.drawCircle(cx, cy, r - stroke / 2f - 4f, paint().apply { color = 0xFF150F22.toInt() })
         textCentered(c, d.streak.toString(), cx, cy + 92f, 272f, Color.WHITE, bold)
-        textCentered(c, KxText.s(R.string.poster_b_days_on_time), cx, cy + 168f, 46f, 0xFFC3B6D8.toInt(), normal)
+        textCentered(c, KxText.n(R.plurals.poster_b_days_on_time, d.streak), cx, cy + 168f, 46f, 0xFFC3B6D8.toInt(), normal)
         val badge = nextMilestone(d.streak)
         val bw = 560f; val bh = 104f; val by = 1180f
         c.drawRoundRect(RectF(cx - bw / 2, by, cx + bw / 2, by + bh), bh / 2, bh / 2,
@@ -173,14 +173,14 @@ object PosterComposer {
             shader = LinearGradient(0f, card.top + cardH * .58f, 0f, card.bottom,
                 intArrayOf(Color.TRANSPARENT, 0x80000000.toInt()), null, Shader.TileMode.CLAMP)
         })
-        val onCard = KxText.s(R.string.poster_c_night_stage, d.dayIndex, d.stage)
+        val onCard = KxText.s(R.string.poster_c_night_stage, d.dayIndex, phaseForArt(d.stage))
         text(c, onCard, card.left + 52f, card.bottom - 52f,
             fittedSize(onCard, 36f, card.width() - 104f, normal, .1f), 0xFFEFEAE0.toInt(), normal, letterSpacing = .1f)
         c.restore()
         // 数据条：三格竖分隔
         val gy = 2200f
         val cells = listOf(
-            KxText.s(R.string.poster_lab_streak) to KxText.s(R.string.poster_days_count, d.streak),
+            KxText.s(R.string.poster_lab_streak) to KxText.n(R.plurals.poster_days_count, d.streak, d.streak),
             KxText.s(R.string.poster_lab_phone_down) to d.phoneDown.ifBlank { "—" },
             KxText.s(R.string.poster_lab_morning) to d.wakeup.ifBlank { "—" },
         )
@@ -243,7 +243,7 @@ object PosterComposer {
         listOf(
             KxText.s(R.string.poster_d_hit_rate) to "${d.ratePercent()}%",
             KxText.s(R.string.poster_d_avg_phone) to d.avgPhoneDown,
-            KxText.s(R.string.poster_lab_streak) to KxText.s(R.string.poster_days_count, d.onTimeCount),
+            KxText.s(R.string.poster_lab_streak) to KxText.n(R.plurals.poster_days_count, d.onTimeCount, d.onTimeCount),
             KxText.s(R.string.poster_d_avg_score) to d.avgScore.toString(),
         ).forEachIndexed { i, (label, value) ->
             val x = PAD + i * cw
@@ -280,6 +280,10 @@ object PosterComposer {
         }
         c.drawText(s, x, baseline, p)
     }
+
+    /** 海报里 NIGHT / TARGET 这类全大写行，阶段名也要跟着大写（中文没有大小写，原样返回）。 */
+    private fun phaseForArt(stage: String): String =
+        if (KxText.english) stage.uppercase() else stage
 
     private fun textCentered(c: Canvas, s: String, x: Float, baseline: Float, size: Float, color: Int, tf: Typeface,
                              letterSpacing: Float = 0f) {

@@ -57,17 +57,26 @@
 
     <!-- Share poster · text painted into the bitmap -->
     <string name="poster_a_streak_label">STREAK</string>
-    <string name="poster_unit_days">days</string>
+    <plurals name="poster_unit_days">
+        <item quantity="one">day</item>
+        <item quantity="other">days</item>
+    </plurals>
     <string name="poster_a_night_line">NIGHT %1$d · %2$s · TARGET %3$s</string>
     <string name="poster_lab_score">LAST NIGHT</string>
     <string name="poster_lab_phone_down">PHONE DOWN</string>
     <string name="poster_lab_wake_anchor">WAKE UP</string>
     <string name="poster_lab_morning">PICKED UP</string>
     <string name="poster_lab_streak">STREAK</string>
-    <string name="poster_days_count">%1$d DAYS</string>
+    <plurals name="poster_days_count">
+        <item quantity="one">%1$d DAY</item>
+        <item quantity="other">%1$d DAYS</item>
+    </plurals>
     <string name="poster_brand">Kuaixiu · AI Early-Sleep System</string>
     <string name="poster_b_still_going">STILL GOING</string>
-    <string name="poster_b_days_on_time">DAYS ON TIME</string>
+    <plurals name="poster_b_days_on_time">
+        <item quantity="one">DAY ON TIME</item>
+        <item quantity="other">DAYS ON TIME</item>
+    </plurals>
     <string name="poster_b_unlock">%1$d DAYS TO BADGE %2$d</string>
     <string name="poster_c_last_night">LAST NIGHT I</string>
     <string name="poster_c_phone_down">PUT IT DOWN</string>

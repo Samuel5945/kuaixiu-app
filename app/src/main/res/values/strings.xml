@@ -75,6 +75,7 @@
     <string name="set_time">时间与通知</string>
     <string name="tz_label">时区</string>
     <string name="tz_follow_system">跟随系统（%1$s）</string>
+    <string name="tz_follow_system_short">跟随系统（%1$s）</string>
     <string name="tz_title">选择时区</string>
     <string name="notify_winddown">风屏提醒</string>
     <string name="notify_morning">晨间提醒</string>
@@ -133,7 +134,9 @@
     <string name="habit_title">开一个新习惯</string>
     <string name="habit_add_btn">开这个习惯</string>
     <string name="habit_ack_btn">我了解代价，照样加</string>
-    <string name="habit_added">已写进日历「快休习惯」，连响 %1$d 天 ✅</string>
+    <plurals name="habit_added">
+        <item quantity="other">已写进日历「快休习惯」，连响 %1$d 天 ✅</item>
+    </plurals>
     <string name="habit_quota_again">同时开第 3 个，成功率明显下降——再点一次才真的加上</string>
     <string name="habit_quota_blocked">还是被拦下了：先暂停一个再开</string>
     <string name="habit_conflict_toast">锚点和「%1$s」只差 %2$d 分钟，先错开时间</string>
@@ -255,7 +258,9 @@
     <string name="coach_habit_done">记「%1$s」今天做到了 👇</string>
     <string name="coach_habit_name">习惯叫什么？比如「建个习惯：饭后散步，20:30，21天」。</string>
     <string name="coach_habit_cue">「%1$s」每天几点做？给我一个固定锚点，比如「饭后散步，20:30，21天」。</string>
-    <string name="coach_habit_added">开这个习惯：%1$s，每天 %2$s（连响 %3$d 天）👇</string>
+    <plurals name="coach_habit_added">
+        <item quantity="other">开这个习惯：%1$s，每天 %2$s（连响 %3$d 天）👇</item>
+    </plurals>
     <string name="coach_no_habits">还没有进行中的习惯，先用「建个习惯：…，20:30，21天」开一个。</string>
     <string name="coach_existing">现有：%1$s。</string>
     <string name="img_prompt_default">深邃夜空与群山剪影</string>

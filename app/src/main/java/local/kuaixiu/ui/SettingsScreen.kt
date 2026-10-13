@@ -464,7 +464,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                         TextButton(onClick = { zoneDlg = true }) {
                             Text(
                                 (if (cfg.timezone.isBlank())
-                                    stringResource(R.string.tz_follow_system,
+                                    stringResource(R.string.tz_follow_system_short,
                                         java.time.ZoneId.systemDefault().id)
                                 else cfg.timezone) + " ▾",
                                 style = MaterialTheme.typography.bodySmall,

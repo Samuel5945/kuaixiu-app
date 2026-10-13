@@ -151,6 +151,7 @@ object PlanEngine {
         return Plan(
             created = Time.now().toLocalDateTime().toString(),
             config = cfg,
+            lang = KxText.langTag,
             summary = PlanSummary(
                 totalShiftMinutes = shift,
                 daysToTarget = days.firstOrNull { hhmmToMin(it.bedtime) == targetMin }?.day,

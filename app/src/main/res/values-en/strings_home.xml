@@ -49,7 +49,10 @@
 
     <!-- Home: last night score -->
     <string name="home_score_title">☀️ Last night %1$d/100</string>
-    <string name="home_score_streak">"  🔥 %1$d nights on time"</string>
+    <plurals name="home_score_streak">
+        <item quantity="one">  🔥 %1$d night on time</item>
+        <item quantity="other">  🔥 %1$d nights on time</item>
+    </plurals>
     <string name="home_score_badge_next">" (%1$d-day badge: %2$d to go)"</string>
     <string name="home_score_badge_max">" (Top badge earned 🏆)"</string>
     <string name="home_score_parts">Wind-down %1$d/%2$d · Sleep %3$d/%4$d · Wake %5$d/%6$d</string>

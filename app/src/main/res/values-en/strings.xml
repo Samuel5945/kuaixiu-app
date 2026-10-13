@@ -75,6 +75,7 @@
     <string name="set_time">Time and notifications</string>
     <string name="tz_label">Time zone</string>
     <string name="tz_follow_system">System default (%1$s)</string>
+    <string name="tz_follow_system_short">System (%1$s)</string>
     <string name="tz_title">Choose time zone</string>
     <string name="notify_winddown">Wind-down reminder</string>
     <string name="notify_morning">Morning reminder</string>
@@ -133,7 +134,10 @@
     <string name="habit_title">Start a new habit</string>
     <string name="habit_add_btn">Start this habit</string>
     <string name="habit_ack_btn">I know the cost — add it anyway</string>
-    <string name="habit_added">Written to the \"Kuaixiu Habits\" calendar, ringing for %1$d days ✅</string>
+    <plurals name="habit_added">
+        <item quantity="one">Written to the \"Kuaixiu Habits\" calendar, ringing for %1$d day ✅</item>
+        <item quantity="other">Written to the \"Kuaixiu Habits\" calendar, ringing for %1$d days ✅</item>
+    </plurals>
     <string name="habit_quota_again">A third habit running at once hurts the success rate — tap again to confirm</string>
     <string name="habit_quota_blocked">Still blocked: pause one before starting another</string>
     <string name="habit_conflict_toast">Only %2$d minutes apart from \"%1$s\" — space them out</string>
@@ -255,7 +259,10 @@
     <string name="coach_habit_done">Logging \"%1$s\" as done today 👇</string>
     <string name="coach_habit_name">What is the habit called? e.g. \"new habit: walk after dinner, 20:30, 21 days\".</string>
     <string name="coach_habit_cue">What time each day for \"%1$s\"? Give me a fixed anchor, e.g. \"walk after dinner, 20:30, 21 days\".</string>
-    <string name="coach_habit_added">Starting this habit: %1$s, daily at %2$s (rings for %3$d days) 👇</string>
+    <plurals name="coach_habit_added">
+        <item quantity="one">Starting this habit: %1$s, daily at %2$s (rings for %3$d day) 👇</item>
+        <item quantity="other">Starting this habit: %1$s, daily at %2$s (rings for %3$d days) 👇</item>
+    </plurals>
     <string name="coach_no_habits">No habit is running yet. Start one with \"new habit: …, 20:30, 21 days\".</string>
     <string name="coach_existing">Running now: %1$s.</string>
     <string name="img_prompt_default">A deep night sky above a mountain silhouette</string>

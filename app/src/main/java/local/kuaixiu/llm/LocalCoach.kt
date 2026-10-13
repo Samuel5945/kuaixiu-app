@@ -162,7 +162,7 @@ object LocalCoach {
                 ?: return LocalReply(KxText.s(R.string.coach_habit_cue, name))
             val days = findDays(t) ?: 21
             val start = parseDate(t, today) ?: today.toString()
-            return LocalReply(KxText.s(R.string.coach_habit_added, name, cue, days),
+            return LocalReply(KxText.n(R.plurals.coach_habit_added, days, name, cue, days),
                 obj("action" to "habit", "op" to "add", "name" to name,
                     "cueTime" to cue, "days" to days, "startDate" to start))
         }

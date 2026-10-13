@@ -119,7 +119,7 @@ fun HabitDialog(onDismiss: () -> Unit) {
                 onClick = {
                     when (val r = ActionRunner.applyHabitAdd(ctx, name.trim(), cue, days, start, ackCost)) {
                         is HabitCheck.Ok -> {
-                            Toast.makeText(ctx, ctx.getString(R.string.habit_added, r.habit.days),
+                            Toast.makeText(ctx, ctx.resources.getQuantityString(R.plurals.habit_added, r.habit.days, r.habit.days),
                                 Toast.LENGTH_LONG).show()
                             onDismiss()
                         }

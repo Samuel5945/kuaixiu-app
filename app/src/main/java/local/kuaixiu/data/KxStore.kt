@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import local.kuaixiu.KxScope
 import local.kuaixiu.calendar.CalendarWriter
 import local.kuaixiu.data.Time
 import local.kuaixiu.engine.Plan
@@ -25,6 +28,14 @@ object KxStore {
         plan = Prefs.loadPlan(ctx)
         Time.defaultZone = config.zone()
         Habits.load(ctx)
+
+        // 换了系统语言：App 自己生成的计划里，任务/提示/星期还是旧语言，会和新标签混排。
+        // 悄悄按当前语言重算，并把日历重新同步一遍。PC 推来的计划没有 lang 戳，一律不碰。
+        val stale = plan?.takeIf { it.lang.isNotEmpty() && it.lang != KxText.langTag }
+        if (stale != null) {
+            regenerate(ctx)
+            KxScope.app.launch(Dispatchers.IO) { runCatching { syncCalendar(ctx) } }
+        }
     }
 
     fun saveConfig(ctx: Context, newCfg: KxConfig) {

@@ -69,7 +69,7 @@ object PosterFlow {
     fun aiTextPrompt(d: PosterData, dayIndex: Int): String =
         bgPrompt(PosterTemplate.A, dayIndex) + KxText.s(R.string.poster_ai_text,
             KxText.s(R.string.poster_a_streak_label),
-            "${d.streak} ${KxText.s(R.string.poster_unit_days)}",
+            "${d.streak} ${KxText.n(R.plurals.poster_unit_days, d.streak)}",
             KxText.s(R.string.poster_ai_line3, d.phoneDown.ifBlank { d.targetBedtime }),
             KxText.s(R.string.poster_ai_line4, d.dayIndex, d.planDays))
 
