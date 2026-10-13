@@ -3,17 +3,21 @@ package local.kuaixiu.ui
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -33,6 +37,9 @@ import local.kuaixiu.data.PosterTemplate
 fun PosterDialog(onDismiss: () -> Unit) {
     val ctx = LocalContext.current
     var busy by remember { mutableStateOf(false) }
+    // 没配生图模型就默认本地出图：那条路本来也调不通生图，别让人白等一次失败
+    val hasImageModel = local.kuaixiu.data.KxStore.config.effectiveImageModel().isNotBlank()
+    var localOnly by remember { mutableStateOf(!hasImageModel) }
 
     fun run(tpl: PosterTemplate, mode: PosterMode) {
         busy = true
@@ -64,10 +71,27 @@ fun PosterDialog(onDismiss: () -> Unit) {
         title = { Text("做分享海报") },
         text = {
             Column(Modifier.fillMaxWidth()) {
+                // 调试/没额度时用：不出生图，只看字和数据摆得对不对（整行可点，别只让那个小开关能点）
+                Row(
+                    Modifier.fillMaxWidth()
+                        .clickable(enabled = !busy) { localOnly = !localOnly }
+                        .padding(bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Switch(checked = localOnly, onCheckedChange = { localOnly = it }, enabled = !busy)
+                    Column(Modifier.padding(start = 10.dp)) {
+                        Text("本地出图（不调生图模型）", style = MaterialTheme.typography.titleSmall)
+                        Text("内置底图排版秒出、不耗额度",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
                 items.forEach { (title, desc, tpl) ->
                     Column(
                         Modifier.fillMaxWidth()
-                            .clickable(enabled = !busy) { run(tpl, PosterMode.LOCAL_POSTER) }
+                            .clickable(enabled = !busy) {
+                                run(tpl, if (localOnly) PosterMode.LOCAL_ONLY else PosterMode.LOCAL_POSTER)
+                            }
                             .padding(vertical = 10.dp),
                     ) {
                         Text(title, style = MaterialTheme.typography.titleSmall)
@@ -81,11 +105,11 @@ fun PosterDialog(onDismiss: () -> Unit) {
                     modifier = Modifier.padding(top = 14.dp),
                 )
                 Text(
-                    "存一张不带任何文字、构图留好放字位置的底图",
+                    if (hasImageModel) "存一张不带任何文字、构图留好放字位置的底图" else "要先在设置里配生图模型",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth()
-                        .clickable(enabled = !busy) { run(PosterTemplate.A, PosterMode.BARE_BG) }
+                        .clickable(enabled = !busy && hasImageModel) { run(PosterTemplate.A, PosterMode.BARE_BG) }
                         .padding(vertical = 6.dp),
                 )
                 Text(
@@ -94,11 +118,11 @@ fun PosterDialog(onDismiss: () -> Unit) {
                     modifier = Modifier.padding(top = 10.dp),
                 )
                 Text(
-                    "数字由 App 塞进提示词交给模型写——方便，但字可能写错，不保证",
+                    if (hasImageModel) "数字由 App 塞进提示词交给模型写——方便，但字可能写错，不保证" else "要先在设置里配生图模型",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth()
-                        .clickable(enabled = !busy) { run(PosterTemplate.A, PosterMode.AI_WITH_TEXT) }
+                        .clickable(enabled = !busy && hasImageModel) { run(PosterTemplate.A, PosterMode.AI_WITH_TEXT) }
                         .padding(vertical = 6.dp),
                 )
             }

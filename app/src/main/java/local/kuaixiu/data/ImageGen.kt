@@ -18,6 +18,7 @@ object ImageGen {
 
     const val DEFAULT_SIZE = "1024x1024"
     const val PORTRAIT_SIZE = "832x1216"  // 竖屏壁纸，32 倍数（商汤要求）
+    const val POSTER_SIZE = "1248x2752"   // 满幅分享海报：跟版面 1:1（都是 32 倍数）
 
     /** 助眠场景模板：按天轮换，避免每晚同一张。 */
     val SLEEP_SCENES = listOf(

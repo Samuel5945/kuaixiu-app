@@ -16,15 +16,25 @@ object PosterBuild {
     private val fmtDateCn = DateTimeFormatter.ofPattern("M 月 d 日 · EEEE")
     private val fmtDot = DateTimeFormatter.ofPattern("yyyy.MM.dd")
 
-    /** 单夜版（A/B/C）：以今晚这张计划日的昨晚为准。计划不存在时返回 null。 */
+    /**
+     * 单夜版（A/B/C）：**最近一次打卡的那一夜**，不是"今晚"。
+     * 早上打卡时 tonightDate() 已经是昨晚，但傍晚再看 tonightDate() 就是今晚（还没发生、没数据），
+     * 按今晚取会得到一张全是「—」的空海报。
+     */
     fun tonight(ctx: Context): PosterData? {
         val plan = KxStore.plan ?: return null
         val cfg = KxStore.config
-        val night = Checkins.tonightDate()
-        val entry = plan.entryFor(night.toString()) ?: plan.upcoming(night.toString()) ?: return null
-        val c = Checkins.all(ctx).firstOrNull { it.date == night.toString() }
-        val r = Score.daily(c, entry.winddown, entry.bedtime, cfg.wake)
         val all = Checkins.all(ctx)
+        val nightIso = all.maxByOrNull { it.date }?.date ?: Checkins.tonightDate().minusDays(1).toString()
+        val night = LocalDate.parse(nightIso)
+        val entry = plan.entryFor(nightIso) ?: plan.upcoming(nightIso) ?: return null
+        val raw = all.firstOrNull { it.date == nightIso }
+        // 跟首页评分卡同一套口径：风屏没记到时用 UsageProbe 现场补上，
+        // 不然海报算出来会比 App 里低 30 分（风屏 0 分），同一夜两个分数
+        val c = if (raw != null && raw.winddownAt.isBlank()) {
+            winddownOf(ctx, entry)?.let { raw.copy(winddownAt = it) } ?: raw
+        } else raw
+        val r = Score.daily(c, entry.winddown, entry.bedtime, cfg.wake)
         return PosterData(
             streak = Score.streak(all, night),
             scoreTotal = r.total, scoreWinddown = r.winddown, scoreSleep = r.sleep, scoreWake = r.wake,
@@ -99,7 +109,15 @@ object PosterBuild {
     /** 放下手机时刻：优先用打卡里存下的（自动探测），没有就现算昨晚的。 */
     private fun phoneDownOf(ctx: Context, c: Checkin?, entry: local.kuaixiu.engine.PlanDay): String {
         c?.phoneDownAt?.takeIf { it.isNotBlank() }?.let { return it }
-        if (!UsageProbe.hasAccess(ctx)) return ""
+        return factsOf(ctx, entry)?.let { UsageProbe.estimateOnset(it)?.format(fmtHM) } ?: ""
+    }
+
+    /** 风屏开始（最后熄屏）：跟首页评分卡一样现场补，老打卡里没有这个字段。 */
+    private fun winddownOf(ctx: Context, entry: local.kuaixiu.engine.PlanDay): String? =
+        factsOf(ctx, entry)?.lastScreenOff?.format(fmtHM)
+
+    private fun factsOf(ctx: Context, entry: local.kuaixiu.engine.PlanDay): UsageProbe.NightFacts? {
+        if (!UsageProbe.hasAccess(ctx)) return null
         return runCatching {
             UsageProbe.nightFacts(
                 ctx,
@@ -107,7 +125,7 @@ object PosterBuild {
                 Time.zoned(LocalDate.parse(entry.date), LocalTime.parse(KxStore.config.wake)).toLocalDateTime(),
                 Time.now().toLocalDateTime(),
             )
-        }.getOrNull()?.let { UsageProbe.estimateOnset(it)?.format(fmtHM) } ?: ""
+        }.getOrNull()
     }
 
     /** 一串 HH:MM 求平均（跨午夜按最短弧），空则返回空串。 */
