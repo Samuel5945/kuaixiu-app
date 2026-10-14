@@ -55,6 +55,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import local.kuaixiu.R
 import local.kuaixiu.data.ChatLog
 import local.kuaixiu.data.HabitCheck
@@ -252,8 +253,11 @@ fun ChatScreen(modifier: Modifier = Modifier) {
                     local.kuaixiu.calendar.CalendarWriter.peekReminders(ctx)
                 }.getOrDefault(emptyList()).map { it.second }
                 val knownHabits = Habits.items.filter { it.enabled }.map { it.name }
+                // 达标线跟首页打卡用同一把尺：昨晚那一档的计划入睡，没有才退回初始基线
+                val planned = KxStore.plan?.entryFor(Time.today().minusDays(1).toString())?.bedtime
                 val reply = LocalCoach.reply(q, KxStore.config,
-                    knownReminders = knownReminders, knownHabits = knownHabits)
+                    knownReminders = knownReminders, knownHabits = knownHabits,
+                    plannedBedtime = planned)
                 msgs.add(ChatMsg("assistant", reply.text, actionJson = reply.actionJson))
                 ChatLog.append(ctx, "assistant", reply.text, actionJson = reply.actionJson ?: "")
                 return
@@ -482,15 +486,21 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
                         "currentBedtime" to ctx.getString(R.string.set_current_bedtime),
                         "targetBedtime" to ctx.getString(R.string.set_target_bedtime),
                         "wake" to ctx.getString(R.string.set_wake),
-                        "days" to ctx.getString(R.string.chat_days),
-                        "startDate" to ctx.getString(R.string.set_start_date))
+                        "days" to ctx.getString(R.string.chat_days))
                     val parts = buildList {
                         labelMap.forEach { (k, label) ->
-                            if (action.has(k)) add("$label → ${action.optString(k)}")
+                            val v = action.optString(k)
+                            if (action.has(k) && v.isNotBlank()) add("$label → $v")
                         }
+                        // 起始日无论动作里有没有都一定落到今天，不写出来用户只会觉得日历自己跳了
+                        add(ctx.getString(R.string.set_start_date) + " → " +
+                            action.optString("startDate").ifBlank { ctx.getString(R.string.picker_today) })
                     }
                     Text(stringResource(R.string.chat_adjust_title), style = MaterialTheme.typography.titleSmall)
                     Text(parts.joinToString("  "))
+                    Text(stringResource(R.string.chat_adjust_restart),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 "checkin" -> {
                     Text(stringResource(R.string.chat_checkin_title, action.optString("status")) +
@@ -584,24 +594,24 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
                 }
                 when (kind) {
                     "adjust" -> {
-                        val cfg = KxStore.config
-                        KxStore.saveConfig(ctx, cfg.copy(
-                            currentBedtime = action.optString("currentBedtime", cfg.currentBedtime),
-                            targetBedtime = action.optString("targetBedtime", cfg.targetBedtime),
-                            wake = action.optString("wake", cfg.wake).ifBlank { cfg.wake },
-                            planDays = if (action.has("days")) action.optInt("days", cfg.planDays) else cfg.planDays,
-                            startDate = action.optString("startDate", "").ifBlank { "" },
-                        ))
-                        runCatching {
-                            KxStore.regenerate(ctx)
-                            local.kuaixiu.calendar.CalendarWriter.syncPlan(ctx, KxStore.plan!!)
-                        }.onSuccess {
-                            Toast.makeText(ctx, ctx.getString(R.string.set_plan_done, it),
-                                Toast.LENGTH_LONG).show()
-                            applied = true
-                        }.onFailure {
-                            Toast.makeText(ctx, ctx.getString(R.string.chat_calendar_write_failed,
-                                it.message ?: ""), Toast.LENGTH_LONG).show()
+                        // 28 天 ≈ 140 次日历读写，和设置页那条按钮一样走 IO，别在点击线程上跑
+                        local.kuaixiu.KxScope.app.launch {
+                            val r = runCatching {
+                                withContext(Dispatchers.IO) {
+                                    local.kuaixiu.calendar.CalendarWriter.syncPlan(
+                                        ctx, ActionRunner.applyAdjust(ctx, action))
+                                }
+                            }
+                            withContext(Dispatchers.Main) {
+                                r.onSuccess { n ->
+                                    Toast.makeText(ctx, ctx.getString(R.string.set_plan_done, n),
+                                        Toast.LENGTH_LONG).show()
+                                    applied = true
+                                }.onFailure { e ->
+                                    Toast.makeText(ctx, ctx.getString(R.string.chat_calendar_write_failed,
+                                        e.message ?: ""), Toast.LENGTH_SHORT).show()
+                                }
+                            }
                         }
                     }
                     "checkin" -> {
@@ -611,13 +621,16 @@ private fun ActionCard(actionJson: String, onImage: (prompt: String, ratio: Stri
                                 action.optString("winddown"))
                         }
                         if (action.has("status") && action.optString("status").isNotBlank()) {
-                            val c = local.kuaixiu.data.Checkin(
-                                date = Time.today().minusDays(1).toString(),
-                                status = action.optString("status", "late"),
-                                bedtime = action.optString("bedtime", ""),
-                                note = action.optString("note", ""),
-                            )
-                            local.kuaixiu.data.Checkins.add(ctx, c)
+                            // 合并而不是整条替换：这一晚可能已经记过风屏、探测到起床和放下手机
+                            local.kuaixiu.data.Checkins.patch(
+                                ctx, Time.today().minusDays(1).toString()
+                            ) { old ->
+                                old.copy(
+                                    status = action.optString("status", "late"),
+                                    bedtime = action.optString("bedtime", "").ifBlank { old.bedtime },
+                                    note = action.optString("note", "").ifBlank { old.note },
+                                )
+                            }
                         }
                         Toast.makeText(ctx, ctx.getString(R.string.home_checkin_saved_toast),
                             Toast.LENGTH_SHORT).show()

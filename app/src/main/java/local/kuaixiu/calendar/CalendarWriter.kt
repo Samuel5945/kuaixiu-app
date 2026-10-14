@@ -131,7 +131,7 @@ object CalendarWriter {
             "${Events._ID}=?", arrayOf(id.toString()),
         ) > 0
 
-    /** 删旧插新，返回写入事件数。 */
+    /** 删旧插新，返回写入事件数。已过去的档位不写回日历。 */
     fun syncPlan(context: Context, plan: Plan): Int {
         val cr = context.contentResolver
         val calId = ensureCalendar(context)
@@ -140,8 +140,12 @@ object CalendarWriter {
             "${Events.CALENDAR_ID}=?",
             arrayOf(calId.toString()),
         )
+        // 计划可以从很久以前的 startDate 起算（换语言、设置页手动重算都会这样），
+        // 那些过去的档既不会响，又把日历视图压成一片历史事件
+        val now = Time.now().toLocalDateTime()
         var n = 0
         for (e in PlanEngine.eventsFor(plan)) {
+            if (!e.start.isAfter(now)) continue
             val startMs = e.start.atZone(Time.zone()).toInstant().toEpochMilli()
             val endMs = e.start.plusMinutes(e.durationMin.toLong()).atZone(Time.zone()).toInstant().toEpochMilli()
             val cv = ContentValues().apply {

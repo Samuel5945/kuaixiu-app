@@ -43,20 +43,26 @@ object Checkins {
         return list
     }
 
+    /**
+     * 按夜晚**合并**更新（没有就新建）。入睡、风屏、起床是三个不同时刻分别记的，
+     * 后记的那一条绝不能把前面已探测到的字段清空——[add] 是整条替换，只能给「就要覆盖」的场合用。
+     */
+    fun patch(ctx: Context, date: String, block: (Checkin) -> Checkin): List<Checkin> {
+        val list = all(ctx).toMutableList()
+        val idx = list.indexOfFirst { it.date == date }
+        if (idx >= 0) list[idx] = block(list[idx]) else list += block(Checkin(date = date))
+        val sorted = list.sortedBy { it.date }
+        file(ctx).writeText(json.encodeToString(sorted))
+        return sorted
+    }
+
     /** "今晚"归属的计划日：中午 12 点前算昨晚的延续，之后算今天晚上。 */
     fun tonightDate(now: ZonedDateTime = Time.now()): java.time.LocalDate =
         if (now.hour >= 12) now.toLocalDate() else now.toLocalDate().minusDays(1)
 
     /** 记录今晚风屏开始时间（同日期已有记录则合并，保留其他字段）。 */
-    fun logWinddown(ctx: Context, date: String, time: String): List<Checkin> {
-        val list = all(ctx).toMutableList()
-        val idx = list.indexOfFirst { it.date == date }
-        if (idx >= 0) list[idx] = list[idx].copy(winddownAt = time)
-        else list += Checkin(date = date, winddownAt = time)
-        val sorted = list.sortedBy { it.date }
-        file(ctx).writeText(json.encodeToString(sorted))
-        return sorted
-    }
+    fun logWinddown(ctx: Context, date: String, time: String): List<Checkin> =
+        patch(ctx, date) { it.copy(winddownAt = time) }
 
     /** 上传一条打卡到 PC（POST /checkin，字段名与 PC 端对齐）。 */
     fun upload(ctx: Context, pcUrl: String, c: Checkin): String {

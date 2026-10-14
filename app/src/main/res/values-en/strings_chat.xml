@@ -45,6 +45,7 @@
 
     <!-- Coach screen: action card titles -->
     <string name="chat_adjust_title">📐 Coach suggests changing the plan:</string>
+    <string name="chat_adjust_restart">Changing parameters restarts the plan at day 1; the ladder begins again tonight.</string>
     <string name="chat_checkin_title">✅ Coach logged this check-in: %1$s</string>
     <string name="chat_image_title">🎨 Coach wants to draw a wind-down scene:</string>
     <string name="chat_image_sent">🎨 Sent to the artist — it shows up below ↓</string>

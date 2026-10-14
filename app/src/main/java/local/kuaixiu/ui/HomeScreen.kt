@@ -762,9 +762,17 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
                     val wakeup = wakeOverride.ifBlank { facts?.firstMorningPickup?.format(fmt) ?: "" }
                     // 放下手机时刻自动探测（熄屏优先，否则最后交互 +2 分钟）：手填的入睡不可靠，周报按这个算
                     val phoneDown = facts?.let { UsageProbe.estimateOnset(it)?.format(fmt) } ?: ""
-                    val c = Checkin(night.toString(), autoStatus, bedtime.trim(), note.trim(),
-                        wakeupAt = wakeup, phoneDownAt = phoneDown)
-                    Checkins.add(ctx, c)
+                    // 合并进这一晚已有的记录：风屏是昨晚记的、放下手机可能早上已经探到过，
+                    // 整条替换会把它们清掉，评分和风屏分项就跟着凭空归零
+                    val c = Checkins.patch(ctx, night.toString()) { old ->
+                        old.copy(
+                            status = autoStatus,
+                            bedtime = bedtime.trim(),
+                            note = note.trim(),
+                            wakeupAt = wakeup.ifBlank { old.wakeupAt },
+                            phoneDownAt = phoneDown.ifBlank { old.phoneDownAt },
+                        )
+                    }.first { it.date == night.toString() }
                     if (KxStore.config.pcUploadCheckin) {
                         scope.launch(Dispatchers.IO) {
                             runCatching { Checkins.upload(ctx, KxStore.config.pcUrl, c) }

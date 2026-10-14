@@ -45,6 +45,7 @@
 
     <!-- 教练页：动作卡标题 -->
     <string name="chat_adjust_title">📐 教练建议调整计划：</string>
+    <string name="chat_adjust_restart">改参数后计划从第 1 天重开，阶梯从今晚重新走。</string>
     <string name="chat_checkin_title">✅ 教练帮你记一笔打卡：%1$s</string>
     <string name="chat_image_title">🎨 教练想画一张助眠画面：</string>
     <string name="chat_image_sent">🎨 已交给画师，成品马上贴在下面 ↓</string>
