@@ -53,7 +53,7 @@
     <string name="poster_quote_all">%1$d 晚一晚没落下，节奏已经稳了，保持。</string>
     <string name="poster_quote_one_late">只有一天不准时——单次破功什么都不用改，接着来就行。</string>
     <string name="poster_quote_late">这周有 %1$d 晚偏晚：连续多晚就要调计划档位，别硬扛。</string>
-    <string name="poster_quote_missing">记录不全就是执行不全，先把打卡补齐。</string>
+    <string name="poster_quote_missing">记录不全就是执行不全，先把下一晚记上。</string>
 
     <!-- 分享海报 · 画进图里的文字 -->
     <string name="poster_a_streak_label">连 续 准 时</string>

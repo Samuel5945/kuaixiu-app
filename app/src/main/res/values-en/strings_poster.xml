@@ -53,7 +53,7 @@
     <string name="poster_quote_all">%1$d nights, not one missed. The rhythm is holding — keep it.</string>
     <string name="poster_quote_one_late">One day off schedule. A single miss changes nothing — just pick it back up.</string>
     <string name="poster_quote_late">%1$d nights ran late. Two in a row means the plan needs a step down, not more grit.</string>
-    <string name="poster_quote_missing">An incomplete log is an incomplete week — fill it in first.</string>
+    <string name="poster_quote_missing">An incomplete log is an incomplete week — start by logging tonight.</string>
 
     <!-- Share poster · text painted into the bitmap -->
     <string name="poster_a_streak_label">STREAK</string>
