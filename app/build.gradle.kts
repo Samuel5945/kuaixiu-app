@@ -13,7 +13,7 @@ android {
         applicationId = "local.kuaixiu"
         minSdk = 26
         targetSdk = 34
-        versionCode = 21
+        versionCode = 22
         versionName = "0.8.0"
     }
     buildTypes {
