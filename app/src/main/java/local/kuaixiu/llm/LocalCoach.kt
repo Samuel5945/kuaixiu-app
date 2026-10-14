@@ -3,8 +3,8 @@ package local.kuaixiu.llm
 import local.kuaixiu.R
 import local.kuaixiu.data.KxConfig
 import local.kuaixiu.data.KxText
+import local.kuaixiu.data.Score
 import local.kuaixiu.data.Time
-import local.kuaixiu.engine.PlanEngine
 import java.time.LocalDate
 import java.time.LocalTime
 
@@ -28,6 +28,12 @@ object LocalCoach {
     private val RE_ADJUST = Regex(
         "(目标|改成|改到|调到|调整|推迟|提前|起床|入睡时间|计划天数|重新定" +
             "|target|change|adjust|move|push|postpone|bedtime|wake|plan length)", I)
+    /** 「入睡时间改到23点」既是「入睡」又是改参数——带改动词就不能当打卡。 */
+    private val RE_CHANGE_VERB = Regex(
+        "(改成|改到|改为|改一下|调到|调成|调整|推迟|提前|重新定" +
+            "|change|adjust|move|push|postpone|retarget)", I)
+    private val RE_PLAN_NOUN = Regex(
+        "(目标|入睡|起床|晨起|计划天数|基线|当前|现在|目前|bedtime|wake|target|plan length)", I)
     private val RE_IMAGE = Regex("(画一?张|画个|画一下|助眠图|晚安图|助眠画面|插画|配图|draw|generate|picture|illustration|image)", I)
     private val RE_DONE = Regex("(做到了|完成了|打卡了|打过卡|做了|完成打卡|\\bdone\\b|did it|checked in|finished)", I)
     private val RE_PAUSE = Regex("(暂停|先不提醒|停一下|停下|pause|stop|suspend)", I)
@@ -44,6 +50,8 @@ object LocalCoach {
         now: LocalTime = Time.now().toLocalTime(),
         knownReminders: List<String> = emptyList(),
         knownHabits: List<String> = emptyList(),
+        /** 昨晚那一档的计划入睡；首页打卡用的就是它，缺省才退回初始基线。 */
+        plannedBedtime: String? = null,
     ): LocalReply {
         val t = text.trim()
         if (t.isEmpty()) return LocalReply(KxText.s(R.string.coach_hint))
@@ -69,44 +77,27 @@ object LocalCoach {
         // 3) 习惯（建 / 打卡 / 暂停）——先于打卡，否则「习惯打卡」会被当成睡眠打卡
         habitIntent(t, today, knownHabits)?.let { return it }
 
-        // 4) 记打卡
-        val explicitCheckin = RE_CHECKIN.containsMatchIn(t) ||
-            (t.contains("打卡") && parseTime(t, defaultPm = false) != null)
-        if (explicitCheckin) {
-            val time = parseTime(t, defaultPm = false)
+        // 4) 改计划。带「入睡」的说法两边都沾（「昨晚提前睡了」既是打卡又含「提前」），
+        //    所以先把新参数真解析出来才算改计划；解析不出但像打卡，就往下走第 5 步
+        if (RE_ADJUST.containsMatchIn(t) || adjustIntent(t)) {
+            adjust(t)?.let { return it }
+            if (!looksLikeCheckin(t)) return LocalReply(KxText.s(R.string.coach_adjust_ask))
+        }
+
+        // 5) 记打卡——「入睡时间改到23点」这类在上面就被改计划接走了
+        if (looksLikeCheckin(t)) {
+            val time = parseBedtime(t)
                 ?: return LocalReply(KxText.s(R.string.coach_need_time))
+            // 达标线用今晚档位（没有才退回初始基线），且必须跨午夜安全：
+            // 基线 23:45 时「00:30 睡的」是晚了 45 分钟，不是「比 23:45 的数字小所以准时」
+            val target = plannedBedtime?.takeIf { it.isNotBlank() } ?: cfg.currentBedtime
             val status = when {
                 Regex("(准时|按时|达标|不错|可以|on time|\\bokay\\b|good|fine)", I).containsMatchIn(t) -> "on_time"
                 Regex("(没做到|没睡|没睡着|通宵|失眠|couldn'?t sleep|no sleep|all night)", I).containsMatchIn(t) -> "skip"
-                else -> if (toMin(time) <= toMin(cfg.currentBedtime)) "on_time" else "late"
+                else -> if ((Score.diffMinutes(target, time) ?: 0) > 30) "late" else "on_time"
             }
             return LocalReply(KxText.s(R.string.coach_checkin, time, status),
                 obj("action" to "checkin", "status" to status, "bedtime" to time))
-        }
-
-        // 5) 改计划
-        if (RE_ADJUST.containsMatchIn(t)) {
-            val isWake = t.contains("起床") || t.contains("晨起") || Regex("\\bwake", I).containsMatchIn(t)
-            val isCurrent = t.contains("当前") || t.contains("现在") || t.contains("目前") ||
-                t.contains("基线") || Regex("\\bcurrent", I).containsMatchIn(t)
-            val time = parseTime(t, defaultPm = !isWake)
-            val days = findDays(t)
-            if (time == null && days == null) {
-                return LocalReply(KxText.s(R.string.coach_adjust_ask))
-            }
-            val pairs = mutableListOf<Pair<String, Any?>>("action" to "adjust")
-            if (time != null) pairs += (if (isWake) "wake" else if (isCurrent) "currentBedtime" else "targetBedtime") to time
-            if (days != null) pairs += "days" to days
-            val parts = mutableListOf<String>()
-            time?.let {
-                parts += KxText.s(
-                    if (isWake) R.string.coach_adj_wake
-                    else if (isCurrent) R.string.coach_adj_current else R.string.coach_adj_target, it)
-            }
-            days?.let { parts += KxText.s(R.string.coach_adj_days, it) }
-            return LocalReply(
-                KxText.s(R.string.coach_adjust, parts.joinToString(KxText.s(R.string.coach_join_sep))),
-                obj(*pairs.toTypedArray()))
         }
 
         // 6) 加提醒
@@ -238,6 +229,8 @@ object LocalCoach {
     // ---------------- 时间 / 日期解析（公开以便单测） ----------------
 
     private val RE_HHMM = Regex("(\\d{1,2})\\s*[:：]\\s*(\\d{2})")
+    /** 说话人已明确交代是白天还是清早 —— 这时不再替他把钟点归到夜里。 */
+    private val RE_DAY_MOD = Regex("(中午|正午|上午|早上|早晨|\\bnoon\\b|\\bmorning\\b|\\bam\\b|\\bpm\\b)", I)
     // 英文写法：11pm / 9:30 am / at 8
     private val RE_EN_TIME = Regex("(\\d{1,2})(?:\\s*[:.]\\s*(\\d{2}))?\\s*(am|pm)?", I)
     // 修饰词前不能是「昨/今/明」——否则「昨晚1点」的「晚」会被误当「晚上」，把 01:00 算成 13:00
@@ -314,6 +307,23 @@ object LocalCoach {
         return null
     }
 
+    /**
+     * 入睡时刻：`parseTime` 为了不把「昨晚1点」的「晚」当修饰词，特意让 昨晚X点 不带上下午倾向，
+     * 于是「昨晚11点」会停在 11:00（上午）。打卡要的是钟面直觉——8–11 点是晚上，12 点是午夜。
+     * 说清了中午/早上，或写死了 HH:MM，就照字面不猜。
+     */
+    fun parseBedtime(t: String): String? {
+        val raw = parseTime(t, defaultPm = false) ?: return null
+        if (!RE_CHECKIN.containsMatchIn(t) || RE_DAY_MOD.containsMatchIn(t)) return raw
+        val h = raw.take(2).toIntOrNull() ?: return raw
+        val mm = raw.substring(3)
+        return when {
+            h in 8..11 -> "%02d:%s".format(h + 12, mm)
+            h == 12 -> "00:$mm"
+            else -> raw
+        }
+    }
+
     /** 从任意句子抠出日期 → ISO。识别不了返回 null（由调用侧默认今天）。 */
     fun parseDate(raw: String, today: LocalDate = Time.today()): String? {
         Regex("(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})").find(raw)?.let {
@@ -355,7 +365,49 @@ object LocalCoach {
 
     // ---------------- 小工具 ----------------
 
-    private fun toMin(hhmm: String) = PlanEngine.hhmmToMin(hhmm)
+    /** 既提到计划参数、又有明确改动词，才算「改计划」，否则「昨晚提前睡了」会被抢走。 */
+    private fun adjustIntent(t: String) =
+        RE_PLAN_NOUN.containsMatchIn(t) && RE_CHANGE_VERB.containsMatchIn(t)
+
+    private fun looksLikeCheckin(t: String) =
+        RE_CHECKIN.containsMatchIn(t) ||
+            (t.contains("打卡") && parseTime(t, defaultPm = false) != null)
+
+    /**
+     * 解析「改计划」：一句里可以同时给两个时间（「入睡改到23点，起床改到7点」），
+     * 必须按分句各认各的字段，否则整句里的「起床」会把 23:00 错塞进 wake，把计划写坏。
+     * 一个参数都没解析出来时返回 null，由调用侧决定是追问还是放给打卡。
+     */
+    private fun adjust(t: String): LocalReply? {
+        val times = linkedMapOf<String, String>()
+        for (clause in t.split(Regex("[，,、;；\\n]+"))) {
+            // 「昨晚11点睡的，目标改到10点」这种混着说的，只认带参数名或改动词的那个分句
+            if (!RE_PLAN_NOUN.containsMatchIn(clause) && !RE_CHANGE_VERB.containsMatchIn(clause)) continue
+            val wake = isWake(clause)
+            val time = parseTime(clause, defaultPm = !wake) ?: continue
+            times[if (wake) "wake" else if (isCurrent(clause)) "currentBedtime" else "targetBedtime"] = time
+        }
+        val days = findDays(t)
+        if (times.isEmpty() && days == null) return null
+        val res = mapOf("wake" to R.string.coach_adj_wake,
+                        "currentBedtime" to R.string.coach_adj_current,
+                        "targetBedtime" to R.string.coach_adj_target)
+        val parts = times.map { (k, v) -> KxText.s(res.getValue(k), v) }.toMutableList()
+        days?.let { parts += KxText.s(R.string.coach_adj_days, it) }
+        val pairs = mutableListOf<Pair<String, Any?>>("action" to "adjust")
+        times.forEach { (k, v) -> pairs += k to v }
+        days?.let { pairs += "days" to it }
+        return LocalReply(
+            KxText.s(R.string.coach_adjust, parts.joinToString(KxText.s(R.string.coach_join_sep))),
+            obj(*pairs.toTypedArray()))
+    }
+
+    private fun isWake(clause: String) =
+        clause.contains("起床") || clause.contains("晨起") || Regex("\\bwake", I).containsMatchIn(clause)
+
+    private fun isCurrent(clause: String) =
+        clause.contains("当前") || clause.contains("现在") || clause.contains("目前") ||
+            clause.contains("基线") || Regex("\\bcurrent", I).containsMatchIn(clause)
 
     /** 提醒正文：剥掉日期/时间/祈使词，剩下的就是要提醒的事。 */
     private fun reminderBody(t: String): String {

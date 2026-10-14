@@ -113,6 +113,68 @@ class LocalCoachTest {
     }
 
     @Test
+    fun `昨晚提前睡了要问几点_不是问怎么调`() {
+        // 「提前」既是改动词也是描述词：这句没给出新参数，就该按打卡追问时间
+        val r = LocalCoach.reply("昨晚提前睡了", cfg, today)
+        assertNull(r.actionJson)
+        assertTrue(r.text, r.text.contains("带上时间"))
+    }
+
+    @Test
+    fun `昨晚的11点是23点不是上午`() {
+        // parseTime 为了不把「昨晚1点」的「晚」当修饰词，让 昨晚X点 不带上下午倾向；
+        // 打卡这一路必须把钟点归回夜晚，否则「昨晚11点睡的」记成上午 11:00
+        assertEquals("23:00", LocalCoach.parseBedtime("昨晚11点睡的"))
+        assertEquals("00:30", LocalCoach.parseBedtime("昨晚12点半睡的"))
+        assertEquals("01:00", LocalCoach.parseBedtime("昨晚1点睡的"))
+        assertEquals("12:00", LocalCoach.parseBedtime("中午12点睡了"))  // 说白了中午就照字面
+        assertEquals("11:00", LocalCoach.parseBedtime("11:00 打卡"))    // 写死 HH:MM 不猜
+        val a = action(LocalCoach.reply("昨晚11点睡的", cfg, today))
+        assertTrue(a, a.contains("\"bedtime\":\"23:00\""))
+    }
+
+    @Test
+    fun `改入睡时间不记成打卡`() {
+        // 「入睡」既是打卡词又是参数名，带改动词时必须认成改计划（回归锁：曾经落成 checkin）
+        for (t in listOf("入睡时间改到23点", "把入睡时间提前到22点半")) {
+            val a = action(LocalCoach.reply(t, cfg, today))
+            assertTrue("$t → $a", a.contains("\"action\":\"adjust\""))
+        }
+        assertTrue(action(LocalCoach.reply("入睡时间改到23点", cfg, today)).contains("\"targetBedtime\":\"23:00\""))
+    }
+
+    @Test
+    fun `一句两个时间各认各的字段`() {
+        val a = action(LocalCoach.reply("入睡改到23点，起床改到7点", cfg, today))
+        assertTrue(a, a.contains("\"targetBedtime\":\"23:00\""))
+        assertTrue(a, a.contains("\"wake\":\"07:00\""))
+    }
+
+    @Test
+    fun `混着说只认改参数那句`() {
+        val a = action(LocalCoach.reply("昨晚11点睡的，目标改到10点", cfg, today))
+        assertTrue(a, a.contains("\"action\":\"adjust\""))
+        assertTrue(a, a.contains("\"targetBedtime\":\"22:00\""))
+    }
+
+    @Test
+    fun `打卡照旧`() {
+        val a = action(LocalCoach.reply("昨晚11点睡的", cfg, today))
+        assertTrue(a, a.contains("\"action\":\"checkin\""))
+    }
+
+    @Test
+    fun `达标线用昨晚档位且跨午夜`() {
+        // 基线 23:45 时报 00:30 是晚了 45 分钟，不是「数字比基线小所以准时」
+        val late = action(LocalCoach.reply("昨晚00:30睡的", cfg.copy(currentBedtime = "23:45"), today,
+            plannedBedtime = "23:45"))
+        assertTrue(late, late.contains("\"status\":\"late\""))
+        val ok = action(LocalCoach.reply("昨晚00:30睡的", cfg.copy(currentBedtime = "23:45"), today,
+            plannedBedtime = "00:15"))
+        assertTrue(ok, ok.contains("\"status\":\"on_time\""))
+    }
+
+    @Test
     fun `记打卡按时间落 bedtime`() {
         val a = action(LocalCoach.reply("昨晚1点睡的，记一下", cfg, today))
         assertTrue(a, a.contains("\"action\":\"checkin\""))
