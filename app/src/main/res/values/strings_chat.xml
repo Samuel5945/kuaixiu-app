@@ -108,6 +108,7 @@
     <string name="chat_err_time_fmt">「%1$s」格式应为 HH:MM</string>
     <string name="chat_err_date_fmt">「%1$s」格式应为 YYYY-MM-DD</string>
     <string name="chat_err_cancel_needs_title">取消提醒需要写明标题</string>
+    <string name="chat_err_days_range">计划天数得是 1–365 之间的整数（收到 %1$d）</string>
     <string name="chat_err_reminder_empty">提醒内容不能为空</string>
     <string name="chat_err_prompt_empty">画面描述不能为空</string>
 </resources>

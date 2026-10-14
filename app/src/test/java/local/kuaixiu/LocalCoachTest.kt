@@ -234,6 +234,49 @@ class LocalCoachTest {
         assertTrue(r.text, r.text.contains("给哪个习惯"))
     }
 
+    @Test
+    fun `风屏词不抢提醒和习惯`() {
+        // 「放下手机/不玩手机」是风屏关键词，但它们在提醒正文和习惯名里时不该抢走整句
+        val a = action(LocalCoach.reply("明天下午3点提醒我放下手机", cfg, today))
+        assertTrue(a, a.contains("\"action\":\"reminder\""))
+        assertTrue(a, a.contains("\"time\":\"15:00\""))
+        assertTrue(a, a.contains("\"text\":\"放下手机\""))
+        val h = action(LocalCoach.reply("建个习惯：晚上不玩手机，21:30，21天", cfg, today))
+        assertTrue(h, h.contains("\"op\":\"add\""))
+        assertTrue(h, h.contains("\"name\":\"晚上不玩手机\""))
+        // 光说一句风屏，仍然是风屏
+        assertTrue(action(LocalCoach.reply("开始风屏了", cfg, today, LocalTime.of(21, 5)))
+            .contains("\"winddown\":\"21:05\""))
+    }
+
+    @Test
+    fun `带睡眠词的做到了走打卡不是习惯`() {
+        val a = action(LocalCoach.reply("昨晚做到了11点睡", cfg, today,
+            knownHabits = listOf("散步", "冥想")))
+        assertTrue(a, a.contains("\"action\":\"checkin\""))
+        assertTrue(a, a.contains("\"bedtime\":\"23:00\""))
+    }
+
+    @Test
+    fun `计划天数有下界`() {
+        val r = LocalCoach.reply("计划改成0天", cfg, today)
+        assertNull(r.actionJson)
+        assertTrue(r.text, r.text.contains("想怎么调"))
+        // 英文的「0 days」也别被当成 00:00 的目标入睡
+        assertNull(LocalCoach.reply("change my plan to 0 days", cfg, today).actionJson)
+        assertTrue(action(LocalCoach.reply("计划改成28天", cfg, today)).contains("\"days\":28"))
+    }
+
+    @Test
+    fun `周几与月日的口径中英文一致`() {
+        // today = 2026-10-12 周一：说「周一」指的是下一个周一，不是已经过去的今天
+        assertEquals("2026-10-19", LocalCoach.parseDate("周一提醒我开会", today))
+        assertEquals("2026-10-19", LocalCoach.parseDate("remind me on monday", today))
+        // 12 月说「1月5日」要滚到明年，别解成今年的过去
+        assertEquals("2027-01-05", LocalCoach.parseDate("1月5日提醒我", LocalDate.of(2026, 12, 20)))
+        assertEquals("2026-10-20", LocalCoach.parseDate("10月20日", today))
+    }
+
     // ---------- FAQ 与兜底 ----------
 
     @Test

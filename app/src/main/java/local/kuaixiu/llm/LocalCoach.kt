@@ -68,8 +68,10 @@ object LocalCoach {
             }
         }
 
-        // 2) 风屏：用当前时刻，无需用户报时间
-        if (RE_WINDDOWN.containsMatchIn(t)) {
+        // 2) 风屏：用当前时刻，无需用户报时间。句子里出现「提醒/习惯」时这是别人的关键词
+        //    （「明天下午3点提醒我放下手机」「建个习惯：晚上不玩手机」不是叫我现在就放下手机）
+        if (RE_WINDDOWN.containsMatchIn(t) && !RE_REMIND.containsMatchIn(t) &&
+            !RE_HABIT.containsMatchIn(t)) {
             return LocalReply(KxText.s(R.string.coach_winddown),
                 obj("action" to "checkin", "winddown" to "%02d:%02d".format(now.hour, now.minute)))
         }
@@ -130,16 +132,17 @@ object LocalCoach {
     private fun habitIntent(t: String, today: LocalDate, knownHabits: List<String>): LocalReply? {
         val named = knownHabits.firstOrNull { t.contains(it) }
         val mentionsHabit = RE_HABIT.containsMatchIn(t)
+        // 光杆命令（「做到了」「暂停」）确实该认习惯，但带睡眠词的是在报昨晚：
+        // 「昨晚做到了11点睡」不能被习惯接走，否则睡眠打卡永远进不来
+        val bareOk = knownHabits.isNotEmpty() && !RE_CHECKIN.containsMatchIn(t)
 
-        // 已有习惯时，"做到了/暂停"这类光杆命令也该处理（多个则追问是哪个），
-        // 否则「做到了」这种快捷说法会白白落到兜底
-        if (RE_PAUSE.containsMatchIn(t) && (mentionsHabit || named != null || knownHabits.isNotEmpty())) {
+        if (RE_PAUSE.containsMatchIn(t) && (mentionsHabit || named != null || bareOk)) {
             val name = resolveHabitName(named, knownHabits)
                 ?: return LocalReply(KxText.s(R.string.coach_pause_which) + listOrAsk(knownHabits))
             return LocalReply(KxText.s(R.string.coach_habit_paused, name),
                 obj("action" to "habit", "op" to "pause", "name" to name))
         }
-        if (RE_DONE.containsMatchIn(t) && (mentionsHabit || named != null || knownHabits.isNotEmpty())) {
+        if (RE_DONE.containsMatchIn(t) && (mentionsHabit || named != null || bareOk)) {
             val name = resolveHabitName(named, knownHabits)
                 ?: return LocalReply(KxText.s(R.string.coach_done_which) + listOrAsk(knownHabits))
             return LocalReply(KxText.s(R.string.coach_habit_done, name),
@@ -231,8 +234,10 @@ object LocalCoach {
     private val RE_HHMM = Regex("(\\d{1,2})\\s*[:：]\\s*(\\d{2})")
     /** 说话人已明确交代是白天还是清早 —— 这时不再替他把钟点归到夜里。 */
     private val RE_DAY_MOD = Regex("(中午|正午|上午|早上|早晨|\\bnoon\\b|\\bmorning\\b|\\bam\\b|\\bpm\\b)", I)
-    // 英文写法：11pm / 9:30 am / at 8
-    private val RE_EN_TIME = Regex("(\\d{1,2})(?:\\s*[:.]\\s*(\\d{2}))?\\s*(am|pm)?", I)
+    // 英文写法：11pm / 9:30 am / at 8。紧跟「天/days」的裸数字是计划天数，不是钟点
+    // （否则「计划改成0天」会被抠成 00:00 的目标入睡）
+    private val RE_EN_TIME = Regex(
+        "(\\d{1,2})(?:\\s*[:.]\\s*(\\d{2}))?\\s*(am|pm)?(?!\\s*(?:[天日]|\\bdays?\\b))", I)
     // 修饰词前不能是「昨/今/明」——否则「昨晚1点」的「晚」会被误当「晚上」，把 01:00 算成 13:00
     private val RE_POINT = Regex(
         "(?<![昨今明])(凌晨|早上|早晨|上午|中午|下午|傍晚|晚上|夜里|晚|早)?\\s*" +
@@ -262,8 +267,12 @@ object LocalCoach {
         return if (t.length == 1) CN[t[0]] else null
     }
 
-    /** 计划天数：中文「28天」与英文「28 days」同一套。 */
-    private fun findDays(t: String): Int? = RE_DAYS.find(t)?.groupValues?.get(1)?.toIntOrNull()
+    /**
+     * 计划天数：中文「28天」与英文「28 days」同一套。0/负数/超过一年都不认——
+     * `planDays=0` 会让 plan.days 变空，日历被清空、首页取档位直接炸。
+     */
+    private fun findDays(t: String): Int? =
+        RE_DAYS.find(t)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 1..365 }
 
     /**
      * 从任意句子抠出时间 → "HH:MM"。
@@ -334,14 +343,18 @@ object LocalCoach {
         Regex("(\\d{1,2})\\s*月\\s*(\\d{1,2})\\s*[日号]").find(raw)?.let {
             return runCatching {
                 LocalDate.of(today.year, it.groupValues[1].toInt(), it.groupValues[2].toInt())
-            }.getOrNull()?.toString()
+            }.getOrNull()?.let { d ->
+                // 12 月说「1月5日提醒我」是要将来的那一头，补到明年，别落回今年的过去
+                if (d.isBefore(today)) d.plusYears(1) else d
+            }?.toString()
         }
         Regex("(下)?周([一二三四五六日天])").find(raw)?.let { m ->
             val c = m.groupValues[2][0]
             val target = if (c == '天') 6 else "一二三四五六日".indexOf(c)
             if (target >= 0) {
                 var ahead = ((target - (today.dayOfWeek.value - 1)) + 7) % 7
-                if (m.groupValues[1] == "下") ahead += 7
+                // 「周一」在周一说，指的是下一个周一（口径同英文 monday，别说成已经过去的今天）
+                if (m.groupValues[1] == "下") ahead += 7 else if (ahead == 0) ahead = 7
                 return today.plusDays(ahead.toLong()).toString()
             }
         }

@@ -860,12 +860,17 @@ private fun validateAction(action: JSONObject): String? {
     val dateRe = Regex("""^\d{4}-\d{2}-\d{2}$""")
     fun okTime(k: String) = !action.has(k) || action.optString(k).isBlank() || timeRe.matches(action.optString(k))
     fun okDate(k: String) = !action.has(k) || action.optString(k).isBlank() || dateRe.matches(action.optString(k))
+    // 天数没有下界就会写出空计划：日历被清空、首页取档位直接炸
+    fun okDays() = !action.has("days") || action.optInt("days", 0) in 1..365
     return when (kind) {
         "adjust" -> {
-            listOf("currentBedtime", "targetBedtime", "wake").firstOrNull { !okTime(it) }
-                ?.let { KxText.s(R.string.chat_err_time_fmt, it) }
-                ?: if (!okDate("startDate"))
-                    KxText.s(R.string.chat_err_date_fmt, "startDate") else null
+            val badTime = listOf("currentBedtime", "targetBedtime", "wake").firstOrNull { !okTime(it) }
+            when {
+                badTime != null -> KxText.s(R.string.chat_err_time_fmt, badTime)
+                !okDate("startDate") -> KxText.s(R.string.chat_err_date_fmt, "startDate")
+                !okDays() -> KxText.s(R.string.chat_err_days_range, action.optInt("days"))
+                else -> null
+            }
         }
         "reminder" -> {
             if (action.optString("op") == "cancel") {

@@ -108,6 +108,7 @@
     <string name="chat_err_time_fmt">\"%1$s\" must be HH:MM</string>
     <string name="chat_err_date_fmt">\"%1$s\" must be YYYY-MM-DD</string>
     <string name="chat_err_cancel_needs_title">Cancelling a reminder needs its title</string>
+    <string name="chat_err_days_range">Plan days must be a whole number from 1 to 365 (got %1$d)</string>
     <string name="chat_err_reminder_empty">The reminder can\'t be empty</string>
     <string name="chat_err_prompt_empty">The image description can\'t be empty</string>
 </resources>
