@@ -195,6 +195,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
 @Composable
 private fun EmptyCard() {
     val ctx = LocalContext.current
+    var busy by remember { mutableStateOf(false) }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.home_empty_title), style = MaterialTheme.typography.titleLarge)
@@ -203,10 +204,28 @@ private fun EmptyCard() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Button(onClick = {
-                runCatching { KxStore.syncCalendar(ctx) }
-                    .onSuccess { Toast.makeText(ctx, ctx.getString(R.string.home_plan_written, it), Toast.LENGTH_LONG).show() }
-                    .onFailure { android.util.Log.e("Kuaixiu", "sync failed", it); Toast.makeText(ctx, ctx.getString(R.string.home_sync_failed, it::class.simpleName ?: "null", it.message ?: "null"), Toast.LENGTH_LONG).show() }
-            }) { Text(stringResource(R.string.home_generate_now)) }
+                if (busy) return@Button
+                busy = true
+                // 一次要写 100+ 条日历事件，放在点击线程上真机 ANR 过
+                // （栈：EmptyCard → KxStore.syncCalendar → ContentResolver.insert），和设置页那条按钮一样走 IO
+                local.kuaixiu.KxScope.app.launch {
+                    val r = runCatching {
+                        kotlinx.coroutines.withContext(Dispatchers.IO) { KxStore.syncCalendar(ctx) }
+                    }
+                    kotlinx.coroutines.withContext(Dispatchers.Main) {
+                        busy = false
+                        r.onSuccess {
+                            Toast.makeText(ctx, ctx.getString(R.string.home_plan_written, it),
+                                Toast.LENGTH_LONG).show()
+                        }.onFailure {
+                            android.util.Log.e("Kuaixiu", "sync failed", it)
+                            Toast.makeText(ctx, ctx.getString(R.string.home_sync_failed,
+                                it::class.simpleName ?: "null", it.message ?: "null"),
+                                Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }, enabled = !busy) { Text(stringResource(R.string.home_generate_now)) }
         }
     }
 }
