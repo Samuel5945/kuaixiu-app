@@ -5,6 +5,7 @@ import local.kuaixiu.R
 import local.kuaixiu.engine.PlanEngine
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
@@ -67,25 +68,30 @@ object PosterBuild {
     }
 
     /** 周报版（D）：最近 7 个计划日。 */
-    fun week(ctx: Context): PosterData? {
+    fun week(ctx: Context, now: ZonedDateTime = Time.now()): PosterData? {
         val plan = KxStore.plan ?: return null
         val cfg = KxStore.config
         val all = Checkins.all(ctx)
         val byDate = all.associateBy { it.date }
-        val today = Time.today()
-        val reported = Checkins.tonightDate().minusDays(1).toString()
+        val today = now.toLocalDate()
+        val reported = weekCutoff(all.map { it.date }, now)
         // 只统计"已经报过结果"的夜：今晚这一夜要明早才打卡，放进周报会拉低平均分、还多出一根 0 分空条
-        val days = plan.days.filter { it.date <= today.toString() && it.date <= reported }.takeLast(7)
+        val days = plan.days.filter { it.date <= reported }.takeLast(7)
         if (days.isEmpty()) return null
         val lines = days.map { d ->
-            val c = byDate[d.date]
-            val r = Score.daily(c, d.winddown, d.bedtime, cfg.wake)
+            val raw = byDate[d.date]
+            // 跟首页/A 版同一套口径：老打卡里风屏没记到时现场用 UsageProbe 补，
+            // 否则同一夜首页显示 100 分、周报这根条只有 70 分。
+            val c = if (raw != null && raw.winddownAt.isBlank()) {
+                winddownOf(ctx, d)?.let { raw.copy(winddownAt = it) } ?: raw
+            } else raw
             PosterLine(
                 weekday = weekdayMark(d.date, d.weekday),
-                date = d.date.removePrefix("20").replace('-', '-'),
-                phoneDown = c?.phoneDownAt.orEmpty(),
+                date = d.date.takeLast(5),
+                // 没打卡的那一晚不去探测：那晚本来就没有"放下手机"这回事
+                phoneDown = if (c == null) "" else phoneDownOf(ctx, c, d),
                 bedtime = c?.bedtime.orEmpty(),
-                score = r.total,
+                score = Score.daily(c, d.winddown, d.bedtime, cfg.wake).total,
                 status = c?.status.orEmpty(),
             )
         }
@@ -97,7 +103,7 @@ object PosterBuild {
         val last = days.last().date
         val lateDays = lines.count { it.status == "late" }
         return PosterData(
-            streak = Score.streak(all, Checkins.tonightDate()),
+            streak = Score.streak(all, Checkins.tonightDate(now)),
                 scoreTotal = 0, scoreWinddown = 0, scoreSleep = 0, scoreWake = 0,
                 phoneDown = "", bedtime = "", wakeup = "", wakeAnchor = cfg.wake,
                 targetBedtime = todayEntry.bedtime,
@@ -118,6 +124,19 @@ object PosterBuild {
                     else -> KxText.s(R.string.poster_quote_missing)
                 },
         )
+    }
+
+    /**
+     * 周报的右端：最后一个「已经过完、并且报过结果」的夜。
+     *
+     * 中午 12 点前 [Checkins.tonightDate] 给出的就是昨晚（人刚醒，今早可以打卡），不能再减一天，
+     * 否则早上打完卡看周报，昨晚永远不在图里；中午之后它是今晚，还没发生，右端才要退到昨晚。
+     * 再和最近一次打卡取更早的那个：没打卡的那一晚画进周报只会是一根 0 分空条。
+     */
+    internal fun weekCutoff(logged: Collection<String>, now: ZonedDateTime = Time.now()): String {
+        val lastEnded = if (now.hour >= 12) Checkins.tonightDate(now).minusDays(1) else Checkins.tonightDate(now)
+        val lastLogged = logged.mapNotNull { d -> runCatching { LocalDate.parse(d) }.getOrNull() }.maxOrNull()
+        return (if (lastLogged == null || lastLogged > lastEnded) lastEnded else lastLogged).toString()
     }
 
     /** 放下手机时刻：优先用打卡里存下的（自动探测），没有就现算昨晚的。 */
