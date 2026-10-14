@@ -33,6 +33,19 @@ object ProviderProfiles {
 
     fun get(ctx: Context, name: String): Profile? = all(ctx)[name]
 
+    /**
+     * 当前这把 Key 属于哪家：档案名优先。老版本只有一个 Key（`providerName` 空、没建过档案）时
+     * 按 baseUrl 认预设，认得出才谈得上「归位」。
+     *
+     * 认不出来的后果是数据丢失：切服务商时 `llmKey` 被新档案的空 Key 顶掉，
+     * 而 `saveConfig` 无条件写 `llmKeyEnc = encrypt(新值)`，原来那把就再也回不来了。
+     */
+    fun homeOf(providerName: String, baseUrl: String, presetUrls: Map<String, String>): String =
+        providerName.ifBlank {
+            val mine = baseUrl.trimEnd('/')
+            presetUrls.entries.firstOrNull { it.value.trimEnd('/') == mine }?.key ?: ""
+        }
+
     fun put(ctx: Context, name: String, baseUrl: String, key: String, model: String,
             imageModel: String? = null) {
         if (name.isBlank()) return

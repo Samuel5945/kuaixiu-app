@@ -75,6 +75,9 @@ private val PROVIDER_PRESETS = listOf(
     ProviderPreset("基元律动", "https://tokenrhythm.studio/v1", "deepseek-v4-flash"),
 )
 
+/** 切走时要按 baseUrl 认回这家，所以预设名→地址这份映射得跟预设同源。 */
+private val PROVIDER_URLS = PROVIDER_PRESETS.associate { it.name to it.baseUrl }
+
 // 常用时区（覆盖主要地区）；默认「跟随系统」，空串即跟随。冷门地区以后再补
 private val ZONE_CHOICES = listOf(
     "Asia/Shanghai", "Asia/Hong_Kong", "Asia/Taipei", "Asia/Tokyo", "Asia/Seoul",
@@ -329,8 +332,10 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                                     // 「保存 Key」的输入、以及只存在 llmKeyEnc 里的老 Key，
                                     // 否则切过来时带的是新档案的空 Key，会把上一家冲掉
                                     val pending = keyInput.trim().ifBlank { cfg.llmKey }
-                                    if (cfg.providerName.isNotBlank() && pending.isNotBlank()) {
-                                        ProviderProfiles.put(ctx, cfg.providerName, cfg.llmBaseUrl,
+                                    val home = ProviderProfiles.homeOf(
+                                        cfg.providerName, cfg.llmBaseUrl, PROVIDER_URLS)
+                                    if (pending.isNotBlank() && home.isNotBlank()) {
+                                        ProviderProfiles.put(ctx, home, cfg.llmBaseUrl,
                                             pending, cfg.llmModel, cfg.imageModel)
                                     }
                                     keyInput = ""
@@ -343,7 +348,9 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                                         llmModel = np?.model?.ifBlank { preset.modelSeed } ?: preset.modelSeed,
                                         // 生图只在「还没配过」时用种子填一下；已配好的不跟文本供应商换
                                         imageModel = if (cfg.imageModel.isBlank()) seed else cfg.imageModel,
-                                        llmKey = ProviderProfiles.decryptKey(np),
+                                        // 归不了档的老 Key（自定义 baseUrl）宁可带着走，也不能被空档案冲掉
+                                        llmKey = ProviderProfiles.decryptKey(np)
+                                            .ifBlank { if (home.isBlank()) cfg.llmKey else "" },
                                     ))
                                 },
                                 label = { Text(preset.name + keyHint) },
@@ -403,8 +410,11 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                             if (k.isEmpty()) return@OutlinedButton
                             keyInput = ""
                             persist(cfg.copy(llmKey = k))
-                            if (cfg.providerName.isNotBlank()) {
-                                ProviderProfiles.put(ctx, cfg.providerName, cfg.llmBaseUrl, k,
+                            // providerName 还没设过的老 Key 也按 baseUrl 归到那家档案里，
+                            // 否则它只存在于 llmKeyEnc，下一次切服务商就会被新档案的空 Key 顶掉
+                            val home = ProviderProfiles.homeOf(cfg.providerName, cfg.llmBaseUrl, PROVIDER_URLS)
+                            if (k.isNotBlank() && home.isNotBlank()) {
+                                ProviderProfiles.put(ctx, home, cfg.llmBaseUrl, k,
                                     cfg.llmModel, cfg.imageModel)
                             }
                             Toast.makeText(ctx, ctx.getString(R.string.set_key_saved), Toast.LENGTH_SHORT).show()
