@@ -13,6 +13,7 @@ import local.kuaixiu.engine.PlanDay
 import local.kuaixiu.engine.PlanSummary
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -107,5 +108,15 @@ class PosterWeekTest {
     fun `周标签只有月日，不写出年份`() {
         val d = week(listOf("2026-10-11", "2026-10-12", "2026-10-13"), "2026-10-14T08:30+08:00")
         assertEquals("10.11 – 10.13 · 第 1 周", d.weekLabel)
+    }
+
+    @Test
+    fun `平均评分只按报过结果的夜算，没打卡的不摊进分母`() {
+        val d = week(listOf("2026-10-12", "2026-10-13"), "2026-10-14T08:30+08:00")
+        val logged = d.weekDays.filter { it.status.isNotBlank() }
+        assertEquals(3, d.weekDays.size)   // 10-11 没打卡，仍占一根空条
+        assertEquals(2, logged.size)
+        assertTrue(logged.first().score > 0)
+        assertEquals(logged.sumOf { it.score } / logged.size, d.avgScore)
     }
 }
