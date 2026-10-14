@@ -40,6 +40,9 @@ android {
             all {
                 // Robolectric 运行时要拉 android-all jar，直连 Maven Central 太慢，走阿里云镜像
                 it.systemProperty("robolectric.dependency.repo.url", "https://maven.aliyun.com/repository/central")
+                // 要看海报真像素时：./gradlew testDebugUnitTest -Dkx.poster.out=D:/tmp/kxposter
+                // 没给这个属性就不落盘，CI 上只跑断言
+                it.systemProperty("kx.poster.out", System.getProperty("kx.poster.out") ?: "")
             }
         }
     }
