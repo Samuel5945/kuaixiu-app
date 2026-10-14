@@ -25,6 +25,7 @@ import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import java.io.FileOutputStream
 import java.time.LocalDate
+import java.time.ZonedDateTime
 
 /**
  * 版式冒烟：`@GraphicsMode(NATIVE)` 下 Robolectric 用真 Skia 画，`PosterComposer` 出来的
@@ -38,6 +39,9 @@ import java.time.LocalDate
 class PosterRenderSmokeTest {
 
     private val ctx get() = ApplicationProvider.getApplicationContext<android.content.Context>()
+
+    /** 钉死钟点：不注入的话，跑到中午/半夜或计划起始日之前，取数窗口会跟着宿主时钟变。 */
+    private val now = ZonedDateTime.parse("2026-10-14T09:00+08:00")
 
     private fun plan(from: String) = Plan(
         created = from,
@@ -71,13 +75,28 @@ class PosterRenderSmokeTest {
     @Test
     fun `四版海报都画得出非空白成品`() {
         for (tpl in PosterTemplate.values()) {
-            val d = if (tpl == PosterTemplate.D) PosterBuild.week(ctx)!! else PosterBuild.tonight(ctx)!!
+            val d = if (tpl == PosterTemplate.D) PosterBuild.week(ctx, now)!! else PosterBuild.tonight(ctx)!!
             val bmp = PosterComposer.render(tpl, d, null)
             assertEquals(PosterComposer.W, bmp.width)
             assertEquals(PosterComposer.H, bmp.height)
             assertNotBlank(bmp, tpl.name)
             dumpIfRequested(bmp, "smoke_$tpl")
         }
+    }
+
+    /** 断档周的版式：没打卡的那几晚留空槽、右侧是破折号，结语说记录不全（App 没有补卡，别说"补齐"）。 */
+    @Test
+    fun `断档周的周报版式`() {
+        File(ctx.filesDir, "checkins.json").delete()
+        Checkins.add(ctx, Checkin(date = "2026-10-13", status = "on_time", bedtime = "00:25",
+            winddownAt = "00:00", wakeupAt = "07:00", phoneDownAt = "00:38"))
+        val d = PosterBuild.week(ctx, now)!!
+        assertEquals(3, d.weekDays.size)
+        assertEquals(1, d.weekDays.count { it.logged })
+        assertEquals(ctx.getString(R.string.poster_quote_missing), d.quote)
+        val bmp = PosterComposer.render(PosterTemplate.D, d, null)
+        assertNotBlank(bmp, "D-断档")
+        dumpIfRequested(bmp, "smoke_D_gaps")
     }
 
     /** 渐变底 + 中文字 + 横条，按 8px 网格采样不可能只有几十种颜色；画崩成空白时这里会先炸。 */
