@@ -116,6 +116,21 @@ object PlanEngine {
         return bedtimeDate(date, b).atTime(b / 60, b % 60).minusMinutes(winddownMin.toLong())
     }
 
+    /**
+     * 某一晚「客观记录」的查询窗口：入夜 18:00 → 那晚之后的起床锚点。
+     *
+     * 两端都不能拿计划值当边界：他比计划更早放下手机时，用「计划风屏时刻」当起点会什么都查不到；
+     * 终点用 `day.date` 当天早上则整体偏前一天（真机上周报三根条因此全掉到 70 分）。
+     */
+    fun nightWindowOf(day: PlanDay, wake: String): Pair<LocalDateTime, LocalDateTime> {
+        val date = LocalDate.parse(day.date)
+        val bed = hhmmToMin(day.bedtime)
+        val w = hhmmToMin(wake)
+        val sleepDate = bedtimeDate(date, bed)
+        val morning = if (w > bed) sleepDate else sleepDate.plusDays(1)
+        return date.atTime(18, 0) to morning.atTime(w / 60, w % 60)
+    }
+
     fun generate(cfg: PlanConfig, today: LocalDate = Time.today()): Plan {
         val start = parseDateLenient(cfg.startDate, today)
         val targetMin = hhmmToMin(cfg.targetBedtime)

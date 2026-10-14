@@ -160,12 +160,8 @@ object PosterBuild {
     private fun factsOf(ctx: Context, entry: local.kuaixiu.engine.PlanDay): UsageProbe.NightFacts? {
         if (!UsageProbe.hasAccess(ctx)) return null
         return runCatching {
-            UsageProbe.nightFacts(
-                ctx,
-                PlanEngine.winddownStartOf(entry, KxStore.config.winddownMin),
-                Time.zoned(LocalDate.parse(entry.date), LocalTime.parse(KxStore.config.wake)).toLocalDateTime(),
-                Time.now().toLocalDateTime(),
-            )
+            val (from, to) = PlanEngine.nightWindowOf(entry, KxStore.config.wake)
+            UsageProbe.nightFacts(ctx, from, to, Time.now().toLocalDateTime())
         }.getOrNull()
     }
 

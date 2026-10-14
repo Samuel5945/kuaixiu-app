@@ -32,11 +32,11 @@ object UsageProbe {
     }
 
     /**
-     * 一趟查询拿齐夜晚事实。
-     * @param winddownStart 昨晚风屏开始时刻（窗口起点）
-     * @param wakeAnchor    今早起锚点时刻（用于切分"夜里"与"今早"）
-     * @param now           当前时刻（窗口终点）
-     * 今早首次亮屏 = 今天 04:00 之后、now 之前的第一次亮屏；夜晚事件截到它为止。
+     * 一趟查询拿齐夜晚事实。**窗口只属于被问的那一晚**：
+     * @param winddownStart 那晚风屏开始时刻（窗口起点）
+     * @param wakeAnchor    那晚之后的起床锚点（窗口终点，也是「今早」的日期）
+     * @param now           当前时刻（那晚还没过完时用它截断）
+     * 今早首次亮屏 = 起床锚点那天 04:00 之后、窗口终点之前的第一次亮屏；夜晚事件截到它为止。
      */
     fun nightFacts(
         ctx: Context,
@@ -45,8 +45,11 @@ object UsageProbe {
         now: LocalDateTime,
     ): NightFacts? = try {
         val usm = ctx.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        // 终点必须是那晚的起床锚点：拿 now 当终点会把之后几晚的事件一起读进来，
+        // 于是「10-11 那晚的放下手机」实际是最近一晚的（真机实测踩过）。
+        val end = if (wakeAnchor < now) wakeAnchor else now
         val s = winddownStart.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val e = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val e = end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val evs = usm.queryEvents(s, e)
         val ev = UsageEvents.Event()
         val on = mutableListOf<LocalDateTime>()
@@ -61,10 +64,10 @@ object UsageProbe {
                 ev.eventType == UsageEvents.Event.ACTIVITY_RESUMED -> on += t
             }
         }
-        val morningFloor = LocalDateTime.of(now.toLocalDate(), LocalTime.of(4, 0))
-        val firstPickup = on.filter { it >= morningFloor && it <= now }.minOrNull()
+        val morningFloor = LocalDateTime.of(wakeAnchor.toLocalDate(), LocalTime.of(4, 0))
+        val firstPickup = on.filter { it >= morningFloor && it <= end }.minOrNull()
         // 夜晚窗口严格截止于首次拿起之前——拿起事件本身不算"昨晚最后亮屏"
-        val nightEnd = firstPickup ?: now
+        val nightEnd = firstPickup ?: end
         NightFacts(
             lastInteractive = on.filter { it < nightEnd }.maxOrNull(),
             lastScreenOff = off.filter { it < nightEnd }.maxOrNull(),

@@ -444,11 +444,8 @@ private fun ScoreCard() {
     var autoWinddown: String? = null
     if (c0?.winddownAt.isNullOrBlank() && e != null && UsageProbe.hasAccess(ctx)) {
         val facts = runCatching {
-            UsageProbe.nightFacts(
-                ctx, PlanEngine.winddownStartOf(e, KxStore.config.winddownMin),
-                java.time.LocalDateTime.of(LocalDate.parse(e.date), java.time.LocalTime.parse(KxStore.config.wake)),
-                Time.now().toLocalDateTime(),
-            )
+            val (from, to) = PlanEngine.nightWindowOf(e, KxStore.config.wake)
+            UsageProbe.nightFacts(ctx, from, to, Time.now().toLocalDateTime())
         }.getOrNull()
         autoWinddown = facts?.lastScreenOff?.format(fmt)
     }
