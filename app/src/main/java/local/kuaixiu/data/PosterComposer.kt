@@ -242,8 +242,10 @@ object PosterComposer {
         val cw = (W - 2 * PAD) / 4f
         listOf(
             KxText.s(R.string.poster_d_hit_rate) to "${d.ratePercent()}%",
-            KxText.s(R.string.poster_d_avg_phone) to d.avgPhoneDown,
-            KxText.s(R.string.poster_lab_streak) to KxText.n(R.plurals.poster_days_count, d.onTimeCount, d.onTimeCount),
+            // 一晚「放下手机」都没探到时也要有个占位，别留一格空白（A/B/C 同样兜底）
+            KxText.s(R.string.poster_d_avg_phone) to d.avgPhoneDown.ifBlank { "—" },
+            // 这格是连续天数，不是本周准时晚数：断档的周里两者不同，画错了就是假数据
+            KxText.s(R.string.poster_lab_streak) to KxText.n(R.plurals.poster_days_count, d.streak, d.streak),
             KxText.s(R.string.poster_d_avg_score) to d.avgScore.toString(),
         ).forEachIndexed { i, (label, value) ->
             val x = PAD + i * cw

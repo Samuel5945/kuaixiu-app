@@ -177,5 +177,6 @@ object PosterBuild {
         return "%02d:%02d".format(avg / 60, avg % 60)
     }
 
-    private fun mmdd(iso: String): String = iso.removePrefix("20").replace('-', '.')
+    /** 周标签用的 10.11：只取月日，别把年份留成「26.10.11」。 */
+    private fun mmdd(iso: String): String = iso.takeLast(5).replace('-', '.')
 }

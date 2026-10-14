@@ -102,4 +102,10 @@ class PosterWeekTest {
         assertEquals("3/3", d.weekRatio)
         assertEquals(3, d.rateElapsed)
     }
+
+    @Test
+    fun `周标签只有月日，不写出年份`() {
+        val d = week(listOf("2026-10-11", "2026-10-12", "2026-10-13"), "2026-10-14T08:30+08:00")
+        assertEquals("10.11 – 10.13 · 第 1 周", d.weekLabel)
+    }
 }
