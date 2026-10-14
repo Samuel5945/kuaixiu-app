@@ -234,7 +234,9 @@ object PosterComposer {
             val w = (trackR - trackL) * (line.score.coerceIn(0, 100) / 100f)
             if (w > 4f) c.drawRoundRect(RectF(trackL, y, trackL + w, y + barH), barH / 2, barH / 2,
                 paint().apply { color = when (line.status) { "late" -> AMBER; "skip" -> 0xFFC9BDA8.toInt(); else -> INK } })
-            textRight(c, line.score.toString(), W - PAD, y + 82f, 40f, 0xFF6B6154.toInt(), bold)
+            // 没打卡的那一晚没有分数，右侧写「—」——画成 0 会和真拿了 0 分混在一起
+            textRight(c, if (line.logged) line.score.toString() else "—", W - PAD, y + 82f, 40f,
+                0xFF6B6154.toInt(), bold)
             y += 176f
         }
         // 四格数据

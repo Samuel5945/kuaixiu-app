@@ -93,20 +93,21 @@ object PosterBuild {
                 bedtime = c?.bedtime.orEmpty(),
                 score = Score.daily(c, d.winddown, d.bedtime, cfg.wake).total,
                 status = c?.status.orEmpty(),
-            ) to (raw != null)
+                logged = raw != null,
+            )
         }
-        val bars = lines.map { it.first }
         // 平均评分只算报过结果的那几晚：没打卡的夜晚不是 0 分，是根本没有分，
         // 摊进分母会让一张 3/7 的周报写出 55 的平均分，像评分体系在罚人。
         // 达成率照旧按已过的夜算——那才是执行率。
-        val logged = lines.filter { it.second }.map { it.first }
+        val logged = lines.filter { it.logged }
+        val missing = lines.size - logged.size
         val onTime = days.count { byDate[it.date]?.status == "on_time" }
-        val phones = bars.mapNotNull { it.phoneDown }.filter { it.isNotBlank() }
+        val phones = lines.mapNotNull { it.phoneDown }.filter { it.isNotBlank() }
         // 页脚/目标用「今天」这一档，不是这一周最后一条已报的夜
         val todayEntry = plan.entryFor(today.toString()) ?: days.last()
         val first = days.first().date
         val last = days.last().date
-        val lateDays = bars.count { it.status == "late" }
+        val lateDays = lines.count { it.status == "late" }
         return PosterData(
             streak = Score.streak(all, Checkins.tonightDate(now)),
                 scoreTotal = 0, scoreWinddown = 0, scoreSleep = 0, scoreWake = 0,
@@ -116,13 +117,15 @@ object PosterBuild {
                 stage = PlanEngine.phaseLabel(todayEntry.stage),
                 dateCn = "", dateDot = "",
                 weekLabel = KxText.s(R.string.poster_week_label, mmdd(first), mmdd(last), days.first().week),
-                weekDays = bars,
+                weekDays = lines,
                 onTimeCount = onTime, weekTotal = days.size,
                 avgPhoneDown = avgClock(phones),
                 avgScore = if (logged.isEmpty()) 0 else logged.sumOf { it.score } / logged.size,
                 // 达成率只看这周已过的夜（今晚要明早才打卡，不能算进去）——不然 2/3 会让标题的 2/2 自相矛盾
                 rateHit = onTime, rateElapsed = days.size,
                 quote = when {
+                    // 有断档就先说记录不全：漏记的周还讲"只有一天不准时"是假话
+                    missing > 0 -> KxText.s(R.string.poster_quote_missing)
                     onTime == days.size -> KxText.s(R.string.poster_quote_all, onTime)
                     lateDays == 1 -> KxText.s(R.string.poster_quote_one_late)
                     lateDays >= 2 -> KxText.s(R.string.poster_quote_late, lateDays)

@@ -12,7 +12,8 @@ data class PosterLine(
     val phoneDown: String,   // 放下手机 00:38（可能是空串：老记录没有这一列）
     val bedtime: String,     // 手填的入睡（备查，卡面不主打）
     val score: Int,          // 当天评分 0-100
-    val status: String,      // on_time / late / skip / ""（无记录）
+    val status: String,      // on_time / late / skip / ""（那一晚只有过程打卡）
+    val logged: Boolean,     // 这一晚到底有没有打卡记录：没记录不写分数，写「—」
 )
 
 data class PosterData(

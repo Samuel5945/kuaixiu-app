@@ -13,6 +13,7 @@ import local.kuaixiu.engine.PlanDay
 import local.kuaixiu.engine.PlanSummary
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -113,10 +114,38 @@ class PosterWeekTest {
     @Test
     fun `平均评分只按报过结果的夜算，没打卡的不摊进分母`() {
         val d = week(listOf("2026-10-12", "2026-10-13"), "2026-10-14T08:30+08:00")
-        val logged = d.weekDays.filter { it.status.isNotBlank() }
+        val logged = d.weekDays.filter { it.logged }
         assertEquals(3, d.weekDays.size)   // 10-11 没打卡，仍占一根空条
         assertEquals(2, logged.size)
         assertTrue(logged.first().score > 0)
         assertEquals(logged.sumOf { it.score } / logged.size, d.avgScore)
+    }
+
+    @Test
+    fun `没打卡的那一晚标成没有记录，不是零分`() {
+        val d = week(listOf("2026-10-12", "2026-10-13"), "2026-10-14T08:30+08:00")
+        val gap = d.weekDays.first()
+        assertEquals("10-11", gap.date)
+        assertFalse(gap.logged)
+    }
+
+    @Test
+    fun `有断档时结语先说记录不全`() {
+        val d = week(listOf("2026-10-12", "2026-10-13"), "2026-10-14T08:30+08:00")
+        assertEquals(ctx.getString(R.string.poster_quote_missing), d.quote)
+    }
+
+    @Test
+    fun `记录齐全又只晚一晚时才用单次破功那句`() {
+        File(ctx.filesDir, "checkins.json").delete()
+        Checkins.add(ctx, Checkin(date = "2026-10-11", status = "late", bedtime = "01:20",
+            winddownAt = "00:50", wakeupAt = "07:00", phoneDownAt = "01:05"))
+        listOf("2026-10-12", "2026-10-13").forEach {
+            Checkins.add(ctx, Checkin(date = it, status = "on_time", bedtime = "00:25",
+                winddownAt = "00:00", wakeupAt = "07:00", phoneDownAt = "00:38"))
+        }
+        val d = PosterBuild.week(ctx, at("2026-10-14T08:30+08:00"))!!
+        assertEquals(3, d.weekDays.count { it.logged })
+        assertEquals(ctx.getString(R.string.poster_quote_one_late), d.quote)
     }
 }
