@@ -1,16 +1,13 @@
 # 快休 · AI 早睡执行系统
 
+[中文版](README.md) ｜ [English](README.en.md)
+
 > 让 AI 管住我晚上别干活。不打分不打卡不激励，只做一件事：**到点把手机放下**。
 
 🌐 官网：<https://ligdesign.win/kuaixiu> ｜ 📱 下载：[夸克网盘](https://pan.quark.cn/s/435c480c6ed9) · [百度网盘](https://pan.baidu.com/s/1DRyVy7IKW73fDga1NOVzZA?pwd=35c8)
 
 Android App（Kotlin + Compose）。一次生成 28 天作息计划，直接写进手机系统日历（带原生提醒），
 AI 教练在对话里帮你改计划、加提醒、建习惯、做海报——**没有账号、没有服务器、数据全在本机**。
-
-> **Kuaixiu** — an AI *wind-down* coach for going to bed earlier. Kotlin/Compose Android app.
-> It generates a staged sleep plan, writes it into your phone's own calendar with native reminders,
-> and keeps every record on the device: no account, no backend. Bilingual UI (Chinese / English)
-> follows the system language. Build: `./gradlew :app:assembleDebug`. License: Apache-2.0.
 
 ## 为什么不是又一个 sleep tracker
 
@@ -23,7 +20,7 @@ AI 教练在对话里帮你改计划、加提醒、建习惯、做海报——**
 一次生成、幂等更新：重算只删旧插新，不留重复事件。写入自建的本地日历账户
 `快休早睡`，提醒走系统日历，换手机也不会被 App 绑死。
 
-**AI 教练对话** — 接任意 OpenAI 兼容服务（`/chat/completions`，默认 `glm-5.3-flash`），
+**AI 教练对话** — 接任意 OpenAI 兼容服务（`/chat/completions`），
 动作卡用 Function Calling 执行：改入睡/起床时间、加待办提醒、建连响 N 天的习惯、记打卡、做海报。
 模型「嘴上答应没执行」时会自动追呼补执行。**不配 Key 也能用**：内置离线教练认得日常说法，
 把同一句话翻译成同样的动作卡。
