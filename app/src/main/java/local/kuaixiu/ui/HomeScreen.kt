@@ -451,6 +451,12 @@ private fun HabitRow(h: Habit, today: LocalDate) {
     }
 }
 
+/**
+ * 评分卡的明细行。教练风格「数据理性」的评语本身就是各项明细拼出来的，
+ * 两行一字不差时只留评语那一行——同一句话不画两遍。
+ */
+internal fun scoreDetailLine(voice: String, notes: String): String? = notes.takeIf { it != voice }
+
 @Composable
 private fun ScoreCard() {
     val ctx = LocalContext.current
@@ -483,7 +489,8 @@ private fun ScoreCard() {
                         ?: stringResource(R.string.home_score_badge_max)),
                 style = MaterialTheme.typography.titleMedium,
             )
-            Text(Score.voice(KxStore.config.coachStyle, r), style = MaterialTheme.typography.bodyMedium)
+            val voice = Score.voice(KxStore.config.coachStyle, r)
+            Text(voice, style = MaterialTheme.typography.bodyMedium)
             // 扣分项一眼可见：三项细分 + 各自满分（权重跟手册口径一致：起床最重）
             Text(
                 stringResource(
@@ -502,11 +509,13 @@ private fun ScoreCard() {
                 r.notes.drop(1).joinToString(sep).ifBlank { noDetails } +
                     stringResource(R.string.home_winddown_auto_note, wdAuto)
             else r.notes.joinToString(sep).ifBlank { noDetails }
-            Text(
-                notes,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            scoreDetailLine(voice, notes)?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

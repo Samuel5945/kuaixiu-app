@@ -1,8 +1,10 @@
 package local.kuaixiu
 
 import local.kuaixiu.data.Checkin
+import local.kuaixiu.data.KxText
 import local.kuaixiu.data.Score
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -86,5 +88,19 @@ class ScoreDailyTest {
     fun `还没生成计划时给一半分`() {
         val r = day("22:15", "23:00", "07:00", planned = false)
         assertEquals(listOf(15, 15, 20), listOf(r.winddown, r.sleep, r.wake))
+    }
+
+    /**
+     * 风格「数据理性」的评语本身就是各项明细拼出来的，卡片两行会一字不差
+     * （真机截图上就重复过一次）。同一句话不画两遍，换风格时明细照旧要画。
+     */
+    @Test
+    fun `评语与明细同一句时卡片只画一行`() {
+        val r = day("22:15", "23:00", "07:30")
+        val notes = r.notes.joinToString(KxText.s(R.string.score_notes_sep))
+        val voice = Score.voice("data", r)
+        assertEquals(notes, voice)
+        assertNull(local.kuaixiu.ui.scoreDetailLine(voice, notes))
+        assertEquals(notes, local.kuaixiu.ui.scoreDetailLine(Score.voice("gentle", r), notes))
     }
 }
