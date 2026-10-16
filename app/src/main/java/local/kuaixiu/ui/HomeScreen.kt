@@ -511,6 +511,25 @@ private fun ScoreCard() {
     }
 }
 
+/**
+ * 昨晚探测的起点：有计划档位就用那晚风屏开始，**没有档位也要探得到**——
+ * 「改参数=以今天重开」之后昨晚不在计划里，这时退到那晚入夜 18:00。
+ * 和 [local.kuaixiu.engine.PlanEngine.nightWindowOf] 同一个理由：窗口两端都不拿计划值当边界。
+ */
+internal fun morningProbeStart(
+    night: java.time.LocalDate,
+    entry: PlanDay?,
+    winddownMin: Int,
+): java.time.LocalDateTime =
+    entry?.let { PlanEngine.winddownStartOf(it, winddownMin) } ?: night.atTime(18, 0)
+
+/** 收起态那行用哪个起床值：记下来的优先，其次这次探到的，都没有返回空串（界面改口说「没探测到」）。 */
+internal fun morningWakeValue(
+    saved: String,
+    probed: java.time.LocalDateTime?,
+    fmt: java.time.format.DateTimeFormatter,
+): String = saved.ifBlank { probed?.format(fmt) ?: "" }
+
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun CheckinCard(tonightEntry: PlanDay?) {
@@ -625,6 +644,25 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
 
             if (winddownDay != null) androidx.compose.material3.HorizontalDivider()
 
+            // 探测得在「已打卡收起」之前跑：起床那 40 分是权重最高的一项，
+            // 收起的应该是表单，不是事实
+            val fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+            var usageDenied by remember { mutableStateOf(false) }
+            var facts by remember { mutableStateOf<UsageProbe.NightFacts?>(null) }
+            LaunchedEffect(night) {
+                if (!UsageProbe.hasAccess(ctx)) {
+                    usageDenied = true
+                    return@LaunchedEffect
+                }
+                // 昨晚不在计划里也要探得到（刚改过参数就从今天重开，昨晚没有档位）：
+                // 起点退到那晚入夜，两端都不拿计划值当边界
+                val start = morningProbeStart(night, nightEntry, KxStore.config.winddownMin)
+                val anchor = java.time.LocalDateTime.of(Time.today(),
+                    java.time.LocalTime.parse(KxStore.config.wake))
+                facts = UsageProbe.nightFacts(ctx, start, anchor, Time.now().toLocalDateTime())
+            }
+            val autoWake = facts?.firstMorningPickup
+
             // —— 昨晚入睡（结果打卡：次日早上记；入睡估计来自系统最后亮屏）——
             if (nightRec?.status?.isNotBlank() == true && !editing) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -647,25 +685,24 @@ private fun CheckinCard(tonightEntry: PlanDay?) {
                         editing = true
                     }) { Text(stringResource(R.string.home_edit_btn)) }
                 }
-                return@Column   // 已打卡就一行收尾，不再往下画整张表单
-            }
-            var usageDenied by remember { mutableStateOf(false) }
-            var facts by remember { mutableStateOf<UsageProbe.NightFacts?>(null) }
-            LaunchedEffect(night) {
-                val entry = nightEntry ?: return@LaunchedEffect
-                if (!UsageProbe.hasAccess(ctx)) {
-                    usageDenied = true
-                    return@LaunchedEffect
+                // 记下来的起床值优先，其次才是这次探到的；都没有就明说没探测到
+                val wakeAt = morningWakeValue(nightRec.wakeupAt, autoWake, fmt)
+                if (wakeAt.isBlank()) {
+                    Text(stringResource(R.string.home_wake_missing_fact),
+                        style = MaterialTheme.typography.bodySmall)
+                } else {
+                    val devTxt = Score.diffMinutes(KxStore.config.wake, wakeAt)?.let { d ->
+                        if (d >= 0) stringResource(R.string.home_target_diff_over, d)
+                        else stringResource(R.string.home_target_diff_under, d)
+                    }
+                    Text(stringResource(R.string.home_first_pickup, wakeAt) +
+                        (devTxt?.let { stringResource(R.string.home_parenthetical, it) } ?: ""),
+                        style = MaterialTheme.typography.bodySmall)
                 }
-                val wd = PlanEngine.winddownStartOf(entry, KxStore.config.winddownMin)
-                val anchor = java.time.LocalDateTime.of(Time.today(),
-                    java.time.LocalTime.parse(KxStore.config.wake))
-                facts = UsageProbe.nightFacts(ctx, wd, anchor, Time.now().toLocalDateTime())
+                return@Column   // 已打卡就收成两行，不再往下画整张表单
             }
-            val fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
 
             // —— 早上起床（放在「昨晚入睡」上面）：默认自动探测，可手选覆盖 ——
-            val autoWake = facts?.firstMorningPickup
             val wakeShown = wakeOverride.ifBlank { autoWake?.format(fmt).orEmpty() }
             Text(stringResource(R.string.home_wake_title), style = MaterialTheme.typography.titleMedium)
             val unsetText = stringResource(R.string.home_unset)

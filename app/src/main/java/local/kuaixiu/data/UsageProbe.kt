@@ -15,6 +15,9 @@ import java.time.ZoneId
  */
 object UsageProbe {
 
+    /** 起床锚点之后还承认「今早」的余量（小时）；再晚的那些拿起属于下一晚。 */
+    const val MORNING_TAIL_HOURS = 6L
+
     data class NightFacts(
         val lastInteractive: LocalDateTime?,   // 昨晚最后亮屏
         val lastScreenOff: LocalDateTime?,     // 昨晚最后熄屏
@@ -34,9 +37,9 @@ object UsageProbe {
     /**
      * 一趟查询拿齐夜晚事实。**窗口只属于被问的那一晚**：
      * @param winddownStart 那晚风屏开始时刻（窗口起点）
-     * @param wakeAnchor    那晚之后的起床锚点（窗口终点，也是「今早」的日期）
+     * @param wakeAnchor    那晚之后的起床锚点（也定「今早」是哪一天）
      * @param now           当前时刻（那晚还没过完时用它截断）
-     * 今早首次亮屏 = 起床锚点那天 04:00 之后、窗口终点之前的第一次亮屏；夜晚事件截到它为止。
+     * 今早首次亮屏 = 锚点那天 04:00 之后、窗口终点之前的第一次亮屏；夜晚事件截到它为止。
      */
     fun nightFacts(
         ctx: Context,
@@ -45,9 +48,11 @@ object UsageProbe {
         now: LocalDateTime,
     ): NightFacts? = try {
         val usm = ctx.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        // 终点必须是那晚的起床锚点：拿 now 当终点会把之后几晚的事件一起读进来，
-        // 于是「10-11 那晚的放下手机」实际是最近一晚的（真机实测踩过）。
-        val end = if (wakeAnchor < now) wakeAnchor else now
+        // 终点不能拿锚点当边界：拿 now 会把之后几晚的事件一起读进来（真机踩过），
+        // 但卡在锚点上，睡过锚点才拿起手机的那一次——恰恰最该记的那次——就没了。
+        // 按「这一晚自己的早晨」收口：锚点那天最多到 +6h，再晚就属于下一晚了。
+        val morningEnd = wakeAnchor.plusHours(MORNING_TAIL_HOURS)
+        val end = if (morningEnd < now) morningEnd else now
         val s = winddownStart.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val e = end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val evs = usm.queryEvents(s, e)

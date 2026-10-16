@@ -82,6 +82,7 @@
     <string name="home_target_diff_over">目标差 +%1$d 分钟</string>
     <string name="home_target_diff_under">目标差 %1$d 分钟</string>
     <string name="home_first_pickup">📱 今早首次亮屏 %1$s</string>
+    <string name="home_wake_missing_fact">📱 今早没探测到拿起时间，点「改一下」补一个</string>
     <string name="home_parenthetical">（%1$s）</string>
     <string name="home_sleep_title">😴 昨晚入睡</string>
     <string name="home_actual_bedtime_label">实际入睡</string>

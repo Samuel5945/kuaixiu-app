@@ -57,6 +57,41 @@ class UsageProbeWindowTest {
         assertEquals(LocalDateTime.parse("2026-10-11T06:50"), f.firstMorningPickup)
     }
 
+    /** 睡过锚点才摸手机，恰恰是最该记的那一次：窗口按「这一晚的早晨」收口，不是卡在锚点上。 */
+    @Test
+    fun `睡过起床锚点仍算这一晚的首次拿起`() {
+        val usm = org.robolectric.Shadows.shadowOf(
+            ctx.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager)
+        usm.addEvent(event(UsageEvents.Event.SCREEN_NON_INTERACTIVE, LocalDateTime.parse("2026-10-11T00:10")))
+        usm.addEvent(event(UsageEvents.Event.SCREEN_INTERACTIVE, LocalDateTime.parse("2026-10-11T09:15")))
+
+        val f = UsageProbe.nightFacts(
+            ctx,
+            LocalDateTime.parse("2026-10-10T23:00"),
+            LocalDateTime.parse("2026-10-11T07:00"),   // 锚点 07:00，他 09:15 才拿起
+            LocalDateTime.parse("2026-10-11T10:00"),
+        )!!
+        assertEquals(LocalDateTime.parse("2026-10-11T09:15"), f.firstMorningPickup)
+        assertEquals(LocalDateTime.parse("2026-10-11T00:10"), f.lastScreenOff)
+    }
+
+    /** 余量之外（锚点那天 13:00 后）不再认作「今早」，免得把当天下午的使用当成起床。 */
+    @Test
+    fun `过了早晨余量的拿起不属于这一晚`() {
+        val usm = org.robolectric.Shadows.shadowOf(
+            ctx.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager)
+        usm.addEvent(event(UsageEvents.Event.SCREEN_NON_INTERACTIVE, LocalDateTime.parse("2026-10-11T00:10")))
+        usm.addEvent(event(UsageEvents.Event.SCREEN_INTERACTIVE, LocalDateTime.parse("2026-10-11T14:00")))
+
+        val f = UsageProbe.nightFacts(
+            ctx,
+            LocalDateTime.parse("2026-10-10T23:00"),
+            LocalDateTime.parse("2026-10-11T07:00"),
+            LocalDateTime.parse("2026-10-11T18:00"),
+        )!!
+        assertEquals(null, f.firstMorningPickup)
+    }
+
     /** 窗口两端都不能拿计划值当边界：入睡跨午夜、或比计划更早放下手机，都要仍然查得到。 */
     @Test
     fun `那一晚的窗口从入夜到次日起床锚点`() {

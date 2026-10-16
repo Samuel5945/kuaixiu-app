@@ -83,6 +83,7 @@
     <string name="home_target_diff_over">+%1$d min off target</string>
     <string name="home_target_diff_under">%1$d min off target</string>
     <string name="home_first_pickup">📱 First screen on this morning %1$s</string>
+    <string name="home_wake_missing_fact">📱 No morning pickup detected — tap Edit to set one</string>
     <string name="home_parenthetical">(%1$s)</string>
     <string name="home_sleep_title">😴 Bedtime last night</string>
     <string name="home_actual_bedtime_label">Actual bedtime</string>
