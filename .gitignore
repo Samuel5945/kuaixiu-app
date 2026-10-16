@@ -6,3 +6,12 @@ local.properties
 .DS_Store
 /captures
 .cxx/
+.kotlin/
+
+# 签名密钥与本地凭据，绝不入库
+*.jks
+*.keystore
+*.p12
+signing.properties
+.env
+.env.*
